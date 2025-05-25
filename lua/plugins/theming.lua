@@ -1,31 +1,16 @@
-local function melange()
+local function everforest()
     return {
-        "savq/melange-nvim",
-        config = function()
-            vim.cmd("colorscheme melange")
-        end,
+        "sainnhe/everforest",
+        config = function ()
+            vim.cmd("colorscheme everforest")
+        end
     }
 end
 
 return {
-    melange(),
+    everforest(),
     {
         "nvim-lualine/lualine.nvim",
         vent = "BufReadPre",
-        config = function()
-            require("lualine").setup({
-                options = {
-                    theme = "auto",
-                    sections = {
-                        lualine_a = {"mode"},
-                        lualine_b = {"branch", "diff", "diagnostics"},
-                        lualine_c = {"filename"},
-                        lualine_x = {"encoding", "fileformat", "filetype"},
-                        lualine_y = {"progress"},
-                        lualine_z = {"location"}
-                    },
-                }
-            })
-        end
     },
 }
