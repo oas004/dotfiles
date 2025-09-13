@@ -4,6 +4,7 @@ local silent = { silent = true }
 keymap.set("n", "Y", "y$")
 keymap.set("i", "jj", "<Esc>")
 keymap.set("i", "jk", "<Esc>")
+keymap.set("v", ";;", "<Esc>")
 
 keymap.set("n", "j", "gj")
 keymap.set("n", "k", "gk")

@@ -47,7 +47,10 @@ local lsp_servers = {
     lang.server("html"),
     lang.server("jedi_language_server"), -- python
     lang.server("jsonls"), -- json
-    lang.server("kotlin_language_server"),
+    lang.server("kotlin_language_server") {
+        fileTypes = { "kotlin", "kt", "kts" },
+        path = { os.getenv("KOTLIN_BUILD_HOME") }
+    },
     lang.server("lua_ls", {
         -- https://luals.github.io/wiki/configuration/#neovim
         settings = {
@@ -116,6 +119,9 @@ return {
                     ["<Tab>"] = cmp.mapping.select_next_item(select),
                     ["<S-Tab>"] = cmp.mapping.select_prev_item(select),
                     ["<Enter>"] = cmp.mapping.confirm({ select = true }),
+                    ["<C-u>"] = cmp.mapping.scroll_docs(-4),
+                    ["<C-d>"] = cmp.mapping.scroll_docs(4),
+                    ["<C-o>"] = cmp.mapping.complete_common_string(),
                 }),
             })
         end,
