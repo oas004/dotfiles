@@ -3,54 +3,12 @@ local lang = require("internal.language-server")
 
 -- https://github.com/williamboman/mason-lspconfig.nvim?tab=readme-ov-file#available-lsp-servers
 local lsp_servers = {
-    lang.server("dockerls"),
-    lang.server("gopls", {
-        -- https://github.com/golang/tools/blob/master/gopls/doc/vim.md#configuration
-        settings = {
-            gopls = {
-                gofumpt = true,
-                codelenses = {
-                    gc_details = false,
-                    generate = true,
-                    regenerate_cgo = true,
-                    run_govulncheck = true,
-                    test = true,
-                    tidy = true,
-                    upgrade_dependency = true,
-                    vendor = true,
-                },
-                hints = {
-                    assignVariableTypes = true,
-                    compositeLiteralFields = true,
-                    compositeLiteralTypes = true,
-                    constantValues = true,
-                    functionTypeParameters = true,
-                    parameterNames = true,
-                    rangeVariableTypes = true,
-                },
-                analyses = {
-                    fieldalignment = true,
-                    nilness = true,
-                    unusedparams = true,
-                    unusedwrite = true,
-                    useany = true,
-                },
-                usePlaceholders = true,
-                completeUnimported = true,
-                staticcheck = true,
-                directoryFilters = { "-.git", "-.vscode", "-.idea", "-.vscode-test", "-node_modules" },
-                semanticTokens = true,
-            },
-        },
-    }),
     lang.server("gradle_ls"),
-    lang.server("html"),
     lang.server("jedi_language_server"), -- python
-    lang.server("jsonls"), -- json
-    lang.server("kotlin_language_server") {
+    lang.server("kotlin_language_server", {
         fileTypes = { "kotlin", "kt", "kts" },
-        path = { os.getenv("KOTLIN_BUILD_HOME") }
-    },
+        --path = { os.getenv("KOTLIN_BUILD_HOME") }
+    }),
     lang.server("lua_ls", {
         -- https://luals.github.io/wiki/configuration/#neovim
         settings = {
@@ -61,10 +19,6 @@ local lsp_servers = {
             },
         },
     }),
-    lang.server("tailwindcss"),
-    lang.server("terraformls"),
-    lang.server("tsserver"),
-    lang.server("yamlls"),
 }
 
 local ensure_installed_from = function(servers)
