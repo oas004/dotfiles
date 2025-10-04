@@ -19,6 +19,13 @@ local lsp_servers = {
             },
         },
     }),
+    lang.server("hls", {
+        settings = {
+          haskell = {
+            formattingProvider = "ormolu",
+          },
+        },
+      }),
 }
 
 local ensure_installed_from = function(servers)
@@ -104,7 +111,7 @@ return {
                 },
                 servers = {
                     ["gopls"] = {"go"},
-                    ["tsserver"] = {"javascript", "typescript"},
+                    ["hls"]     = { "haskell", "lhaskell" },
                 }
             })
 
