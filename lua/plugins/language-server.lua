@@ -26,6 +26,9 @@ local lsp_servers = {
           },
         },
       }),
+    lang.server("clangd", {
+        cmd = { "clangd", "--fallback-style=Google" },
+      }),
 }
 
 local ensure_installed_from = function(servers)
@@ -112,6 +115,7 @@ return {
                 servers = {
                     ["gopls"] = {"go"},
                     ["hls"]     = { "haskell", "lhaskell" },
+                    ["clangd"]   = { "c", "cpp", "objc", "objcpp" },
                 }
             })
 
