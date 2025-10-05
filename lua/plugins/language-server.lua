@@ -1,146 +1,146 @@
-local arr = require("internal.array")
-local lang = require("internal.language-server")
-
--- https://github.com/williamboman/mason-lspconfig.nvim?tab=readme-ov-file#available-lsp-servers
-local lsp_servers = {
-    lang.server("gradle_ls"),
-    lang.server("jedi_language_server"), -- python
-    lang.server("kotlin_language_server", {
-        fileTypes = { "kotlin", "kt", "kts" },
-        --path = { os.getenv("KOTLIN_BUILD_HOME") }
-    }),
-    lang.server("lua_ls", {
-        -- https://luals.github.io/wiki/configuration/#neovim
-        settings = {
-            Lua = {
-                diagnostics = {
-                    globals = { "vim" },
-                },
-            },
-        },
-    }),
-    lang.server("hls", {
-        settings = {
-          haskell = {
-            formattingProvider = "ormolu",
-          },
-        },
-      }),
-    lang.server("clangd", {
-        cmd = { "clangd", "--fallback-style=Google" },
-      }),
-}
-
-local ensure_installed_from = function(servers)
-    return arr.map(servers, function(s) return s.name end)
-end
-
-local handlers_from = function(servers, init)
-    return arr.reduce(servers, function (acc, s)
-        acc[s.name] = require("lspconfig")[s.name].setup(s.setup)
-        return acc
-    end, init)
-end
-
 return {
-    -- https://lsp-zero.netlify.app/v3.x/guide/lazy-loading-with-lazy-nvim.html
-    {
-        "VonHeikemen/lsp-zero.nvim",
-        branch = "v3.x",
-        lazy = true,
-        config = false,
-        init = function()
-            -- Disable automatic setup, we are doing it manually
-            vim.g.lsp_zero_extend_cmp = 0
-            vim.g.lsp_zero_extend_lspconfig = 0
-        end,
+  -- nvim-cmp (completion)
+  {
+    "hrsh7th/nvim-cmp",
+    event = "InsertEnter",
+    dependencies = {
+      { "L3MON4D3/LuaSnip" },
+      { "VonHeikemen/lsp-zero.nvim", branch = "v3.x" },
     },
-    {
-        "williamboman/mason.nvim",
-        lazy = false,
-        config = true,
+    config = function()
+      local lsp_zero = require("lsp-zero")
+      lsp_zero.extend_cmp()
+
+      local cmp = require("cmp")
+      local select = { behavior = cmp.SelectBehavior.Select }
+
+      cmp.setup({
+        formatting = lsp_zero.cmp_format(),
+        mapping = cmp.mapping.preset.insert({
+          ["<C-Space>"] = cmp.mapping.complete(),
+          ["<Tab>"]     = cmp.mapping.select_next_item(select),
+          ["<S-Tab>"]   = cmp.mapping.select_prev_item(select),
+          ["<CR>"]      = cmp.mapping.confirm({ select = true }),
+          ["<C-u>"]     = cmp.mapping.scroll_docs(-4),
+          ["<C-d>"]     = cmp.mapping.scroll_docs(4),
+        }),
+        sources = cmp.config.sources({
+          { name = "nvim_lsp" },
+          { name = "buffer" },
+        }),
+      })
+    end,
+  },
+
+  -- LSP + mason + lsp-zero
+  {
+    "neovim/nvim-lspconfig",
+    cmd = { "LspInfo", "LspInstall", "LspStart" },
+    event = { "BufReadPre", "BufNewFile" },
+    dependencies = {
+      { "hrsh7th/cmp-nvim-lsp" },
+      { "williamboman/mason.nvim" },
+      { "williamboman/mason-lspconfig.nvim" },
+      { "VonHeikemen/lsp-zero.nvim", branch = "v3.x" },
     },
-    -- Autocompletion
-    {
-        "hrsh7th/nvim-cmp",
-        event = "InsertEnter",
-        dependencies = {
-            { "L3MON4D3/LuaSnip" },
+    config = function()
+      local lsp_zero = require("lsp-zero")
+      lsp_zero.extend_lspconfig()
+
+      -- Format on save (adjust to taste)
+      lsp_zero.format_on_save({
+        format_opts = { async = false, timeout_ms = 10000 },
+        servers = {
+          ["gopls"] = { "go" },
+          ["hls"]   = { "haskell", "lhaskell" },
+          ["clangd"]= { "c", "cpp", "objc", "objcpp" },
         },
-        config = function()
-            -- Here is where you configure the autocompletion settings.
-            local lsp_zero = require("lsp-zero")
-            lsp_zero.extend_cmp()
+      })
 
-            -- And you can configure cmp even more, if you want to.
-            local cmp = require("cmp")
-            local select = { behavior = cmp.SelectBehavior.Select }
+      lsp_zero.on_attach(function(client, bufnr)
+        lsp_zero.default_keymaps({ buffer = bufnr })
 
-            cmp.setup({
-                formatting = lsp_zero.cmp_format(),
-                mapping = cmp.mapping.preset.insert({
-                    ["<C-Space>"] = cmp.mapping.complete(),
-                    ["<Tab>"] = cmp.mapping.select_next_item(select),
-                    ["<S-Tab>"] = cmp.mapping.select_prev_item(select),
-                    ["<Enter>"] = cmp.mapping.confirm({ select = true }),
-                    ["<C-u>"] = cmp.mapping.scroll_docs(-4),
-                    ["<C-d>"] = cmp.mapping.scroll_docs(4),
-                    ["<C-o>"] = cmp.mapping.complete_common_string(),
-                }),
-            })
-        end,
-    },
-
-    -- LSP
-    {
-        "neovim/nvim-lspconfig",
-        cmd = {"LspInfo", "LspInstall", "LspStart"},
-        event = {"BufReadPre", "BufNewFile"},
-        dependencies = {
-            { "hrsh7th/cmp-nvim-lsp" },
-            { "williamboman/mason-lspconfig.nvim" },
-        },
-        config = function()
-            -- This is where all the LSP shenanigans will live
-            local lsp_zero = require("lsp-zero")
-            lsp_zero.extend_lspconfig()
-
-            -- format on save
-            -- https://github.com/VonHeikemen/lsp-zero.nvim/blob/abac76482ec3012a2b359ba956a74e2ffd33d46f/doc/md/lsp.md#enable-format-on-save
-            lsp_zero.format_on_save({
-                format_opts = {
-                    async = false,
-                    timeout_ms = 10000,
-                },
-                servers = {
-                    ["gopls"] = {"go"},
-                    ["hls"]     = { "haskell", "lhaskell" },
-                    ["clangd"]   = { "c", "cpp", "objc", "objcpp" },
-                }
-            })
-
-            --- if you want to know more about lsp-zero and mason.nvim
-            --- read this: https://github.com/VonHeikemen/lsp-zero.nvim/blob/v3.x/doc/md/guides/integrate-with-mason-nvim.md
-            lsp_zero.on_attach(function(client, bufnr)
-                -- see :help lsp-zero-keybindings
-                -- to learn the available actions
-                lsp_zero.default_keymaps({ buffer = bufnr })
-
-                -- https://github.com/golang/go/issues/54531#issuecomment-1464982242
-                if client.name == "gopls" and not client.server_capabilities.semanticTokensProvider then
-                    local semantic = client.config.capabilities.textDocument.semanticTokens
-                    client.server_capabilities.semanticTokensProvider = {
-                        full = true,
-                        legend = {tokenModifiers = semantic.tokenModifiers, tokenTypes = semantic.tokenTypes},
-                        range = true,
-                    }
-                end
-            end)
-
-            require("mason-lspconfig").setup({
-                ensure_installed = ensure_installed_from(lsp_servers),
-                handlers = handlers_from(lsp_servers, { lsp_zero.default_setup }),
-            })
+        -- gopls semantic tokens workaround
+        if client.name == "gopls" and not client.server_capabilities.semanticTokensProvider then
+          local semantic = client.config.capabilities.textDocument.semanticTokens
+          client.server_capabilities.semanticTokensProvider = {
+            full = true,
+            legend = { tokenModifiers = semantic.tokenModifiers, tokenTypes = semantic.tokenTypes },
+            range = true,
+          }
         end
-    },
+      end)
+
+      -- Capabilities (safe even if cmp isn't ready yet)
+      local caps = vim.lsp.protocol.make_client_capabilities()
+      local ok_cmp, cmp_lsp = pcall(require, "cmp_nvim_lsp")
+      if ok_cmp then caps = cmp_lsp.default_capabilities(caps) end
+
+      local servers = {
+        "gradle_ls",
+        "jedi_language_server",
+        "kotlin_language_server",
+        "lua_ls",
+        "hls",
+        "clangd",
+      }
+
+      require("mason").setup({})
+      require("mason-lspconfig").setup({
+        ensure_installed = servers,
+        handlers = {
+          -- default handler
+          function(server_name)
+            require("lspconfig")[server_name].setup({ capabilities = caps })
+          end,
+        ["kotlin_language_server"] = function()
+          local lspconfig = require("lspconfig")
+          local util = lspconfig.util
+          local root = util.root_pattern(
+            "settings.gradle", "settings.gradle.kts",
+            "build.gradle", "build.gradle.kts",
+            "pom.xml", ".git"
+          )(vim.fn.expand("%:p")) or vim.loop.cwd()
+          local proj = vim.fn.fnamemodify(root, ":t")
+          local store = vim.fn.stdpath("cache") .. "/kotlin-lsp/" .. proj
+          require("lspconfig").kotlin_language_server.setup({
+            capabilities = require("cmp_nvim_lsp").default_capabilities(),
+            root_dir = function() return root end,
+            init_options = {
+              storagePath = store,  -- per-project H2 DB to avoid locks
+            },
+            cmd_env = {
+                  GRADLE_OPTS = (vim.env.GRADLE_OPTS or "") .. " --no-configuration-cache",
+                  JAVA_HOME   = vim.env.JAVA_HOME, -- keep your JDK
+            },
+          })
+          end,
+
+          ["lua_ls"] = function()
+            require("lspconfig").lua_ls.setup({
+              capabilities = caps,
+              settings = {
+                Lua = { diagnostics = { globals = { "vim" } } },
+              },
+            })
+          end,
+
+          ["clangd"] = function()
+            require("lspconfig").clangd.setup({
+              capabilities = caps,
+              cmd = { "clangd", "--fallback-style=Google" },
+            })
+          end,
+
+          ["hls"] = function()
+            require("lspconfig").hls.setup({
+              capabilities = caps,
+              settings = { haskell = { formattingProvider = "ormolu" } },
+            })
+          end,
+        },
+      })
+    end,
+  },
 }
+
