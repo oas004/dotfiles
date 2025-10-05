@@ -113,6 +113,10 @@ function AdbModule.install_from_picker(opts)
 
   builtin.find_files({
     cwd = project_root(),
+    hidden = true,
+    no_ignore = true,
+    follow = true,
+    previewer = false,
     prompt_title = 'Pick APK to install',
     find_command = find_cmd,  -- falls back to Telescope default if nil
     attach_mappings = function(bufnr, map)

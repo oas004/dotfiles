@@ -37,13 +37,26 @@ return {
 
                 highlight = {
                     enable = true,
-
-                    -- Setting this to true will run `:h syntax` and tree-sitter at the same time.
-                    -- Set this to `true` if you depend on "syntax" being enabled (like for indentation).
-                    -- Using this option may slow down your editor, and you may see some duplicate highlights.
-                    -- Instead of true it can also be a list of languages
                     additional_vim_regex_highlighting = false,
                 },
+                textobjects = {
+                    move = {
+                      enable = true,
+                      set_jumps = true,
+                      goto_next_start = { ["]m"] = "@function.outer" },
+                      goto_previous_start = { ["[m"] = "@function.outer" },
+                      goto_next_end = { ["]M"] = "@function.outer" },
+                      goto_previous_end = { ["[M"] = "@function.outer" },
+                    },
+                    select = {
+                      enable = true,
+                      lookahead = true,
+                      keymaps = {
+                        ["af"] = "@function.outer",
+                        ["if"] = "@function.inner",
+                      },
+                    },
+                }
             })
         end,
     },
