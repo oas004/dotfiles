@@ -18,3 +18,12 @@ end, { desc = 'Line diagnostics' })
 
 keymap.set('n', ']d', vim.diagnostic.goto_next, { desc = 'Next diagnostic' })
 keymap.set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Prev diagnostic' })
+
+vim.keymap.set('n', 'gr', function()
+  vim.lsp.buf.references({ includeDeclaration = false })
+end, { desc = 'LSP: References (usages)' })
+
+vim.keymap.set('n', 'gd', vim.lsp.buf.definition,      { desc = 'LSP: Go to definition' })
+vim.keymap.set('n', 'gD', vim.lsp.buf.declaration,     { desc = 'LSP: Go to declaration' })
+vim.keymap.set('n', 'gI', vim.lsp.buf.implementation,  { desc = 'LSP: Go to implementation' })
+vim.keymap.set('n', 'gy', vim.lsp.buf.type_definition, { desc = 'LSP: Go to type' })
