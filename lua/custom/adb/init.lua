@@ -138,5 +138,102 @@ function AdbModule.install_from_picker(opts)
   })
 end
 
+-- Stream logcat in a terminal split
+-- opts = { serial=..., clear=true/false, level='V/D/I/W/E', tag='MyTag',
+--          pkg='com.example.app', pid=true, format='time|color|threadtime|long' }
+function AdbModule.logcat(opts)
+  opts = opts or {}
+  local serial = opts.serial or vim.g.adb_serial
+
+  -- Build adb args as a list (no empty strings)
+  local args = { 'adb' }
+  if serial and serial ~= '' then
+    table.insert(args, '-s'); table.insert(args, serial)
+  end
+  table.insert(args, 'logcat')
+  if opts.regex and opts.regex ~= '' then
+    table.insert(args, '--regex'); table.insert(args, opts.regex)
+  end
+  -- Format (default 'time')
+  local fmt = opts.format or 'time'
+  vim.list_extend(args, { '-v', fmt })
+
+  -- Optional tag / level
+  if opts.tag or opts.level then
+    local lvl = (opts.level or ''):sub(1,1) -- D/I/W/E/V
+    local sel = opts.tag and (opts.tag .. (lvl ~= '' and (':'..lvl) or ''))
+                  or ('*:' .. (lvl ~= '' and lvl or 'V'))
+    table.insert(args, '-s'); table.insert(args, sel)
+  end
+
+  -- PID filter for a package (best fidelity)
+  if opts.pkg and opts.pid ~= false then
+    local function pidof(pkg)
+      local r = vim.system(
+        (serial and serial ~= '')
+          and { 'adb', '-s', serial, 'shell', 'pidof', '-s', pkg }
+          or  { 'adb', 'shell', 'pidof', '-s', pkg },
+        { text = true }
+      ):wait()
+      if r.code == 0 and r.stdout and r.stdout:match('%S') then
+        return vim.trim(r.stdout)
+      end
+      return nil
+    end
+    local pid = pidof(opts.pkg)
+    if pid then
+      table.insert(args, '--pid'); table.insert(args, pid)
+    else
+      vim.notify('pidof failed for '..opts.pkg..' — showing full logs (tip: launch app first)',
+                 vim.log.levels.WARN, { title = 'adb logcat' })
+    end
+  end
+  -- NOTE: if you prefer regex matching instead of PID, use:
+  -- if opts.pkg and opts.pid == false then
+  --   table.insert(args, '--regex'); table.insert(args, opts.pkg)
+  -- end
+
+  -- Clear buffer first if asked
+  if opts.clear then
+    local clr = vim.system(
+      (serial and serial ~= '')
+        and { 'adb', '-s', serial, 'logcat', '-c' }
+        or  { 'adb', 'logcat', '-c' },
+      { text = true }
+    ):wait()
+    vim.notify(clr.code == 0 and 'logcat cleared' or (clr.stderr ~= '' and clr.stderr or 'failed'),
+               clr.code == 0 and vim.log.levels.INFO or vim.log.levels.ERROR,
+               { title = 'adb logcat' })
+  end
+
+  -- Open a brand-new, unmodified buffer and start the terminal job
+  local title = 'adb logcat'
+  if serial and serial ~= '' then title = title .. ' ['..serial..']' end
+  if opts.pkg then title = title .. ' pkg='..opts.pkg end
+  vim.notify('Starting '..title, vim.log.levels.INFO, { title = 'adb logcat' })
+
+  vim.cmd('botright split | enew')   -- IMPORTANT: fresh, unmodified buffer
+  vim.bo.bufhidden = 'wipe'
+  vim.bo.filetype = 'log'
+  vim.bo.swapfile = false
+
+  -- Do NOT write any lines before termopen, or the buffer becomes "modified"
+  vim.fn.termopen(args, {
+    on_exit = function(_, code)
+      if code == 0 then
+        vim.notify('logcat ended', vim.log.levels.INFO, { title = title })
+      end
+    end,
+  })
+
+  -- Quick 'q' to close
+  vim.keymap.set('n', 'q', function()
+    if vim.api.nvim_buf_is_valid(0) then
+      vim.api.nvim_buf_delete(0, { force = true })
+    end
+  end, { buffer = 0, nowait = true, silent = true, desc = 'Close logcat' })
+
+end
+
 return AdbModule
 
