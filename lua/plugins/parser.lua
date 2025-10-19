@@ -2,7 +2,6 @@ return {
     -- https://github.com/nvim-treesitter/nvim-treesitter
     {
         "nvim-treesitter/nvim-treesitter",
-        version = "v0.9.2",
         build = ":TSUpdate",
         config = function()
             require("nvim-treesitter.configs").setup({
@@ -27,7 +26,7 @@ return {
                     "typescript",
                     "yaml",
                 },
-
+                textobjects = { "nvim-treesitter/nvim-treesitter-textobjects" },
                 -- Install parsers synchronously (only applied to `ensure_installed`)
                 sync_install = false,
 
