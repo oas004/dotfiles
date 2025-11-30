@@ -7,8 +7,19 @@ local function everforest()
     }
 end
 
+local function nordic()
+  return {
+    "AlexvZyl/nordic.nvim",
+    lazy = false,
+    priority = 1000,
+    config = function()
+      require("nordic").load()
+    end,
+  }
+end
+
 return {
-    everforest(),
+    nordic(),
     {
         "nvim-lualine/lualine.nvim",
         vent = "BufReadPre",
