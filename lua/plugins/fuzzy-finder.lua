@@ -21,6 +21,14 @@ return {
                     },
                 }
             })
+
+            -- Load custom extensions safely
+            local ok, err = pcall(function()
+              require("telescope").load_extension("adb")
+            end)
+            if not ok then
+              vim.notify(string.format("Failed to load adb telescope extension: %s", err), vim.log.levels.WARN)
+            end
         end,
         keys = {
             { "<Leader>f", function() require("telescope.builtin").live_grep({}) end },

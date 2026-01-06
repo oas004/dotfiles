@@ -8,10 +8,20 @@ return {
       { "VonHeikemen/lsp-zero.nvim", branch = "v3.x" },
     },
     config = function()
-      local lsp_zero = require("lsp-zero")
+      local ok_lsp, lsp_zero = pcall(require, "lsp-zero")
+      if not ok_lsp then
+        vim.notify("lsp-zero failed to load", vim.log.levels.ERROR)
+        return
+      end
+
       lsp_zero.extend_cmp()
 
-      local cmp = require("cmp")
+      local ok_cmp, cmp = pcall(require, "cmp")
+      if not ok_cmp then
+        vim.notify("nvim-cmp failed to load", vim.log.levels.ERROR)
+        return
+      end
+
       local select = { behavior = cmp.SelectBehavior.Select }
 
       cmp.setup({
@@ -44,18 +54,29 @@ return {
       { "VonHeikemen/lsp-zero.nvim", branch = "v3.x" },
     },
     config = function()
-      local lsp_zero = require("lsp-zero")
+      local ok_lsp, lsp_zero = pcall(require, "lsp-zero")
+      if not ok_lsp then
+        vim.notify("lsp-zero failed to load", vim.log.levels.ERROR)
+        return
+      end
+
       lsp_zero.extend_lspconfig()
 
       -- Format on save (adjust to taste)
-      lsp_zero.format_on_save({
-        format_opts = { async = false, timeout_ms = 10000 },
-        servers = {
-          ["gopls"] = { "go" },
-          ["hls"]   = { "haskell", "lhaskell" },
-          ["clangd"]= { "c", "cpp", "objc", "objcpp" },
-        },
-      })
+      local ok_format = pcall(function()
+        lsp_zero.format_on_save({
+          format_opts = { async = false, timeout_ms = 10000 },
+          servers = {
+            ["gopls"] = { "go" },
+            ["hls"]   = { "haskell", "lhaskell" },
+            ["clangd"]= { "c", "cpp", "objc", "objcpp" },
+          },
+        })
+      end)
+
+      if not ok_format then
+        vim.notify("Failed to setup format on save", vim.log.levels.WARN)
+      end
 
       lsp_zero.on_attach(function(client, bufnr)
         lsp_zero.default_keymaps({ buffer = bufnr })
@@ -85,16 +106,39 @@ return {
         "clangd",
       }
 
-      require("mason").setup({})
-      require("mason-lspconfig").setup({
+      local ok_mason, mason = pcall(require, "mason")
+      if not ok_mason then
+        vim.notify("mason failed to load", vim.log.levels.ERROR)
+        return
+      end
+
+      mason.setup({})
+
+      local ok_mason_lsp, mason_lsp = pcall(require, "mason-lspconfig")
+      if not ok_mason_lsp then
+        vim.notify("mason-lspconfig failed to load", vim.log.levels.ERROR)
+        return
+      end
+
+      mason_lsp.setup({
         ensure_installed = servers,
         handlers = {
           -- default handler
           function(server_name)
-            require("lspconfig")[server_name].setup({ capabilities = caps })
+            local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
+            if ok_lspconfig then
+              lspconfig[server_name].setup({ capabilities = caps })
+            else
+              vim.notify(string.format("Failed to setup %s", server_name), vim.log.levels.WARN)
+            end
           end,
         ["kotlin_language_server"] = function()
-          local lspconfig = require("lspconfig")
+          local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
+          if not ok_lspconfig then
+            vim.notify("Failed to setup kotlin_language_server", vim.log.levels.ERROR)
+            return
+          end
+
           local util = lspconfig.util
           local root = util.root_pattern(
             "settings.gradle", "settings.gradle.kts",
@@ -103,8 +147,8 @@ return {
           )(vim.fn.expand("%:p")) or vim.loop.cwd()
           local proj = vim.fn.fnamemodify(root, ":t")
           local store = vim.fn.stdpath("cache") .. "/kotlin-lsp/" .. proj
-          require("lspconfig").kotlin_language_server.setup({
-            capabilities = require("cmp_nvim_lsp").default_capabilities(),
+          lspconfig.kotlin_language_server.setup({
+            capabilities = cmp_lsp.default_capabilities(),
             root_dir = function() return root end,
             init_options = {
               storagePath = store,  -- per-project H2 DB to avoid locks
@@ -117,30 +161,40 @@ return {
           end,
 
           ["lua_ls"] = function()
-            require("lspconfig").lua_ls.setup({
-              capabilities = caps,
-              settings = {
-                Lua = { diagnostics = { globals = { "vim" } } },
-              },
-            })
+            local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
+            if ok_lspconfig then
+              lspconfig.lua_ls.setup({
+                capabilities = caps,
+                settings = {
+                  Lua = { diagnostics = { globals = { "vim" } } },
+                },
+              })
+            end
           end,
 
           ["clangd"] = function()
-            require("lspconfig").clangd.setup({
-              capabilities = caps,
-              cmd = { "clangd", "--fallback-style=Google" },
-            })
+            local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
+            if ok_lspconfig then
+              lspconfig.clangd.setup({
+                capabilities = caps,
+                cmd = { "clangd", "--fallback-style=Google" },
+              })
+            end
           end,
 
           ["hls"] = function()
-            require("lspconfig").hls.setup({
-              capabilities = caps,
-              settings = { haskell = { formattingProvider = "ormolu" } },
-            })
+            local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
+            if ok_lspconfig then
+              lspconfig.hls.setup({
+                capabilities = caps,
+                settings = { haskell = { formattingProvider = "ormolu" } },
+              })
+            end
           end,
         },
       })
     end,
   },
 }
+
 

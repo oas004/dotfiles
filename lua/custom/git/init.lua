@@ -1,7 +1,20 @@
 local GitModule = {}
 
+--- Check if in a git repository
+local function is_in_git_repo()
+  local result = vim.system({ 'git', 'rev-parse', '--is-inside-work-tree' }, { text = true }):wait()
+  return result.code == 0
+end
+
 function GitModule.git_status(opts)
     opts = opts or {}
+
+    -- Check if we're in a git repository
+    if not is_in_git_repo() then
+      vim.notify('Not in a git repository', vim.log.levels.ERROR, { title = 'git status' })
+      return
+    end
+
     local full = opts.full or false
     local to_scratch = opts.scratch or false
     local root = vim.system({ 'git', 'rev-parse', '--show-toplevel' }, { text = true }):wait()

@@ -1,6 +1,17 @@
 local AdbModule = {}
 
+--- Check if adb binary is available in PATH
+local function check_adb_available()
+  if vim.fn.executable("adb") == 0 then
+    vim.notify("adb not found in PATH", vim.log.levels.ERROR, { title = "adb" })
+    return false
+  end
+  return true
+end
+
 function AdbModule.list_devices(long)
+  if not check_adb_available() then return nil end
+
   local args = long and { 'adb', 'devices', '-l' } or { 'adb', 'devices' }
   local res = vim.system(args, { text = true }):wait()
   if res.code ~= 0 then
@@ -62,6 +73,8 @@ end
 
 -- adb install helper
 function AdbModule.install(apk, opts)
+  if not check_adb_available() then return end
+
   opts = opts or {}
   if not apk or apk == '' then
     vim.notify('No APK path provided', vim.log.levels.ERROR, { title = 'adb install' })
@@ -93,6 +106,8 @@ end
 
 -- Telescope picker: choose an APK under the settings.gradle(.kts) root, then install
 function AdbModule.install_from_picker(opts)
+  if not check_adb_available() then return end
+
   opts = opts or {}
   local ok, telescope = pcall(require, 'telescope')
   if not ok then
@@ -142,6 +157,8 @@ end
 -- opts = { serial=..., clear=true/false, level='V/D/I/W/E', tag='MyTag',
 --          pkg='com.example.app', pid=true, format='time|color|threadtime|long' }
 function AdbModule.logcat(opts)
+  if not check_adb_available() then return end
+
   opts = opts or {}
   local serial = opts.serial or vim.g.adb_serial
 

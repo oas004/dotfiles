@@ -1,29 +1,38 @@
 local keymap = vim.keymap
 local silent = { silent = true }
 
-keymap.set("n", "Y", "y$")
-keymap.set("i", "jj", "<Esc>")
-keymap.set("i", "jk", "<Esc>")
-keymap.set("v", ";;", "<Esc>")
+-- Helper to safely set keymaps with error handling
+local function safe_set(mode, lhs, rhs, opts)
+  opts = opts or {}
+  local ok, err = pcall(keymap.set, mode, lhs, rhs, opts)
+  if not ok then
+    vim.notify(string.format("Failed to map '%s': %s", lhs, err), vim.log.levels.WARN)
+  end
+end
 
-keymap.set("n", "j", "gj")
-keymap.set("n", "k", "gk")
+safe_set("n", "Y", "y$")
+safe_set("i", "jj", "<Esc>")
+safe_set("i", "jk", "<Esc>")
+safe_set("v", ";;", "<Esc>")
 
-keymap.set("n", "<Esc>", ":nohl<CR><Esc>", silent)
-keymap.set({ "n", "i", "v" }, "<C-s>", "<C-C>:update<CR>", silent)
+safe_set("n", "j", "gj")
+safe_set("n", "k", "gk")
 
-keymap.set('n', 'gl', function()
+safe_set("n", "<Esc>", ":nohl<CR><Esc>", silent)
+safe_set({ "n", "i", "v" }, "<C-s>", "<C-C>:update<CR>", silent)
+
+safe_set('n', 'gl', function()
   vim.diagnostic.open_float(nil, { scope = 'line', focus = false, border = 'rounded' })
 end, { desc = 'Line diagnostics' })
 
-keymap.set('n', ']d', vim.diagnostic.goto_next, { desc = 'Next diagnostic' })
-keymap.set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Prev diagnostic' })
+safe_set('n', ']d', vim.diagnostic.goto_next, { desc = 'Next diagnostic' })
+safe_set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Prev diagnostic' })
 
-vim.keymap.set('n', 'gr', function()
+safe_set('n', 'gr', function()
   vim.lsp.buf.references({ includeDeclaration = false })
 end, { desc = 'LSP: References (usages)' })
 
-vim.keymap.set('n', 'gd', vim.lsp.buf.definition,      { desc = 'LSP: Go to definition' })
-vim.keymap.set('n', 'gD', vim.lsp.buf.declaration,     { desc = 'LSP: Go to declaration' })
-vim.keymap.set('n', 'gI', vim.lsp.buf.implementation,  { desc = 'LSP: Go to implementation' })
-vim.keymap.set('n', 'gy', vim.lsp.buf.type_definition, { desc = 'LSP: Go to type' })
+safe_set('n', 'gd', vim.lsp.buf.definition,      { desc = 'LSP: Go to definition' })
+safe_set('n', 'gD', vim.lsp.buf.declaration,     { desc = 'LSP: Go to declaration' })
+safe_set('n', 'gI', vim.lsp.buf.implementation,  { desc = 'LSP: Go to implementation' })
+safe_set('n', 'gy', vim.lsp.buf.type_definition, { desc = 'LSP: Go to type' })
