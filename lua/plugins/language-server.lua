@@ -62,6 +62,14 @@ return {
 
       lsp_zero.extend_lspconfig()
 
+      -- Load Kotlin config switcher
+      local ok_kotlin, kotlin_config = pcall(require, "config.kotlin-config")
+      if not ok_kotlin then
+        vim.notify("Failed to load kotlin-config", vim.log.levels.WARN)
+      else
+        kotlin_config.setup_commands()
+      end
+
       -- Format on save (adjust to taste)
       local ok_format = pcall(function()
         lsp_zero.format_on_save({
@@ -70,6 +78,8 @@ return {
             ["gopls"] = { "go" },
             ["hls"]   = { "haskell", "lhaskell" },
             ["clangd"]= { "c", "cpp", "objc", "objcpp" },
+            ["kotlin_language_server"] = { "kotlin" },
+            ["kotlin-lsp"] = { "kotlin" },
           },
         })
       end)
@@ -97,14 +107,24 @@ return {
       local ok_cmp, cmp_lsp = pcall(require, "cmp_nvim_lsp")
       if ok_cmp then caps = cmp_lsp.default_capabilities(caps) end
 
+      -- Determine which Kotlin LSP to use
+      local kotlin_lsp = "kotlin_language_server"
+      if ok_kotlin then
+        kotlin_lsp = kotlin_config.get_lsp_server()
+      end
+
       local servers = {
         "gradle_ls",
         "jedi_language_server",
-        "kotlin_language_server",
         "lua_ls",
         "hls",
         "clangd",
       }
+
+      -- Add active Kotlin LSP server if it's the community one
+      if kotlin_lsp == "kotlin_language_server" then
+        table.insert(servers, "kotlin_language_server")
+      end
 
       local ok_mason, mason = pcall(require, "mason")
       if not ok_mason then
@@ -193,6 +213,53 @@ return {
           end,
         },
       })
+
+      -- Manual setup for kotlin-lsp (not in Mason)
+      if kotlin_lsp == "kotlin-lsp" then
+        local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
+        if ok_lspconfig then
+          local kotlin_lsp_path = os.getenv("HOME") .. "/.local/opt/kotlin-lsp/kotlin-lsp.sh"
+
+          -- Check if kotlin-lsp exists at the expected path
+          local f = io.open(kotlin_lsp_path, "r")
+          if f then
+            io.close(f)
+
+            local util = lspconfig.util
+            local root = util.root_pattern(
+              "settings.gradle", "settings.gradle.kts",
+              "build.gradle", "build.gradle.kts",
+              "pom.xml", ".git"
+            )(vim.fn.expand("%:p")) or vim.loop.cwd()
+
+            -- Create or get lspconfig for kotlin-lsp
+            local kotlin_lsp_config = {
+              name = "kotlin-lsp",
+              cmd = { kotlin_lsp_path },
+              root_dir = function() return root end,
+              capabilities = caps,
+              filetypes = { "kotlin" },
+            }
+
+            lspconfig.kotlin_lsp = {
+              setup = function(config)
+                vim.lsp.start_client(config)
+              end,
+            }
+
+            lspconfig.kotlin_lsp.setup(kotlin_lsp_config)
+            vim.notify("kotlin-lsp started", vim.log.levels.INFO, { title = "Kotlin LSP" })
+          else
+            vim.notify(
+              "kotlin-lsp not found at " .. kotlin_lsp_path .. "\nInstall from: https://github.com/Kotlin/kotlin-lsp/releases",
+              vim.log.levels.ERROR,
+              { title = "Kotlin LSP" }
+            )
+          end
+        else
+          vim.notify("lspconfig failed to load", vim.log.levels.ERROR)
+        end
+      end
     end,
   },
 }
