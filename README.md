@@ -39,7 +39,7 @@ A modern Neovim configuration written in Lua with a focus on development, LSP su
 
 2. **Clone this repository**:
    ```bash
-   git clone https://github.com/yourusername/nvim.git ~/.config/nvim
+   git clone https://github.com/oas004/dotfiles.git ~/.config/nvim
    ```
 
 3. **Start Neovim** - lazy.nvim will automatically bootstrap and install plugins:
