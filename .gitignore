@@ -1,0 +1,33 @@
+# Neovim runtime files
+.lazy/
+plugin/
+
+# Swap, backup, and undo files
+*.swp
+*.swo
+*~
+.backup/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE/Editor
+.idea/
+.vscode/
+*.iml
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Dependencies
+node_modules/
+.npm/
+
+# Logs
+*.log
+npm-debug.log*
