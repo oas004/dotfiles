@@ -1,15 +1,4 @@
 
-vim.api.nvim_create_autocmd("BufWritePre", {
-  pattern = "*.kt",
-  callback = function()
-    local params = {
-      command = "kotlin.organizeImports",
-      arguments = { vim.api.nvim_buf_get_name(0) },
-    }
-    vim.lsp.buf.execute_command(params)
-  end,
-})
-
 return {
     -- https://github.com/windwp/nvim-autopairs
     {

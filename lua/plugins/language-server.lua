@@ -78,8 +78,6 @@ return {
             ["gopls"] = { "go" },
             ["hls"]   = { "haskell", "lhaskell" },
             ["clangd"]= { "c", "cpp", "objc", "objcpp" },
-            ["kotlin_language_server"] = { "kotlin" },
-            ["kotlin-lsp"] = { "kotlin" },
           },
         })
       end)

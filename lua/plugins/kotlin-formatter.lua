@@ -16,7 +16,6 @@ return {
         formatters = {
           ktfmt = {
             command = "ktfmt",
-            args = { "--" },
             stdin = true,
           },
           ktlint = {
