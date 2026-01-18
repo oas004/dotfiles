@@ -153,6 +153,29 @@ function AdbModule.install_from_picker(opts)
   })
 end
 
+-- Get the currently focused app package on the device
+function AdbModule.get_foreground_package(serial)
+  if not check_adb_available() then return nil end
+
+  local args
+  if serial and serial ~= '' then
+    args = { 'adb', '-s', serial, 'shell', 'dumpsys', 'activity', 'recents' }
+  else
+    args = { 'adb', 'shell', 'dumpsys', 'activity', 'recents' }
+  end
+
+  local res = vim.system(args, { text = true }):wait()
+  if res.code ~= 0 then return nil end
+
+  -- Parse the output to find the package name
+  for line in res.stdout:gmatch('[^\n]+') do
+    local pkg = line:match('intent={.*?cmp=([^/]+)/') or line:match('mResumedActivity:.*?{[^}]*cmp=([^/]+)/')
+    if pkg then return pkg end
+  end
+
+  return nil
+end
+
 -- Stream logcat in a terminal split
 -- opts = { serial=..., clear=true/false, level='V/D/I/W/E', tag='MyTag',
 --          pkg='com.example.app', pid=true, format='time|color|threadtime|long' }

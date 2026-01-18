@@ -52,8 +52,8 @@ vim.keymap.set('n', '<Leader>al', function()
 end, { desc = 'ADB: logcat' })
 
 vim.keymap.set('n', '<Leader>aL', function()
-  require('custom.adb').logcat({ serial = vim.g.adb_serial, pkg = vim.g.adb_pkg, pid = true, clear = true })
-end, { desc = 'ADB: logcat (pkg, clear, PID)' })
+  require('custom.adb').logcat({ serial = vim.g.adb_serial, pkg = vim.g.adb_pkg, pid = true, clear = true, level = 'V', format = 'threadtime' })
+end, { desc = 'ADB: logcat (pkg, clear, PID, verbose, threadtime)' })
 
 local last_adb_regex = ''
 
@@ -107,6 +107,65 @@ vim.keymap.set('v', '<Leader>as', function()
     if rx then start_log_with_regex(rx, { clear = false }) end
   end)
 end, { desc = 'ADB: logcat search (from selection)' })
+
+-- ADB Log Bookmarks System
+local adb_bookmarks = {
+  crashes = { pattern = 'AndroidRuntime.*FATAL|Exception', label = 'Crashes' },
+  network = { pattern = 'HttpConnection|OkHttp|Retrofit|Socket', label = 'Network' },
+  database = { pattern = 'SQLite|Room|Database|cursor', label = 'Database' },
+  ui = { pattern = 'ViewGroup|LayoutInflater|View|draw', label = 'UI/Layout' },
+  app = { pattern = '', label = 'App package logs', use_pkg = true },
+}
+
+-- Dynamic bookmark to get current foreground app
+vim.keymap.set('n', '<Leader>aG', function()
+  local pkg = require('custom.adb').get_foreground_package(vim.g.adb_serial)
+  if pkg then
+    vim.g.adb_pkg = pkg
+    vim.notify('Set adb_pkg to: ' .. pkg, vim.log.levels.INFO, { title = 'adb' })
+  else
+    vim.notify('Could not detect foreground app', vim.log.levels.WARN, { title = 'adb' })
+  end
+end, { desc = 'ADB: grab foreground app package' })
+
+-- Bookmark selector with keymaps
+vim.keymap.set('n', '<Leader>aw', function()
+  local choices = {}
+  for key, bookmark in pairs(adb_bookmarks) do
+    table.insert(choices, key)
+  end
+  table.sort(choices)
+
+  vim.ui.select(choices, {
+    prompt = 'Select log filter: ',
+    format_item = function(choice)
+      return adb_bookmarks[choice].label
+    end
+  }, function(choice)
+    if not choice then return end
+    local bookmark = adb_bookmarks[choice]
+
+    if bookmark.use_pkg then
+      -- Filter by package
+      if not vim.g.adb_pkg or vim.g.adb_pkg == '' then
+        vim.notify('Set vim.g.adb_pkg first or use <Leader>aG to grab foreground app',
+                   vim.log.levels.WARN, { title = 'adb' })
+        return
+      end
+      require('custom.adb').logcat({
+        serial = vim.g.adb_serial,
+        pkg = vim.g.adb_pkg,
+        pid = true,
+        clear = true,
+        level = 'V',
+        format = 'threadtime'
+      })
+    else
+      -- Filter by regex pattern
+      start_log_with_regex(bookmark.pattern, { clear = true })
+    end
+  end)
+end, { desc = 'ADB: log bookmarks' })
 
 return {
   {

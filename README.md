@@ -124,12 +124,35 @@ The leader key is set to `<Space>`.
 - `<Leader>gS` - Git status (full format)
 
 ### Android/ADB (Leader + a + key)
-- `<Leader>ad` - List connected ADB devices
+
+#### Device & Installation
+- `<Leader>ad` - Pick and set device
 - `<Leader>ai` - Pick APK and install on device
 - `<Leader>aI` - Pick APK and install on device (allow downgrade)
-- `<Leader>as` - Stream logcat output
-- `<Leader>aS` - Clear logcat and stream fresh output
-- `<Leader>al` - Show logcat in split
+
+#### Logcat & Debugging
+- `<Leader>al` - Stream all logcat (Info level and above)
+- `<Leader>aL` - Stream app-specific logcat (verbose, with PID filter, clears first)
+- `<Leader>aG` - Grab foreground app package (auto-detects running app)
+- `<Leader>aw` - Open log bookmarks menu (select: Crashes, Network, Database, UI, or App logs)
+- `<Leader>as` - Search logcat by regex pattern (normal mode)
+- `<Leader>aS` - Search logcat by regex pattern (clear first)
+- `<Leader>as` (visual) - Use selected text as regex seed (auto-escaped)
+
+#### Log Bookmarks (`<Leader>aw`)
+Press `<Leader>aw` to open a menu with pre-configured log filters:
+- **Crashes** - `AndroidRuntime.*FATAL|Exception`
+- **Network** - `HttpConnection|OkHttp|Retrofit|Socket`
+- **Database** - `SQLite|Room|Database|cursor`
+- **UI/Layout** - `ViewGroup|LayoutInflater|View|draw`
+- **App logs** - Filter by your app package (set via `<Leader>aG`)
+
+#### Recommended Workflow
+1. Launch your Android app on a connected device
+2. Press `<Leader>aG` to auto-detect and store your app's package name
+3. Press `<Leader>aw` and select a bookmark (e.g., "Crashes" or "App logs")
+4. Logs appear in a terminal split with verbose output and threadtime format
+5. Press `q` to close the logcat window
 
 ## Folder structure
 
