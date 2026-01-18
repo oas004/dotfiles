@@ -43,14 +43,68 @@ KotlinConfig.formatters = {
   },
 }
 
+--- Get persistent storage path for Kotlin preferences
+local function get_config_file()
+  return vim.fn.stdpath("config") .. "/kotlin-prefs.json"
+end
+
+--- Load preferences from disk
+local function load_prefs()
+  local file = get_config_file()
+  local f = io.open(file, "r")
+  if f then
+    local content = f:read("*a")
+    f:close()
+    local ok, prefs = pcall(vim.json.decode, content)
+    if ok then
+      return prefs
+    end
+  end
+  return {}
+end
+
+--- Save preferences to disk
+local function save_prefs(prefs)
+  local file = get_config_file()
+  local f = io.open(file, "w")
+  if f then
+    f:write(vim.json.encode(prefs))
+    f:close()
+  end
+end
+
 --- Get currently active LSP server (default: kotlin_language_server)
 function KotlinConfig.get_lsp_server()
-  return vim.g.kotlin_lsp or "kotlin_language_server"
+  if vim.g.kotlin_lsp then
+    return vim.g.kotlin_lsp
+  end
+  local prefs = load_prefs()
+  return prefs.lsp_server or "kotlin_language_server"
 end
 
 --- Get currently active formatter (default: ktfmt)
 function KotlinConfig.get_formatter()
-  return vim.g.kotlin_formatter or "ktfmt"
+  if vim.g.kotlin_formatter then
+    return vim.g.kotlin_formatter
+  end
+  local prefs = load_prefs()
+  return prefs.formatter or "ktfmt"
+end
+
+--- Set LSP server and persist
+function KotlinConfig.set_lsp_server(server)
+  vim.g.kotlin_lsp = server
+  local prefs = load_prefs()
+  prefs.lsp_server = server
+  save_prefs(prefs)
+end
+
+--- Set formatter and persist
+function KotlinConfig.set_formatter(formatter)
+  vim.g.kotlin_formatter = formatter
+  local prefs = load_prefs()
+  prefs.formatter = formatter
+  save_prefs(prefs)
 end
 
 --- Check if a formatter removes unused imports
@@ -104,10 +158,19 @@ function KotlinConfig.setup_commands()
       vim.notify(string.format("Unknown Kotlin LSP server: %s", server), vim.log.levels.ERROR)
       return
     end
-    vim.g.kotlin_lsp = server
+    KotlinConfig.set_lsp_server(server)
     vim.notify(string.format("Kotlin LSP switched to: %s\n(Restart neovim to apply changes)", server),
                vim.log.levels.INFO, { title = "Kotlin LSP" })
-  end, { nargs = 1 })
+  end, {
+    nargs = 1,
+    complete = function(ArgLead, CmdLine, CursorPos)
+      local choices = {}
+      for name in pairs(KotlinConfig.lsp_servers) do
+        table.insert(choices, name)
+      end
+      return choices
+    end
+  })
 
   vim.api.nvim_create_user_command("KotlinFormatterList", function()
     local lines = { "Available Kotlin formatters:" }
@@ -129,10 +192,19 @@ function KotlinConfig.setup_commands()
       vim.notify(string.format("Unknown Kotlin formatter: %s", formatter), vim.log.levels.ERROR)
       return
     end
-    vim.g.kotlin_formatter = formatter
+    KotlinConfig.set_formatter(formatter)
     vim.notify(string.format("Kotlin formatter switched to: %s", formatter),
                vim.log.levels.INFO, { title = "Kotlin Formatter" })
-  end, { nargs = 1 })
+  end, {
+    nargs = 1,
+    complete = function(ArgLead, CmdLine, CursorPos)
+      local choices = {}
+      for name in pairs(KotlinConfig.formatters) do
+        table.insert(choices, name)
+      end
+      return choices
+    end
+  })
 end
 
 return KotlinConfig
