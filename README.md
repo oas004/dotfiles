@@ -110,6 +110,7 @@ The leader key is set to `<Space>`.
 - `gI` - Go to implementation
 - `gy` - Go to type definition
 - `gr` - Show references/usages
+- `<Leader>ca` - Code actions (e.g., implement interface members)
 
 ### Search & Navigation (Leader + key)
 - `<Leader>f` - Fuzzy search in file content (live grep)
