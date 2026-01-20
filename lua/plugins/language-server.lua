@@ -70,6 +70,14 @@ return {
         kotlin_config.setup_commands()
       end
 
+      -- Load Java config switcher
+      local ok_java, java_config = pcall(require, "config.java-config")
+      if not ok_java then
+        vim.notify("Failed to load java-config", vim.log.levels.WARN)
+      else
+        java_config.setup_commands()
+      end
+
       -- Format on save (adjust to taste)
       local ok_format = pcall(function()
         lsp_zero.format_on_save({
@@ -120,6 +128,7 @@ return {
         "lua_ls",
         "hls",
         "clangd",
+        "jdtls",
       }
 
       -- Add active Kotlin LSP server if it's the community one
@@ -211,6 +220,51 @@ return {
                 settings = { haskell = { formattingProvider = "ormolu" } },
               })
             end
+          end,
+
+          ["jdtls"] = function()
+            local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
+            if not ok_lspconfig then
+              vim.notify("Failed to setup jdtls", vim.log.levels.ERROR)
+              return
+            end
+
+            local util = lspconfig.util
+            local root = util.root_pattern(
+              "pom.xml",
+              "build.gradle", "build.gradle.kts",
+              "settings.gradle", "settings.gradle.kts",
+              ".git"
+            )(vim.fn.expand("%:p")) or vim.loop.cwd()
+            local proj = vim.fn.fnamemodify(root, ":t")
+            local workspace_dir = vim.fn.stdpath("data") .. "/jdtls/" .. proj
+            local os_type = vim.loop.os_uname().sysname
+
+            lspconfig.jdtls.setup({
+              capabilities = caps,
+              root_dir = function() return root end,
+              cmd = {
+                "jdtls",
+                "-data", workspace_dir,
+              },
+              settings = {
+                java = {
+                  home = vim.env.JAVA_HOME or "",
+                  eclipse = { downloadSources = true },
+                  configuration = {
+                    runtimes = {
+                      {
+                        name = "JavaSE-17",
+                        path = vim.env.JAVA_HOME or "",
+                      },
+                    },
+                  },
+                  maven = { downloadSources = true },
+                  implementationsCodeLens = { enabled = true },
+                  referencesCodeLens = { enabled = true },
+                },
+              },
+            })
           end,
         },
       })
