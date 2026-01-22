@@ -9,7 +9,7 @@ A modern Neovim configuration written in Lua with a focus on development, LSP su
 - **Autoformatting**: conform.nvim with support for multiple formatters
 - **Android Development**: Custom ADB integration for device management and app installation
 - **Fuzzy Finding**: Telescope.nvim with ripgrep backend
-- **Git Integration**: Custom git status commands
+- **Git Integration**: Git blame with gutter display and custom git status commands
 - **Theme**: Nordic colorscheme with optimized UI
 
 ## Installation
@@ -120,6 +120,9 @@ The leader key is set to `<Space>`.
 - `<Leader>q` - Delete buffer (in telescope)
 
 ### Git (Leader + key)
+- `<Leader>gb` - Toggle git blame on current line (virtual text)
+- `<Leader>gB` - Show git blame for current line in popup
+- `<Leader>g?` - Show full buffer git blame
 - `<Leader>gs` - Git status (short format)
 - `<Leader>gS` - Git status (full format)
 
