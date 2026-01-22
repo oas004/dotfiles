@@ -118,6 +118,7 @@ The leader key is set to `<Space>`.
 - `<Leader>o` - Search open buffers
 - `<Leader>l` - Toggle file explorer
 - `<Leader>lf` - Find and reveal current file in file explorer tree
+- `<Leader>ne` - Create new file in current file's directory
 - `<Leader>q` - Delete buffer (in telescope)
 
 ### Git (Leader + key)

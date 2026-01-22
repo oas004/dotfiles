@@ -36,3 +36,13 @@ safe_set('n', 'gd', vim.lsp.buf.definition,      { desc = 'LSP: Go to definition
 safe_set('n', 'gD', vim.lsp.buf.declaration,     { desc = 'LSP: Go to declaration' })
 safe_set('n', 'gI', vim.lsp.buf.implementation,  { desc = 'LSP: Go to implementation' })
 safe_set('n', 'gy', vim.lsp.buf.type_definition, { desc = 'LSP: Go to type' })
+
+-- Create new file in current file's directory
+safe_set('n', '<Leader>ne', function()
+  local dir = vim.fn.expand('%:h')
+  if dir == '' then dir = '.' end
+  local filename = vim.fn.input('New file in ' .. dir .. '/: ')
+  if filename ~= '' then
+    vim.cmd('edit ' .. dir .. '/' .. filename)
+  end
+end, { desc = 'New file (same directory)' })
