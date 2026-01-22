@@ -7,6 +7,9 @@ return {
         dependencies = { "nvim-lua/plenary.nvim" },
         config = function()
             require("telescope").setup({
+                defaults = {
+                    file_ignore_patterns = { "node_modules", ".git" },
+                },
                 pickers = {
                     buffers = {
                         sort_lastused = true,
@@ -22,12 +25,21 @@ return {
                 }
             })
 
-            -- Load custom extensions safely
-            local ok, err = pcall(function()
-              require("telescope").load_extension("adb")
-            end)
-            if not ok then
-              vim.notify(string.format("Failed to load adb telescope extension: %s", err), vim.log.levels.WARN)
+            -- Load extensions safely
+            local extensions = { "adb" }
+
+            -- Try to load fzf if available
+            if vim.fn.executable("fzf") == 1 then
+              table.insert(extensions, "fzf")
+            end
+
+            for _, ext in ipairs(extensions) do
+              local ok, err = pcall(function()
+                require("telescope").load_extension(ext)
+              end)
+              if not ok then
+                vim.notify(string.format("Failed to load %s telescope extension: %s", ext, err), vim.log.levels.WARN)
+              end
             end
         end,
         keys = {
@@ -35,5 +47,9 @@ return {
             { "<Leader>p", function() require("telescope.builtin").find_files() end },
             { "<Leader>o", function() require("telescope.builtin").buffers() end },
         }
+    },
+    {
+        "nvim-telescope/telescope-fzf-native.nvim",
+        build = "make",
     }
 }

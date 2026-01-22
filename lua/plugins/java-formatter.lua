@@ -1,5 +1,5 @@
 --- Java formatter plugin for Google Java Format
---- Integrates Google Java Format with nvim-nonels for formatting
+--- Integrates Google Java Format with nvim-none-ls for formatting
 
 return {
   {
@@ -7,9 +7,9 @@ return {
     dependencies = { "nvim-lua/plenary.nvim" },
     event = { "BufReadPre", "BufNewFile" },
     config = function()
-      local ok_null_ls, null_ls = pcall(require, "null_ls")
-      if not ok_null_ls then
-        vim.notify("null_ls failed to load", vim.log.levels.WARN)
+      local ok_none_ls, none_ls = pcall(require, "none-ls")
+      if not ok_none_ls then
+        vim.notify("none-ls failed to load", vim.log.levels.WARN)
         return
       end
 
@@ -22,12 +22,12 @@ return {
       local sources = {}
 
       -- Google Java Format
-      table.insert(sources, null_ls.builtins.formatting.google_java_format.with({
+      table.insert(sources, none_ls.builtins.formatting.google_java_format.with({
         filetypes = { "java" },
         extra_args = { "--aosp" }, -- Use Android Open Source Project formatting
       }))
 
-      null_ls.setup({
+      none_ls.setup({
         sources = sources,
       })
 
@@ -35,7 +35,7 @@ return {
       vim.api.nvim_create_autocmd("BufWritePre", {
         pattern = "*.java",
         callback = function()
-          if null_ls.is_registered("google_java_format") then
+          if none_ls.is_registered("google_java_format") then
             vim.lsp.buf.format({ async = false, timeout_ms = 5000 })
           end
         end,
