@@ -40,6 +40,10 @@ return {
             })
 
             vim.keymap.set("n", "<Leader>l", toggle, opts("Toggle"))
+            vim.keymap.set("n", "<Leader>lf", function()
+                local api = require("nvim-tree.api")
+                api.tree.find_file({ open = true, focus = true })
+            end, opts("Find current file"))
         end,
     },
 }
