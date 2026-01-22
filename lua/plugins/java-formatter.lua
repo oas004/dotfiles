@@ -22,9 +22,9 @@ return {
       local sources = {}
 
       -- Google Java Format
+      -- Respects project-level .google-java-format.xml or falls back to default
       table.insert(sources, none_ls.builtins.formatting.google_java_format.with({
         filetypes = { "java" },
-        extra_args = { "--aosp" }, -- Use Android Open Source Project formatting
       }))
 
       none_ls.setup({

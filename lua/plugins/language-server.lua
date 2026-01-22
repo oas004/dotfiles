@@ -207,7 +207,8 @@ return {
             if ok_lspconfig then
               lspconfig.clangd.setup({
                 capabilities = caps,
-                cmd = { "clangd", "--fallback-style=Google" },
+                -- Respects project-level .clang-format config before falling back to LLVM style
+                cmd = { "clangd", "--fallback-style=LLVM" },
               })
             end
           end,

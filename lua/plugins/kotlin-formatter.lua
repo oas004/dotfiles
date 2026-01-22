@@ -9,9 +9,7 @@ return {
 
       conform.setup({
         formatters_by_ft = {
-          kotlin = { "ktfmt" },
-          -- You can add alternative formatters here
-          -- kotlin = { "ktlint" },
+          kotlin = { "ktlint" }, -- ktlint respects project configs (.editorconfig, .ktlint.yaml)
         },
         formatters = {
           ktfmt = {
