@@ -9,7 +9,8 @@ return {
 
       conform.setup({
         formatters_by_ft = {
-          kotlin = { "ktlint" }, -- ktlint respects project configs (.editorconfig, .ktlint.yaml)
+          -- Try ktlint first (respects project configs), then ktfmt as fallback
+          kotlin = { "ktlint", "ktfmt" },
         },
         formatters = {
           ktfmt = {
@@ -23,15 +24,19 @@ return {
           },
         },
         format_on_save = {
-          timeout_ms = 500,
-          lsp_fallback = true,
+          timeout_ms = 2000,
+          lsp_fallback = false, -- Never use LSP as fallback - it can corrupt the file
         },
       })
 
-      -- Manual formatting command
+      -- Manual formatting command with error handling
       vim.api.nvim_create_user_command("KotlinFormat", function()
-        conform.format({ async = false, lsp_fallback = true })
-        vim.notify("Formatted Kotlin file", vim.log.levels.INFO)
+        local result = conform.format({ async = false, lsp_fallback = false, timeout_ms = 5000 })
+        if result then
+          vim.notify("Formatted Kotlin file", vim.log.levels.INFO)
+        else
+          vim.notify("Failed to format Kotlin file - check ktlint/ktfmt is installed and file is valid", vim.log.levels.ERROR)
+        end
       end, {})
 
       -- Keybinding for manual format (optional)
