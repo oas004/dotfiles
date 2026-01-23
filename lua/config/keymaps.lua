@@ -25,8 +25,8 @@ safe_set('n', 'gl', function()
   vim.diagnostic.open_float(nil, { scope = 'line', focus = false, border = 'rounded' })
 end, { desc = 'Line diagnostics' })
 
-safe_set('n', ']d', vim.diagnostic.goto_next, { desc = 'Next diagnostic' })
-safe_set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Prev diagnostic' })
+safe_set('n', '<leader>e', vim.diagnostic.goto_next, { desc = 'Next diagnostic' })
+safe_set('n', '<leader>E', vim.diagnostic.goto_prev, { desc = 'Prev diagnostic' })
 
 safe_set('n', 'gr', function()
   vim.lsp.buf.references({ includeDeclaration = false })
