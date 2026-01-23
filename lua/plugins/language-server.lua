@@ -86,6 +86,7 @@ return {
             ["gopls"] = { "go" },
             ["hls"]   = { "haskell", "lhaskell" },
             ["clangd"]= { "c", "cpp", "objc", "objcpp" },
+            -- Exclude Kotlin LSP - let conform.nvim handle it with ktfmt
           },
         })
       end)
