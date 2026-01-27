@@ -283,29 +283,29 @@ return {
             io.close(f)
 
             local util = lspconfig.util
-            local root = util.root_pattern(
-              "settings.gradle", "settings.gradle.kts",
-              "build.gradle", "build.gradle.kts",
-              "pom.xml", ".git"
-            )(vim.fn.expand("%:p")) or vim.loop.cwd()
 
-            -- Create or get lspconfig for kotlin-lsp
-            local kotlin_lsp_config = {
-              name = "kotlin-lsp",
-              cmd = { kotlin_lsp_path },
-              root_dir = function() return root end,
+            -- Define a custom LSP config
+            local configs = require("lspconfig.configs")
+            if not configs.kotlin_lsp then
+              configs.kotlin_lsp = {
+                default_config = {
+                  cmd = { kotlin_lsp_path },
+                  filetypes = { "kotlin" },
+                  root_dir = util.root_pattern(
+                    "settings.gradle", "settings.gradle.kts",
+                    "build.gradle", "build.gradle.kts",
+                    "pom.xml", ".git"
+                  ),
+                  single_file_support = true,
+                },
+              }
+            end
+
+            -- Now setup kotlin-lsp using standard lspconfig
+            lspconfig.kotlin_lsp.setup({
               capabilities = caps,
-              filetypes = { "kotlin" },
-            }
-
-            lspconfig.kotlin_lsp = {
-              setup = function(config)
-                vim.lsp.start_client(config)
-              end,
-            }
-
-            lspconfig.kotlin_lsp.setup(kotlin_lsp_config)
-            vim.notify("kotlin-lsp started", vim.log.levels.INFO, { title = "Kotlin LSP" })
+            })
+            vim.notify("kotlin-lsp configured", vim.log.levels.INFO, { title = "Kotlin LSP" })
           else
             vim.notify(
               "kotlin-lsp not found at " .. kotlin_lsp_path .. "\nInstall from: https://github.com/Kotlin/kotlin-lsp/releases",
