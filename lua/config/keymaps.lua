@@ -37,6 +37,11 @@ safe_set('n', 'gD', vim.lsp.buf.declaration,     { desc = 'LSP: Go to declaratio
 safe_set('n', 'gI', vim.lsp.buf.implementation,  { desc = 'LSP: Go to implementation' })
 safe_set('n', 'gy', vim.lsp.buf.type_definition, { desc = 'LSP: Go to type' })
 
+-- Format current buffer
+safe_set('n', '<leader>fm', function()
+  vim.lsp.buf.format({ async = false, timeout_ms = 5000 })
+end, { desc = 'Format buffer' })
+
 -- Create new file in current file's directory
 safe_set('n', '<Leader>ne', function()
   local dir = vim.fn.expand('%:h')

@@ -111,6 +111,7 @@ The leader key is set to `<Space>`.
 - `gy` - Go to type definition
 - `gr` - Show references/usages
 - `<Leader>ca` - Code actions (e.g., implement interface members)
+- `<Leader>fm` - Format current buffer
 
 ### Search & Navigation (Leader + key)
 - `<Leader>f` - Fuzzy search in file content (live grep)

@@ -155,6 +155,18 @@ function JavaConfig.setup_commands()
       return choices
     end
   })
+
+  vim.api.nvim_create_user_command("JavaFormat", function()
+    local bufnr = vim.api.nvim_get_current_buf()
+    local filetype = vim.bo[bufnr].filetype
+
+    if filetype ~= "java" then
+      vim.notify("JavaFormat can only be used on Java files", vim.log.levels.ERROR)
+      return
+    end
+
+    vim.lsp.buf.format({ async = false, timeout_ms = 5000 })
+  end, {})
 end
 
 return JavaConfig
