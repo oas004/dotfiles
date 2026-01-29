@@ -185,8 +185,12 @@ return {
               storagePath = store,  -- per-project H2 DB to avoid locks
             },
             cmd_env = {
-                  GRADLE_OPTS = (vim.env.GRADLE_OPTS or "") .. " --no-configuration-cache",
+                  -- Enable configuration cache and set reasonable memory limits
+                  GRADLE_OPTS = (vim.env.GRADLE_OPTS or "") .. " -Xmx4g -XX:MaxMetaspaceSize=1g",
                   JAVA_HOME   = vim.env.JAVA_HOME, -- keep your JDK
+            },
+            flags = {
+              debounce_text_changes = 500, -- Reduce frequent re-indexing
             },
           })
           end,
@@ -248,6 +252,11 @@ return {
               cmd = {
                 "jdtls",
                 "-data", workspace_dir,
+                "--jvm-arg=-Xmx4g",
+                "--jvm-arg=-XX:MaxMetaspaceSize=1g",
+              },
+              flags = {
+                debounce_text_changes = 500, -- Reduce frequent re-indexing
               },
               settings = {
                 java = {

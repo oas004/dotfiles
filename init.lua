@@ -2,6 +2,21 @@ require("config.options")
 require("config.package-manager")
 require("config.keymaps")
 
+-- LSP cache cleanup command
+vim.api.nvim_create_user_command('CleanupLSPCache', function()
+  local cache_dirs = {
+    vim.fn.stdpath("cache") .. "/kotlin-lsp",
+    vim.fn.stdpath("data") .. "/jdtls",
+  }
+  for _, dir in ipairs(cache_dirs) do
+    if vim.fn.isdirectory(dir) == 1 then
+      vim.fn.system("rm -rf " .. vim.fn.shellescape(dir))
+      vim.notify("Cleaned: " .. dir, vim.log.levels.INFO)
+    end
+  end
+  vim.notify("LSP cache cleanup complete. Restart Neovim.", vim.log.levels.INFO)
+end, { desc = "Clean LSP caches (Kotlin & Java)" })
+
 local custom = require('custom.git')
 --
 --#region Custom Git Plugin

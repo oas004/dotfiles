@@ -23,7 +23,12 @@ return {
     {
         "nvim-tree/nvim-tree.lua",
         version = "1.0.0",
-        lazy = false,
+        lazy = true,  -- Only load when needed
+        cmd = { "NvimTreeToggle", "NvimTreeFocus", "NvimTreeFindFile" },
+        keys = {
+            { "<Leader>l", mode = "n" },
+            { "<Leader>lf", mode = "n" },
+        },
         dependencies = { "nvim-tree/nvim-web-devicons" },
         config = function()
             local function on_attach(bufnr)

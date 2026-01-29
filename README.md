@@ -80,14 +80,19 @@ For full functionality, consider installing:
    - Install language servers
    - Manage formatter and linter versions
 
-3. **`:KotlinLspList`**: List available Kotlin language servers
-4. **`:KotlinLspSwitch`**: Switch between Kotlin language servers
-5. **`:KotlinFormatterList`**: List available Kotlin formatters
-6. **`:KotlinFormatterSwitch`**: Switch between Kotlin formatters
-7. **`:CustomGitStatus`**: Show git status in a split
-8. **`:CustomAdbDevices`**: List connected Android devices
-9. **`:AdbPickInstall`**: Pick an APK to install on a connected device
-10. **`:AdbLogcat`**: Stream logcat output in a split
+3. **`:CleanupLSPCache`**: Clean LSP caches (Kotlin & Java)
+   - Removes cached data from `~/.local/share/nvim/jdtls/` and `~/.cache/nvim/kotlin-lsp/`
+   - Use this if you experience memory issues or LSP corruption
+   - Requires Neovim restart after running
+
+4. **`:KotlinLspList`**: List available Kotlin language servers
+5. **`:KotlinLspSwitch`**: Switch between Kotlin language servers
+6. **`:KotlinFormatterList`**: List available Kotlin formatters
+7. **`:KotlinFormatterSwitch`**: Switch between Kotlin formatters
+8. **`:CustomGitStatus`**: Show git status in a split
+9. **`:CustomAdbDevices`**: List connected Android devices
+10. **`:AdbPickInstall`**: Pick an APK to install on a connected device
+11. **`:AdbLogcat`**: Stream logcat output in a split
 
 ## Keybindings
 
@@ -176,3 +181,44 @@ Press `<Leader>aw` to open a menu with pre-configured log filters:
 - Plugin directory which contains the plugins to download, with the plugin's configurations.
 - Each module in the directory should return a Lua table that contains the plugin/s to download using `lazy.nvim`.
   See [lazy.nvim startup sequence](https://github.com/folke/lazy.nvim?tab=readme-ov-file#%EF%B8%8F-startup-sequence)
+
+## Memory Management & Troubleshooting
+
+### LSP Memory Optimization
+
+This configuration includes memory optimizations for Java and Kotlin LSP servers to prevent memory leaks:
+
+- **Kotlin LSP**: Limited to 4GB heap (`-Xmx4g`) and 1GB metaspace (`-XX:MaxMetaspaceSize=1g`)
+- **Java LSP (jdtls)**: Same memory limits as Kotlin LSP
+- **Debouncing**: Both LSPs use 500ms debouncing to reduce frequent re-indexing
+- **Gradle Configuration Cache**: Enabled (not disabled) to improve performance and reduce memory usage
+
+### Memory Issues?
+
+If you experience high memory usage (10+ GB):
+
+1. **Run the cleanup command**:
+   ```vim
+   :CleanupLSPCache
+   ```
+   Then restart Neovim.
+
+2. **Check for background processes**: If running Android emulator (AVD) in the same terminal, consider:
+   - Running it in a separate terminal window
+   - Using `emulator -avd <name> &` to background the process
+   - Closing the emulator when not needed
+
+3. **Monitor LSP memory**: Use Activity Monitor (macOS) or `htop` (Linux) to identify which LSP is consuming memory.
+
+4. **Adjust memory limits**: If 4GB per LSP is too high for your system, you can reduce the limits in:
+   - `lua/plugins/language-server.lua:189` (Kotlin LSP)
+   - `lua/plugins/language-server.lua:255-256` (Java LSP)
+
+### Performance Tips
+
+- **nvim-tree**: Configured to lazy-load only when opened (not on startup)
+- **Large projects**: The debouncing settings help reduce LSP overhead on file changes
+- **Cache locations**:
+  - Kotlin LSP: `~/.cache/nvim/kotlin-lsp/<project-name>/`
+  - Java LSP: `~/.local/share/nvim/jdtls/<project-name>/`
+
