@@ -9,6 +9,29 @@ return {
             require("telescope").setup({
                 defaults = {
                     file_ignore_patterns = { "node_modules", ".git" },
+                    -- Performance optimizations
+                    layout_strategy = "horizontal",
+                    sorting_strategy = "ascending",
+                    scroll_strategy = "cycle",
+                    cache_picker = {
+                        num_pickers = 10,
+                    },
+                    -- Reduce lag on file preview
+                    preview = {
+                        timeout = 150,
+                        treesitter = false, -- disable treesitter in previews for speed
+                    },
+                    -- Better performance for large repos
+                    vimgrep_arguments = {
+                        "rg",
+                        "--color=never",
+                        "--no-heading",
+                        "--with-filename",
+                        "--line-number",
+                        "--column",
+                        "--smart-case",
+                        "--trim", -- trim whitespace
+                    },
                 },
                 pickers = {
                     buffers = {
@@ -21,6 +44,9 @@ return {
                                 ["<Leader>q"] = "delete_buffer",
                             }
                         }
+                    },
+                    find_files = {
+                        hidden = false,
                     },
                 }
             })

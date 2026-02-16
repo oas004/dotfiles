@@ -62,6 +62,13 @@ return {
 
       lsp_zero.extend_lspconfig()
 
+      -- Detect platform
+      local is_mac = vim.fn.has("mac") == 1 or vim.fn.has("macunix") == 1
+
+      -- Adjust memory settings for platform
+      local jvm_mem = is_mac and "2g" or "4g"
+      local metaspace = is_mac and "512m" or "1g"
+
       -- Load Kotlin config switcher
       local ok_kotlin, kotlin_config = pcall(require, "config.kotlin-config")
       if not ok_kotlin then
@@ -186,11 +193,11 @@ return {
             },
             cmd_env = {
                   -- Enable configuration cache and set reasonable memory limits
-                  GRADLE_OPTS = (vim.env.GRADLE_OPTS or "") .. " -Xmx4g -XX:MaxMetaspaceSize=1g",
+                  GRADLE_OPTS = (vim.env.GRADLE_OPTS or "") .. " -Xmx" .. jvm_mem .. " -XX:MaxMetaspaceSize=" .. metaspace,
                   JAVA_HOME   = vim.env.JAVA_HOME, -- keep your JDK
             },
             flags = {
-              debounce_text_changes = 500, -- Reduce frequent re-indexing
+              debounce_text_changes = is_mac and 800 or 500, -- Higher debounce on macOS
             },
           })
           end,
@@ -252,11 +259,11 @@ return {
               cmd = {
                 "jdtls",
                 "-data", workspace_dir,
-                "--jvm-arg=-Xmx4g",
-                "--jvm-arg=-XX:MaxMetaspaceSize=1g",
+                "--jvm-arg=-Xmx" .. jvm_mem,
+                "--jvm-arg=-XX:MaxMetaspaceSize=" .. metaspace,
               },
               flags = {
-                debounce_text_changes = 500, -- Reduce frequent re-indexing
+                debounce_text_changes = is_mac and 800 or 500, -- Higher debounce on macOS
               },
               settings = {
                 java = {
@@ -298,7 +305,7 @@ return {
             if not configs.kotlin_lsp then
               configs.kotlin_lsp = {
                 default_config = {
-                  cmd = { kotlin_lsp_path },
+                  cmd = { kotlin_lsp_path, "--stdio" },  -- IMPORTANT: Use stdio mode for LSP communication
                   filetypes = { "kotlin" },
                   root_dir = util.root_pattern(
                     "settings.gradle", "settings.gradle.kts",
