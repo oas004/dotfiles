@@ -6,7 +6,11 @@ return {
         -- also depends on ripgrep: `brew install ripgrep`
         dependencies = { "nvim-lua/plenary.nvim" },
         config = function()
-            require("telescope").setup({
+            local utils = require('core.utils')
+            local telescope = utils.safe_require('telescope', 'Failed to load telescope')
+            if not telescope then return end
+
+            telescope.setup({
                 defaults = {
                     file_ignore_patterns = { "node_modules", ".git" },
                     -- Performance optimizations
@@ -60,12 +64,9 @@ return {
             end
 
             for _, ext in ipairs(extensions) do
-              local ok, err = pcall(function()
-                require("telescope").load_extension(ext)
-              end)
-              if not ok then
-                vim.notify(string.format("Failed to load %s telescope extension: %s", ext, err), vim.log.levels.WARN)
-              end
+              local ok, _ = utils.safe_call(function()
+                telescope.load_extension(ext)
+              end, string.format("Failed to load %s telescope extension", ext))
             end
         end,
         keys = {

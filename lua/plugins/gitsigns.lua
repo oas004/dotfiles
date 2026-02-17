@@ -1,8 +1,11 @@
 return {
   'lewis6991/gitsigns.nvim',
   event = { 'BufReadPre', 'BufNewFile' },
+  dependencies = { 'nvim-lua/plenary.nvim' },
   config = function()
-    local gitsigns = require('gitsigns')
+    local utils = require('core.utils')
+    local gitsigns = utils.safe_require('gitsigns', 'Failed to load gitsigns')
+    if not gitsigns then return end
 
     gitsigns.setup({
       signs = {
@@ -47,5 +50,4 @@ return {
     -- Show full buffer blame
     keymap.set('n', '<Leader>g?', ':Gitsigns blame<CR>', vim.tbl_extend('force', silent, { desc = 'Git blame (full buffer)' }))
   end,
-  dependencies = { 'nvim-lua/plenary.nvim' },
 }

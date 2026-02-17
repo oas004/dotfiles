@@ -44,6 +44,6 @@ return {
     nordic(),
     {
         "nvim-lualine/lualine.nvim",
-        vent = "BufReadPre",
+        event = "BufReadPre",
     },
 }
