@@ -1,6 +1,6 @@
-require("config.options")
-require("config.package-manager")
-require("config.keymaps")
+require("core.options")
+require("core.package-manager")
+require("core.keymaps")
 
 -- LSP log management: reduce log level and auto-cleanup
 vim.lsp.set_log_level("WARN") -- Only log warnings and errors (default is INFO)

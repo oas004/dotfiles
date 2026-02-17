@@ -70,7 +70,7 @@ return {
       local metaspace = is_mac and "512m" or "1g"
 
       -- Load Kotlin config switcher
-      local ok_kotlin, kotlin_config = pcall(require, "config.kotlin-config")
+      local ok_kotlin, kotlin_config = pcall(require, "core.kotlin-config")
       if not ok_kotlin then
         vim.notify("Failed to load kotlin-config", vim.log.levels.WARN)
       else
@@ -78,7 +78,7 @@ return {
       end
 
       -- Load Java config switcher
-      local ok_java, java_config = pcall(require, "config.java-config")
+      local ok_java, java_config = pcall(require, "core.java-config")
       if not ok_java then
         vim.notify("Failed to load java-config", vim.log.levels.WARN)
       else

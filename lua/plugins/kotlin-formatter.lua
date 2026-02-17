@@ -6,7 +6,7 @@ return {
     event = { "BufReadPre", "BufNewFile" },
     config = function()
       local conform = require("conform")
-      local kotlin_config = require("config.kotlin-config")
+      local kotlin_config = require("core.kotlin-config")
 
       conform.setup({
         formatters_by_ft = {
