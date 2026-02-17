@@ -166,6 +166,7 @@ return {
             return
           end
 
+          local paths = require('core.paths')
           local util = lspconfig.util
           local root = util.root_pattern(
             "settings.gradle", "settings.gradle.kts",
@@ -173,7 +174,7 @@ return {
             "pom.xml", ".git"
           )(vim.fn.expand("%:p")) or vim.loop.cwd()
           local proj = vim.fn.fnamemodify(root, ":t")
-          local store = vim.fn.stdpath("cache") .. "/kotlin-lsp/" .. proj
+          local store = paths.lsp_cache.kotlin_lsp .. "/" .. proj
           lspconfig.kotlin_language_server.setup({
             capabilities = cmp_lsp.default_capabilities(),
             root_dir = function() return root end,
@@ -231,6 +232,7 @@ return {
               return
             end
 
+            local paths = require('core.paths')
             local util = lspconfig.util
             local root = util.root_pattern(
               "pom.xml",
@@ -239,8 +241,7 @@ return {
               ".git"
             )(vim.fn.expand("%:p")) or vim.loop.cwd()
             local proj = vim.fn.fnamemodify(root, ":t")
-            local workspace_dir = vim.fn.stdpath("data") .. "/jdtls/" .. proj
-            local os_type = vim.loop.os_uname().sysname
+            local workspace_dir = paths.lsp_cache.jdtls .. "/" .. proj
 
             lspconfig.jdtls.setup({
               capabilities = caps,
@@ -280,13 +281,11 @@ return {
       if kotlin_lsp == "kotlin-lsp" then
         local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
         if ok_lspconfig then
-          local kotlin_lsp_path = os.getenv("HOME") .. "/.local/opt/kotlin-lsp/kotlin-lsp.sh"
+          local paths = require('core.paths')
+          local kotlin_lsp_path = paths.external.kotlin_lsp
 
           -- Check if kotlin-lsp exists at the expected path
-          local f = io.open(kotlin_lsp_path, "r")
-          if f then
-            io.close(f)
-
+          if paths.file_exists(kotlin_lsp_path) then
             local util = lspconfig.util
 
             -- Define a custom LSP config

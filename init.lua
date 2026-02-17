@@ -7,12 +7,12 @@ vim.lsp.set_log_level("WARN") -- Only log warnings and errors (default is INFO)
 
 -- Auto-cleanup LSP log if it exceeds 50MB
 local function cleanup_lsp_log()
-  local log_path = vim.fn.stdpath("state") .. "/lsp.log"
+  local paths = require('core.paths')
   local max_size = 50 * 1024 * 1024 -- 50MB in bytes
 
-  local stat = vim.loop.fs_stat(log_path)
+  local stat = vim.loop.fs_stat(paths.logs.lsp)
   if stat and stat.size > max_size then
-    vim.fn.delete(log_path)
+    vim.fn.delete(paths.logs.lsp)
     vim.notify("LSP log was too large (" .. math.floor(stat.size / 1024 / 1024) .. "MB), deleted", vim.log.levels.INFO)
   end
 end
@@ -26,9 +26,10 @@ cleanup_timer:start(300000, 300000, vim.schedule_wrap(cleanup_lsp_log))
 
 -- LSP cache cleanup command
 vim.api.nvim_create_user_command('CleanupLSPCache', function()
+  local paths = require('core.paths')
   local cache_dirs = {
-    vim.fn.stdpath("cache") .. "/kotlin-lsp",
-    vim.fn.stdpath("data") .. "/jdtls",
+    paths.lsp_cache.kotlin_lsp,
+    paths.lsp_cache.jdtls,
   }
   for _, dir in ipairs(cache_dirs) do
     if vim.fn.isdirectory(dir) == 1 then
@@ -41,10 +42,11 @@ end, { desc = "Clean LSP caches (Kotlin & Java)" })
 
 -- Manual log cleanup command
 vim.api.nvim_create_user_command('CleanupLSPLogs', function()
+  local paths = require('core.paths')
   local log_files = {
-    vim.fn.stdpath("state") .. "/lsp.log",
-    vim.fn.stdpath("state") .. "/mason.log",
-    vim.fn.stdpath("state") .. "/conform.log",
+    paths.logs.lsp,
+    paths.logs.mason,
+    paths.logs.conform,
   }
   local total_freed = 0
   for _, log_file in ipairs(log_files) do
