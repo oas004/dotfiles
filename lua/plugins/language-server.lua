@@ -90,7 +90,6 @@ return {
         lsp_zero.format_on_save({
           format_opts = { async = false, timeout_ms = 10000 },
           servers = {
-            ["gopls"] = { "go" },
             ["hls"]   = { "haskell", "lhaskell" },
             ["clangd"]= { "c", "cpp", "objc", "objcpp" },
             -- Exclude Kotlin LSP - let conform.nvim handle it with ktfmt
@@ -107,16 +106,6 @@ return {
 
         -- Code actions keybinding
         vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { buffer = bufnr, noremap = true, silent = true })
-
-        -- gopls semantic tokens workaround
-        if client.name == "gopls" and not client.server_capabilities.semanticTokensProvider then
-          local semantic = client.config.capabilities.textDocument.semanticTokens
-          client.server_capabilities.semanticTokensProvider = {
-            full = true,
-            legend = { tokenModifiers = semantic.tokenModifiers, tokenTypes = semantic.tokenTypes },
-            range = true,
-          }
-        end
       end)
 
       -- Capabilities (safe even if cmp isn't ready yet)
