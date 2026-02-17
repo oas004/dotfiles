@@ -8,19 +8,15 @@ return {
       { "VonHeikemen/lsp-zero.nvim", branch = "v3.x" },
     },
     config = function()
-      local ok_lsp, lsp_zero = pcall(require, "lsp-zero")
-      if not ok_lsp then
-        vim.notify("lsp-zero failed to load", vim.log.levels.ERROR)
-        return
-      end
+      local utils = require('core.utils')
+
+      local lsp_zero = utils.safe_require("lsp-zero", "lsp-zero failed to load")
+      if not lsp_zero then return end
 
       lsp_zero.extend_cmp()
 
-      local ok_cmp, cmp = pcall(require, "cmp")
-      if not ok_cmp then
-        vim.notify("nvim-cmp failed to load", vim.log.levels.ERROR)
-        return
-      end
+      local cmp = utils.safe_require("cmp", "nvim-cmp failed to load")
+      if not cmp then return end
 
       local select = { behavior = cmp.SelectBehavior.Select }
 
@@ -54,11 +50,10 @@ return {
       { "VonHeikemen/lsp-zero.nvim", branch = "v3.x" },
     },
     config = function()
-      local ok_lsp, lsp_zero = pcall(require, "lsp-zero")
-      if not ok_lsp then
-        vim.notify("lsp-zero failed to load", vim.log.levels.ERROR)
-        return
-      end
+      local utils = require('core.utils')
+
+      local lsp_zero = utils.safe_require("lsp-zero", "lsp-zero failed to load")
+      if not lsp_zero then return end
 
       lsp_zero.extend_lspconfig()
 
@@ -70,23 +65,19 @@ return {
       local metaspace = is_mac and "512m" or "1g"
 
       -- Load Kotlin config switcher
-      local ok_kotlin, kotlin_config = pcall(require, "core.kotlin-config")
-      if not ok_kotlin then
-        vim.notify("Failed to load kotlin-config", vim.log.levels.WARN)
-      else
+      local kotlin_config = utils.safe_require("core.kotlin-config", "Failed to load kotlin-config")
+      if kotlin_config then
         kotlin_config.setup_commands()
       end
 
       -- Load Java config switcher
-      local ok_java, java_config = pcall(require, "core.java-config")
-      if not ok_java then
-        vim.notify("Failed to load java-config", vim.log.levels.WARN)
-      else
+      local java_config = utils.safe_require("core.java-config", "Failed to load java-config")
+      if java_config then
         java_config.setup_commands()
       end
 
       -- Format on save (adjust to taste)
-      local ok_format = pcall(function()
+      local ok_format, _ = utils.safe_call(function()
         lsp_zero.format_on_save({
           format_opts = { async = false, timeout_ms = 10000 },
           servers = {
@@ -95,11 +86,7 @@ return {
             -- Exclude Kotlin LSP - let conform.nvim handle it with ktfmt
           },
         })
-      end)
-
-      if not ok_format then
-        vim.notify("Failed to setup format on save", vim.log.levels.WARN)
-      end
+      end, "Failed to setup format on save")
 
       lsp_zero.on_attach(function(client, bufnr)
         lsp_zero.default_keymaps({ buffer = bufnr })
@@ -110,12 +97,14 @@ return {
 
       -- Capabilities (safe even if cmp isn't ready yet)
       local caps = vim.lsp.protocol.make_client_capabilities()
-      local ok_cmp, cmp_lsp = pcall(require, "cmp_nvim_lsp")
-      if ok_cmp then caps = cmp_lsp.default_capabilities(caps) end
+      local cmp_lsp = utils.safe_require("cmp_nvim_lsp")
+      if cmp_lsp then
+        caps = cmp_lsp.default_capabilities(caps)
+      end
 
       -- Determine which Kotlin LSP to use
       local kotlin_lsp = "kotlin_language_server"
-      if ok_kotlin then
+      if kotlin_config then
         kotlin_lsp = kotlin_config.get_lsp_server()
       end
 
@@ -133,38 +122,27 @@ return {
         table.insert(servers, "kotlin_language_server")
       end
 
-      local ok_mason, mason = pcall(require, "mason")
-      if not ok_mason then
-        vim.notify("mason failed to load", vim.log.levels.ERROR)
-        return
-      end
+      local mason = utils.safe_require("mason", "mason failed to load")
+      if not mason then return end
 
       mason.setup({})
 
-      local ok_mason_lsp, mason_lsp = pcall(require, "mason-lspconfig")
-      if not ok_mason_lsp then
-        vim.notify("mason-lspconfig failed to load", vim.log.levels.ERROR)
-        return
-      end
+      local mason_lsp = utils.safe_require("mason-lspconfig", "mason-lspconfig failed to load")
+      if not mason_lsp then return end
 
       mason_lsp.setup({
         ensure_installed = servers,
         handlers = {
           -- default handler
           function(server_name)
-            local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
-            if ok_lspconfig then
+            local lspconfig = utils.safe_require("lspconfig")
+            if lspconfig then
               lspconfig[server_name].setup({ capabilities = caps })
-            else
-              vim.notify(string.format("Failed to setup %s", server_name), vim.log.levels.WARN)
             end
           end,
         ["kotlin_language_server"] = function()
-          local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
-          if not ok_lspconfig then
-            vim.notify("Failed to setup kotlin_language_server", vim.log.levels.ERROR)
-            return
-          end
+          local lspconfig = utils.safe_require("lspconfig", "Failed to setup kotlin_language_server")
+          if not lspconfig then return end
 
           local paths = require('core.paths')
           local util = lspconfig.util
@@ -176,7 +154,7 @@ return {
           local proj = vim.fn.fnamemodify(root, ":t")
           local store = paths.lsp_cache.kotlin_lsp .. "/" .. proj
           lspconfig.kotlin_language_server.setup({
-            capabilities = cmp_lsp.default_capabilities(),
+            capabilities = cmp_lsp and cmp_lsp.default_capabilities() or caps,
             root_dir = function() return root end,
             init_options = {
               storagePath = store,  -- per-project H2 DB to avoid locks
@@ -193,57 +171,54 @@ return {
         end,
 
         ["lua_ls"] = function()
-            local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
-            if ok_lspconfig then
-              lspconfig.lua_ls.setup({
-                capabilities = caps,
-                settings = {
-                  Lua = { diagnostics = { globals = { "vim" } } },
-                },
-              })
-            end
-          end,
+          local lspconfig = utils.safe_require("lspconfig")
+          if lspconfig then
+            lspconfig.lua_ls.setup({
+              capabilities = caps,
+              settings = {
+                Lua = { diagnostics = { globals = { "vim" } } },
+              },
+            })
+          end
+        end,
 
-          ["clangd"] = function()
-            local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
-            if ok_lspconfig then
-              lspconfig.clangd.setup({
-                capabilities = caps,
-                -- Respects project-level .clang-format config before falling back to LLVM style
-                cmd = { "clangd", "--fallback-style=LLVM" },
-              })
-            end
-          end,
+        ["clangd"] = function()
+          local lspconfig = utils.safe_require("lspconfig")
+          if lspconfig then
+            lspconfig.clangd.setup({
+              capabilities = caps,
+              -- Respects project-level .clang-format config before falling back to LLVM style
+              cmd = { "clangd", "--fallback-style=LLVM" },
+            })
+          end
+        end,
 
-          ["hls"] = function()
-            local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
-            if ok_lspconfig then
-              lspconfig.hls.setup({
-                capabilities = caps,
-                settings = { haskell = { formattingProvider = "ormolu" } },
-              })
-            end
-          end,
+        ["hls"] = function()
+          local lspconfig = utils.safe_require("lspconfig")
+          if lspconfig then
+            lspconfig.hls.setup({
+              capabilities = caps,
+              settings = { haskell = { formattingProvider = "ormolu" } },
+            })
+          end
+        end,
 
-          ["jdtls"] = function()
-            local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
-            if not ok_lspconfig then
-              vim.notify("Failed to setup jdtls", vim.log.levels.ERROR)
-              return
-            end
+        ["jdtls"] = function()
+          local lspconfig = utils.safe_require("lspconfig", "Failed to setup jdtls")
+          if not lspconfig then return end
 
-            local paths = require('core.paths')
-            local util = lspconfig.util
-            local root = util.root_pattern(
-              "pom.xml",
-              "build.gradle", "build.gradle.kts",
-              "settings.gradle", "settings.gradle.kts",
-              ".git"
-            )(vim.fn.expand("%:p")) or vim.loop.cwd()
-            local proj = vim.fn.fnamemodify(root, ":t")
-            local workspace_dir = paths.lsp_cache.jdtls .. "/" .. proj
+          local paths = require('core.paths')
+          local util = lspconfig.util
+          local root = util.root_pattern(
+            "pom.xml",
+            "build.gradle", "build.gradle.kts",
+            "settings.gradle", "settings.gradle.kts",
+            ".git"
+          )(vim.fn.expand("%:p")) or vim.loop.cwd()
+          local proj = vim.fn.fnamemodify(root, ":t")
+          local workspace_dir = paths.lsp_cache.jdtls .. "/" .. proj
 
-            lspconfig.jdtls.setup({
+          lspconfig.jdtls.setup({
               capabilities = caps,
               root_dir = function() return root end,
               cmd = {
@@ -279,8 +254,8 @@ return {
 
       -- Manual setup for kotlin-lsp (not in Mason)
       if kotlin_lsp == "kotlin-lsp" then
-        local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
-        if ok_lspconfig then
+        local lspconfig = utils.safe_require("lspconfig")
+        if lspconfig then
           local paths = require('core.paths')
           local kotlin_lsp_path = paths.external.kotlin_lsp
 
@@ -317,8 +292,6 @@ return {
               { title = "Kotlin LSP" }
             )
           end
-        else
-          vim.notify("lspconfig failed to load", vim.log.levels.ERROR)
         end
       end
     end,

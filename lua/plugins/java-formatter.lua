@@ -7,17 +7,13 @@ return {
     dependencies = { "nvim-lua/plenary.nvim" },
     event = { "BufReadPre", "BufNewFile" },
     config = function()
-      local ok_none_ls, none_ls = pcall(require, "none-ls")
-      if not ok_none_ls then
-        vim.notify("none-ls failed to load", vim.log.levels.WARN)
-        return
-      end
+      local utils = require('core.utils')
 
-      local ok_java_config, java_config = pcall(require, "config.java-config")
-      if not ok_java_config then
-        vim.notify("Failed to load java-config", vim.log.levels.WARN)
-        return
-      end
+      local none_ls = utils.safe_require("none-ls", "none-ls failed to load")
+      if not none_ls then return end
+
+      local java_config = utils.safe_require("core.java-config", "Failed to load java-config")
+      if not java_config then return end
 
       local sources = {}
 
