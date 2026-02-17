@@ -192,17 +192,17 @@ return {
               storagePath = store,  -- per-project H2 DB to avoid locks
             },
             cmd_env = {
-                  -- Enable configuration cache and set reasonable memory limits
-                  GRADLE_OPTS = (vim.env.GRADLE_OPTS or "") .. " -Xmx" .. jvm_mem .. " -XX:MaxMetaspaceSize=" .. metaspace,
-                  JAVA_HOME   = vim.env.JAVA_HOME, -- keep your JDK
+              -- Enable configuration cache and set reasonable memory limits
+              GRADLE_OPTS = (vim.env.GRADLE_OPTS or "") .. " -Xmx" .. jvm_mem .. " -XX:MaxMetaspaceSize=" .. metaspace,
+              JAVA_HOME   = vim.env.JAVA_HOME, -- keep your JDK
             },
             flags = {
               debounce_text_changes = is_mac and 800 or 500, -- Higher debounce on macOS
             },
           })
-          end,
+        end,
 
-          ["lua_ls"] = function()
+        ["lua_ls"] = function()
             local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
             if ok_lspconfig then
               lspconfig.lua_ls.setup({
