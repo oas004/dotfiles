@@ -2,7 +2,8 @@ return {
   -- nvim-cmp (completion)
   {
     "hrsh7th/nvim-cmp",
-    event = "InsertEnter",
+    lazy = false,  -- Load immediately
+    priority = 30, -- Load after conform
     dependencies = {
       { "L3MON4D3/LuaSnip" },
       { "VonHeikemen/lsp-zero.nvim", branch = "v3.x" },
@@ -41,8 +42,8 @@ return {
   -- LSP + mason + lsp-zero
   {
     "neovim/nvim-lspconfig",
-    cmd = { "LspInfo", "LspInstall", "LspStart" },
-    event = { "BufReadPost", "BufNewFile" },
+    lazy = false,  -- Load immediately to avoid race conditions
+    priority = 50, -- Load after treesitter but before other plugins
     dependencies = {
       { "hrsh7th/cmp-nvim-lsp" },
       { "williamboman/mason.nvim" },
@@ -102,11 +103,8 @@ return {
         caps = cmp_lsp.default_capabilities(caps)
       end
 
-      -- Determine which Kotlin LSP to use
-      local kotlin_lsp = "kotlin_language_server"
-      if kotlin_config then
-        kotlin_lsp = kotlin_config.get_lsp_server()
-      end
+      -- Determine which Kotlin LSP to use (always kotlin-lsp now)
+      local kotlin_lsp = "kotlin-lsp"
 
       local servers = {
         "gradle_ls",
@@ -117,10 +115,7 @@ return {
         "jdtls",
       }
 
-      -- Add active Kotlin LSP server if it's the community one
-      if kotlin_lsp == "kotlin_language_server" then
-        table.insert(servers, "kotlin_language_server")
-      end
+      -- kotlin-lsp is NOT in Mason, so we don't add it here
 
       local mason = utils.safe_require("mason", "mason failed to load")
       if not mason then return end
@@ -140,35 +135,6 @@ return {
               lspconfig[server_name].setup({ capabilities = caps })
             end
           end,
-        ["kotlin_language_server"] = function()
-          local lspconfig = utils.safe_require("lspconfig", "Failed to setup kotlin_language_server")
-          if not lspconfig then return end
-
-          local paths = require('core.paths')
-          local util = lspconfig.util
-          local root = util.root_pattern(
-            "settings.gradle", "settings.gradle.kts",
-            "build.gradle", "build.gradle.kts",
-            "pom.xml", ".git"
-          )(vim.fn.expand("%:p")) or vim.loop.cwd()
-          local proj = vim.fn.fnamemodify(root, ":t")
-          local store = paths.lsp_cache.kotlin_lsp .. "/" .. proj
-          lspconfig.kotlin_language_server.setup({
-            capabilities = cmp_lsp and cmp_lsp.default_capabilities() or caps,
-            root_dir = function() return root end,
-            init_options = {
-              storagePath = store,  -- per-project H2 DB to avoid locks
-            },
-            cmd_env = {
-              -- Enable configuration cache and set reasonable memory limits
-              GRADLE_OPTS = (vim.env.GRADLE_OPTS or "") .. " -Xmx" .. jvm_mem .. " -XX:MaxMetaspaceSize=" .. metaspace,
-              JAVA_HOME   = vim.env.JAVA_HOME, -- keep your JDK
-            },
-            flags = {
-              debounce_text_changes = is_mac and 800 or 500, -- Higher debounce on macOS
-            },
-          })
-        end,
 
         ["lua_ls"] = function()
           local lspconfig = utils.safe_require("lspconfig")
@@ -252,46 +218,55 @@ return {
         },
       })
 
-      -- Manual setup for kotlin-lsp (not in Mason)
-      if kotlin_lsp == "kotlin-lsp" then
-        local lspconfig = utils.safe_require("lspconfig")
-        if lspconfig then
-          local paths = require('core.paths')
-          local kotlin_lsp_path = paths.external.kotlin_lsp
+      -- Setup kotlin-lsp (JetBrains official, not in Mason)
+      local lspconfig = utils.safe_require("lspconfig")
+      if lspconfig then
+        local paths = require('core.paths')
+        local kotlin_lsp_path = paths.external.kotlin_lsp
 
-          -- Check if kotlin-lsp exists at the expected path
-          if paths.file_exists(kotlin_lsp_path) then
-            local util = lspconfig.util
+        -- Check if kotlin-lsp exists at the expected path
+        if paths.file_exists(kotlin_lsp_path) then
+          local util = lspconfig.util
 
-            -- Define a custom LSP config
-            local configs = require("lspconfig.configs")
-            if not configs.kotlin_lsp then
-              configs.kotlin_lsp = {
-                default_config = {
-                  cmd = { kotlin_lsp_path, "--stdio" },  -- IMPORTANT: Use stdio mode for LSP communication
-                  filetypes = { "kotlin" },
-                  root_dir = util.root_pattern(
-                    "settings.gradle", "settings.gradle.kts",
-                    "build.gradle", "build.gradle.kts",
-                    "pom.xml", ".git"
-                  ),
-                  single_file_support = true,
-                },
-              }
-            end
-
-            -- Now setup kotlin-lsp using standard lspconfig
-            lspconfig.kotlin_lsp.setup({
-              capabilities = caps,
-            })
-            vim.notify("kotlin-lsp configured", vim.log.levels.INFO, { title = "Kotlin LSP" })
-          else
-            vim.notify(
-              "kotlin-lsp not found at " .. kotlin_lsp_path .. "\nInstall from: https://github.com/Kotlin/kotlin-lsp/releases",
-              vim.log.levels.ERROR,
-              { title = "Kotlin LSP" }
-            )
+          -- Define a custom LSP config
+          local configs = require("lspconfig.configs")
+          if not configs.kotlin_lsp then
+            configs.kotlin_lsp = {
+              default_config = {
+                cmd = { kotlin_lsp_path, "--stdio" },
+                filetypes = { "kotlin" },
+                root_dir = util.root_pattern(
+                  "settings.gradle", "settings.gradle.kts",
+                  "build.gradle", "build.gradle.kts",
+                  "pom.xml", ".git"
+                ),
+                single_file_support = true,
+              },
+            }
           end
+
+          -- Now setup kotlin-lsp using standard lspconfig
+          lspconfig.kotlin_lsp.setup({
+            capabilities = caps,
+            on_new_config = function(config, root_dir)
+              -- Generate per-project cache path based on root_dir
+              local project_name = vim.fn.fnamemodify(root_dir, ":t")
+              local cache_path = paths.lsp_cache.kotlin_lsp .. "/" .. project_name
+
+              -- Ensure cache directory exists
+              vim.fn.mkdir(cache_path, "p")
+
+              -- Update cmd with project-specific cache
+              config.cmd = { kotlin_lsp_path, "--stdio", "--system-path", cache_path }
+            end,
+          })
+          vim.notify("kotlin-lsp configured (JetBrains)", vim.log.levels.INFO, { title = "Kotlin LSP" })
+        else
+          vim.notify(
+            "kotlin-lsp not found at " .. kotlin_lsp_path .. "\nInstall from: https://github.com/Kotlin/kotlin-lsp/releases",
+            vim.log.levels.ERROR,
+            { title = "Kotlin LSP" }
+          )
         end
       end
     end,

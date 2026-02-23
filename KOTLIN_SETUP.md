@@ -1,60 +1,47 @@
 # Kotlin Development Setup
 
-This configuration provides easy switching between different Kotlin LSP implementations and formatters, plus Android Studio-style formatting.
+This configuration uses the **official JetBrains kotlin-lsp** for language server features and **ktfmt** for formatting.
 
 ## Quick Start
 
 ### 1. Install Required Tools
 
 ```bash
-# Install ktfmt (primary formatter - removes unused imports, Android Studio style)
+# Install ktfmt (formatter - removes unused imports, Android Studio style)
 brew install ktfmt
 
-# (Optional) Install ktlint for linting
-brew install ktlint
-
-# Ensure your Kotlin LSP is installed via Mason
-# In neovim: :Mason
+# Install kotlin-lsp (JetBrains official LSP)
+# Download from: https://github.com/Kotlin/kotlin-lsp/releases
+curl -L https://github.com/Kotlin/kotlin-lsp/releases/latest/download/kotlin-lsp.zip -o /tmp/kotlin-lsp.zip
+unzip /tmp/kotlin-lsp.zip -d ~/.local/opt/
+chmod +x ~/.local/opt/kotlin-lsp/kotlin-lsp.sh
 ```
 
 ### 2. Current Configuration
 
 The configuration uses:
-- **LSP**: `kotlin_language_server` (community edition) - default
+- **LSP**: `kotlin-lsp` (JetBrains official)
 - **Formatter**: `ktfmt` (Google's formatter, removes unused imports)
 
-## Switching Between LSP Implementations
+## LSP Commands
 
-### Available Kotlin LSP Servers
-
-1. **kotlin_language_server** (recommended - default)
-   - Community-maintained, feature-rich
-   - Installed via Mason
-   - Per-project H2 database to avoid locks
-   - Good IntelliJ integration
-
-2. **kotlin-lsp** (official JetBrains - pre-alpha)
-   - Official implementation
-   - Early stage, may have fewer features
-   - Requires Java 17+
-   - Manual installation from releases
-
-### Commands
+### Diagnostics
 
 ```vim
-" List available Kotlin LSP servers
-:KotlinLspList
+" Check if LSP is attached and show project info
+:KotlinLspDiagnostics
 
-" Switch to official Kotlin LSP
-:KotlinLspSwitch kotlin-lsp
+" Kill all kotlin-lsp processes (useful if stuck)
+:KotlinLspKill
 
-" Switch back to community version
-:KotlinLspSwitch kotlin_language_server
+" Check LSP status
+:LspInfo
+
+" View LSP logs
+:LspLog
 ```
 
-**Note**: After switching LSP servers, restart Neovim for changes to take effect.
-
-## Switching Between Formatters
+## Formatting
 
 ### Available Formatters
 
@@ -112,67 +99,81 @@ If you were using the Kotlin LSP's auto-import feature previously:
 
 ## Configuration Details
 
-### LSP Configuration (lua/config/kotlin-config.lua)
+### LSP Configuration (lua/core/kotlin-config.lua)
 
 The Kotlin config module handles:
-- Available LSP servers and their capabilities
-- Available formatters and their commands
-- User preference storage (`vim.g.kotlin_lsp`, `vim.g.kotlin_formatter`)
+- Formatter selection and commands
+- User preference storage for formatter
 - Helper functions for other plugins
+- LSP diagnostic commands
 
 ### Formatter Plugin (lua/plugins/kotlin-formatter.lua)
 
-Uses `conform.nvim` (modern null-ls replacement) to provide:
+Uses `conform.nvim` to provide:
 - Format on save
 - Manual formatting command
-- LSP fallback formatting
+- ktfmt integration
 
 ### LSP Plugin (lua/plugins/language-server.lua)
 
-Integrates with:
-- lsp-zero for LSP setup
-- Mason for package management
-- Kotlin config module for LSP selection
+Configures:
+- kotlin-lsp (JetBrains official) with stdio mode
+- Mason for other language servers (Java, Gradle, etc.)
+- Per-filetype LSP setup
 
 ## Troubleshooting
 
-### ktfmt not found
-```bash
-brew install ktfmt
-# Or install via Mason: :MasonInstall ktfmt
-```
+### kotlin-lsp not found
+Make sure it's installed at `~/.local/opt/kotlin-lsp/kotlin-lsp.sh`. Download from:
+https://github.com/Kotlin/kotlin-lsp/releases
 
-### LSP not starting
+### LSP not attaching
 ```vim
 :LspInfo                  " Check LSP status
-:Mason                    " Install language servers
-:KotlinLspList           " See current Kotlin LSP config
+:KotlinLspDiagnostics    " Check kotlin-lsp specifically
+:LspLog                  " View detailed logs
+```
+
+If LSP is stuck:
+```vim
+:KotlinLspKill           " Kill all kotlin-lsp processes
+" Then restart Neovim
 ```
 
 ### Formatting not working
 ```vim
 :ConformInfo             " Check conform.nvim status
 :KotlinFormat            " Try manual format
-:KotlinFormatterList     " Check current formatter
+:KotlinFormatterList     " Check current formatter (should be ktfmt)
 ```
 
-### Switch to Kotlin LSP (official)
+### Go-to-definition not working
 
-1. Download from: https://github.com/Kotlin/kotlin-lsp/releases
-2. Make executable and add to PATH:
-   ```bash
-   chmod +x kotlin-lsp.sh
-   sudo mv kotlin-lsp.sh /usr/local/bin/kotlin-lsp
-   ```
-3. In Neovim:
-   ```vim
-   :KotlinLspSwitch kotlin-lsp
-   " Then restart Neovim
-   ```
+kotlin-lsp (JetBrains) is still in pre-alpha and may have issues with:
+- Dependency resolution
+- Android-specific libraries
+- Multi-module Gradle projects
+
+**Workaround**: Open the project in Android Studio first, let it complete Gradle sync, then use Neovim. The LSP can leverage Android Studio's caches.
+
+### LSP shows "Address already in use" error
+
+This means another kotlin-lsp instance is running. Kill all instances:
+```vim
+:KotlinLspKill
+```
+Then restart Neovim.
+
+## Known Limitations
+
+- **kotlin-lsp is pre-alpha**: Expect bugs and missing features
+- **Go-to-definition**: Works better for pure Kotlin/JVM projects than Android projects
+- **Indexing**: Can take 5-15 minutes for large projects on first open
+- **Android libraries**: May not resolve correctly (androidx.*, com.google.android.*)
 
 ## Next Steps
 
 - Customize formatter options in `lua/plugins/kotlin-formatter.lua`
 - Add LSP keybindings if desired (already enabled via lsp-zero)
-- Add project-specific Gradle options in `.gradle` directory
-- Use `:KotlinLspList` and `:KotlinFormatterList` to explore options
+- Use `:KotlinFormatterList` to see formatter options
+- Check `:LspLog` if you encounter issues

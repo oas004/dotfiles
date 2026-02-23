@@ -3,7 +3,8 @@
 return {
   {
     "stevearc/conform.nvim",
-    event = { "BufReadPost", "BufNewFile" },
+    lazy = false,  -- Load immediately to avoid race conditions
+    priority = 40, -- Load after LSP
     config = function()
       local conform = require("conform")
       local kotlin_config = require("core.kotlin-config")

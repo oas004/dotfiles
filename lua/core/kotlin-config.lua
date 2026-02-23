@@ -13,14 +13,9 @@ local KotlinConfig = {}
 
 --- Available Kotlin LSP servers
 KotlinConfig.lsp_servers = {
-  kotlin_language_server = {
-    name = "kotlin_language_server",
-    description = "Community Kotlin Language Server (fwcd/kotlin-language-server)",
-    mason_name = "kotlin_language_server",
-  },
   ["kotlin-lsp"] = {
     name = "kotlin-lsp",
-    description = "Official JetBrains Kotlin LSP (pre-alpha)",
+    description = "Official JetBrains Kotlin LSP",
     mason_name = nil, -- Must be installed manually from releases
   },
 }
@@ -73,13 +68,9 @@ local function save_prefs(prefs)
   end
 end
 
---- Get currently active LSP server (default: kotlin_language_server)
+--- Get currently active LSP server (default: kotlin-lsp)
 function KotlinConfig.get_lsp_server()
-  if vim.g.kotlin_lsp then
-    return vim.g.kotlin_lsp
-  end
-  local prefs = load_prefs()
-  return prefs.lsp_server or "kotlin_language_server"
+  return "kotlin-lsp"
 end
 
 --- Get currently active formatter (default: ktfmt)
@@ -91,12 +82,9 @@ function KotlinConfig.get_formatter()
   return prefs.formatter or "ktfmt"
 end
 
---- Set LSP server and persist
+--- Set LSP server (no-op, always kotlin-lsp)
 function KotlinConfig.set_lsp_server(server)
-  vim.g.kotlin_lsp = server
-  local prefs = load_prefs()
-  prefs.lsp_server = server
-  save_prefs(prefs)
+  -- No-op: only kotlin-lsp is supported
 end
 
 --- Set formatter and persist
@@ -139,38 +127,32 @@ end
 
 --- Setup Kotlin commands in init.lua
 function KotlinConfig.setup_commands()
-  vim.api.nvim_create_user_command("KotlinLspList", function()
-    local lines = { "Available Kotlin LSP servers:" }
-    for name, config in pairs(KotlinConfig.lsp_servers) do
-      local current = name == KotlinConfig.get_lsp_server() and " (active)" or ""
-      table.insert(lines, string.format("  • %s: %s%s", name, config.description, current))
+  vim.api.nvim_create_user_command("KotlinLspDiagnostics", function()
+    local clients = vim.lsp.get_active_clients({ name = "kotlin_lsp" })
+
+    if #clients == 0 then
+      vim.notify("kotlin-lsp not attached to this buffer\nCheck :LspInfo and :LspLog for details", vim.log.levels.WARN, { title = "Kotlin LSP" })
+      return
     end
-    vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "Kotlin LSP" })
+
+    local client = clients[1]
+    local root_dir = client.config.root_dir
+    local gradle_cmd = root_dir and string.format("cd %s && ./gradlew dependencies", root_dir) or "unknown"
+
+    vim.notify(string.format(
+      "Kotlin LSP Status:\n" ..
+      "Server: kotlin-lsp (JetBrains)\n" ..
+      "Root: %s\n" ..
+      "\nTo sync dependencies, run:\n%s",
+      root_dir or "unknown",
+      gradle_cmd
+    ), vim.log.levels.INFO, { title = "Kotlin LSP Diagnostics" })
   end, {})
 
-  vim.api.nvim_create_user_command("KotlinLspSwitch", function(args)
-    local server = args.args:match("%S+")
-    if not server or server == "" then
-      vim.notify("Usage: :KotlinLspSwitch <server>", vim.log.levels.ERROR)
-      return
-    end
-    if not KotlinConfig.lsp_servers[server] then
-      vim.notify(string.format("Unknown Kotlin LSP server: %s", server), vim.log.levels.ERROR)
-      return
-    end
-    KotlinConfig.set_lsp_server(server)
-    vim.notify(string.format("Kotlin LSP switched to: %s\n(Restart neovim to apply changes)", server),
-               vim.log.levels.INFO, { title = "Kotlin LSP" })
-  end, {
-    nargs = 1,
-    complete = function(ArgLead, CmdLine, CursorPos)
-      local choices = {}
-      for name in pairs(KotlinConfig.lsp_servers) do
-        table.insert(choices, name)
-      end
-      return choices
-    end
-  })
+  vim.api.nvim_create_user_command("KotlinLspKill", function()
+    vim.fn.system("pkill -9 -f kotlin-lsp")
+    vim.notify("Killed all kotlin-lsp processes. Restart Neovim to start fresh.", vim.log.levels.INFO, { title = "Kotlin LSP" })
+  end, {})
 
   vim.api.nvim_create_user_command("KotlinFormatterList", function()
     local lines = { "Available Kotlin formatters:" }

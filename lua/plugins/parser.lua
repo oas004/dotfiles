@@ -2,6 +2,8 @@ return {
     -- https://github.com/nvim-treesitter/nvim-treesitter
     {
         "nvim-treesitter/nvim-treesitter",
+        lazy = false,  -- Load immediately, don't lazy load
+        priority = 100,  -- Load early but after core plugins
         build = ":TSUpdate",
         config = function()
             require("nvim-treesitter.configs").setup({
