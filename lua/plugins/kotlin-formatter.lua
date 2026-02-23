@@ -3,7 +3,7 @@
 return {
   {
     "stevearc/conform.nvim",
-    event = { "BufReadPre", "BufNewFile" },
+    event = { "BufReadPost", "BufNewFile" },
     config = function()
       local conform = require("conform")
       local kotlin_config = require("core.kotlin-config")
