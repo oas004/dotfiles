@@ -5,11 +5,11 @@ return {
   {
     "nvimtools/none-ls.nvim",
     dependencies = { "nvim-lua/plenary.nvim" },
-    event = { "BufReadPre", "BufNewFile" },
+    event = { "BufReadPost", "BufNewFile" },
     config = function()
       local utils = require('core.utils')
 
-      local none_ls = utils.safe_require("none-ls", "none-ls failed to load")
+      local none_ls = utils.safe_require("null-ls", "none-ls failed to load")
       if not none_ls then return end
 
       local java_config = utils.safe_require("core.java-config", "Failed to load java-config")

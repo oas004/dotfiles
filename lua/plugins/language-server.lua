@@ -264,7 +264,7 @@ return {
         else
           vim.notify(
             "kotlin-lsp not found at " .. kotlin_lsp_path .. "\nInstall from: https://github.com/Kotlin/kotlin-lsp/releases",
-            vim.log.levels.ERROR,
+            vim.log.levels.INFO,
             { title = "Kotlin LSP" }
           )
         end
