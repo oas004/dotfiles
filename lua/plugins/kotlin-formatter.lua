@@ -18,11 +18,6 @@ return {
             args = { "--kotlinlang-style", "-" },
             stdin = true,
           },
-          ktlint = {
-            command = "ktlint",
-            args = { "-F", "--stdin" },
-            stdin = true,
-          },
         },
         format_on_save = nil,
       })

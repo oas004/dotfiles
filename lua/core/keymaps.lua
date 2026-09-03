@@ -21,6 +21,17 @@ safe_set("n", "k", "gk")
 safe_set("n", "<Esc>", ":nohl<CR><Esc>", silent)
 safe_set({ "n", "i", "v" }, "<C-s>", "<C-C>:update<CR>", silent)
 
+-- Android Studio-like keybindings (Mac)
+-- Navigation
+safe_set('n', '<D-b>', vim.lsp.buf.definition, { desc = 'Go to definition (Cmd+B)' })
+safe_set('n', '<D-A-b>', vim.lsp.buf.implementation, { desc = 'Go to implementation (Cmd+Opt+B)' })
+safe_set('n', '<A-F7>', vim.lsp.buf.references, { desc = 'Find usages (Opt+F7)' })
+
+-- Refactoring
+safe_set('n', '<S-F6>', vim.lsp.buf.rename, { desc = 'Rename (Shift+F6)' })
+safe_set('n', '<A-CR>', vim.lsp.buf.code_action, { desc = 'Code actions (Opt+Enter)' })
+
+-- Diagnostics
 safe_set('n', 'gl', function()
   vim.diagnostic.open_float(nil, { scope = 'line', focus = false, border = 'rounded' })
 end, { desc = 'Line diagnostics' })
@@ -28,6 +39,7 @@ end, { desc = 'Line diagnostics' })
 safe_set('n', '<leader>e', vim.diagnostic.goto_next, { desc = 'Next diagnostic' })
 safe_set('n', '<leader>E', vim.diagnostic.goto_prev, { desc = 'Prev diagnostic' })
 
+-- LSP navigation (fallback if Cmd keys don't work in terminal)
 safe_set('n', 'gr', function()
   vim.lsp.buf.references({ includeDeclaration = false })
 end, { desc = 'LSP: References (usages)' })

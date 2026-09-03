@@ -97,9 +97,6 @@ return {
         caps = cmp_lsp.default_capabilities(caps)
       end
 
-      -- Determine which Kotlin LSP to use (always kotlin-lsp now)
-      local kotlin_lsp = "kotlin-lsp"
-
       local servers = {
         "gradle_ls",
         "jedi_language_server",
@@ -229,36 +226,47 @@ return {
               default_config = {
                 cmd = { kotlin_lsp_path, "--stdio" },
                 filetypes = { "kotlin" },
-                root_dir = util.root_pattern(
-                  "settings.gradle", "settings.gradle.kts",
-                  "build.gradle", "build.gradle.kts",
-                  "pom.xml", ".git"
-                ),
+                root_dir = function(fname)
+                  return util.root_pattern(
+                    "settings.gradle", "settings.gradle.kts",
+                    "build.gradle", "build.gradle.kts",
+                    "pom.xml", ".git"
+                  )(fname) or util.path.dirname(fname)
+                end,
                 single_file_support = true,
               },
             }
           end
 
-          -- Now setup kotlin-lsp using standard lspconfig
+          -- Setup kotlin-lsp
           lspconfig.kotlin_lsp.setup({
             capabilities = caps,
             on_new_config = function(config, root_dir)
-              -- Generate per-project cache path based on root_dir
               local project_name = vim.fn.fnamemodify(root_dir, ":t")
               local cache_path = paths.lsp_cache.kotlin_lsp .. "/" .. project_name
-
-              -- Ensure cache directory exists
               vim.fn.mkdir(cache_path, "p")
-
-              -- Update cmd with project-specific cache
               config.cmd = { kotlin_lsp_path, "--stdio", "--system-path", cache_path }
             end,
           })
-          vim.notify("kotlin-lsp configured (JetBrains)", vim.log.levels.INFO, { title = "Kotlin LSP" })
+
+          -- Ensure LSP attaches to kotlin files (handles race condition on startup)
+          vim.api.nvim_create_autocmd("FileType", {
+            pattern = "kotlin",
+            callback = function(args)
+              vim.defer_fn(function()
+                if vim.api.nvim_buf_is_valid(args.buf) then
+                  local clients = vim.lsp.get_clients({ bufnr = args.buf, name = "kotlin_lsp" })
+                  if #clients == 0 then
+                    lspconfig.kotlin_lsp.launch()
+                  end
+                end
+              end, 100)
+            end,
+          })
         else
           vim.notify(
             "kotlin-lsp not found at " .. kotlin_lsp_path .. "\nInstall from: https://github.com/Kotlin/kotlin-lsp/releases",
-            vim.log.levels.INFO,
+            vim.log.levels.WARN,
             { title = "Kotlin LSP" }
           )
         end

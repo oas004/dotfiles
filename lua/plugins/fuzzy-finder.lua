@@ -55,24 +55,26 @@ return {
                 }
             })
 
-            -- Load extensions safely
-            local extensions = { "adb" }
-
-            -- Try to load fzf if available
+            -- Load fzf extension if available
             if vim.fn.executable("fzf") == 1 then
-              table.insert(extensions, "fzf")
-            end
-
-            for _, ext in ipairs(extensions) do
-              local ok, _ = utils.safe_call(function()
-                telescope.load_extension(ext)
-              end, string.format("Failed to load %s telescope extension", ext))
+              pcall(telescope.load_extension, "fzf")
             end
         end,
         keys = {
-            { "<Leader>f", function() require("telescope.builtin").live_grep({}) end },
-            { "<Leader>p", function() require("telescope.builtin").find_files() end },
-            { "<Leader>o", function() require("telescope.builtin").buffers() end },
+            -- Android Studio-like keybindings (Mac)
+            { "<D-S-o>", function() require("telescope.builtin").find_files() end, desc = "Go to file (Cmd+Shift+O)" },
+            { "<D-o>", function() require("telescope.builtin").lsp_document_symbols() end, desc = "Go to symbol in file (Cmd+O)" },
+            { "<D-A-o>", function() require("telescope.builtin").lsp_workspace_symbols() end, desc = "Go to symbol (Cmd+Opt+O)" },
+            { "<D-S-f>", function() require("telescope.builtin").live_grep() end, desc = "Find in path (Cmd+Shift+F)" },
+            { "<D-e>", function() require("telescope.builtin").oldfiles() end, desc = "Recent files (Cmd+E)" },
+
+            -- Fallback leader-based bindings (for terminals that don't pass Cmd)
+            { "<Leader>f", function() require("telescope.builtin").live_grep() end, desc = "Find in files" },
+            { "<Leader>p", function() require("telescope.builtin").find_files() end, desc = "Find files" },
+            { "<Leader>o", function() require("telescope.builtin").buffers() end, desc = "Open buffers" },
+            { "<Leader>s", function() require("telescope.builtin").lsp_document_symbols() end, desc = "Document symbols" },
+            { "<Leader>S", function() require("telescope.builtin").lsp_workspace_symbols() end, desc = "Workspace symbols" },
+            { "<Leader>r", function() require("telescope.builtin").oldfiles() end, desc = "Recent files" },
         }
     },
     {
