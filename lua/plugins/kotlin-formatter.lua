@@ -1,5 +1,4 @@
 -- Kotlin formatting plugin with ktfmt support
--- Format on save only if syntactically correct, with helpful error messages
 return {
   {
     "stevearc/conform.nvim",
@@ -7,13 +6,11 @@ return {
     priority = 40, -- Load after LSP
     config = function()
       local conform = require("conform")
-      local kotlin_config = require("core.kotlin-config")
 
       conform.setup({
         formatters_by_ft = {
-          kotlin = function()
-            return { kotlin_config.get_formatter() }
-          end,
+          kotlin = { "ktfmt" },
+          json = { "jq", "prettierd", "prettier", stop_after_first = true },
         },
         formatters = {
           ktfmt = {

@@ -65,12 +65,6 @@ return {
       local jvm_mem = is_mac and "2g" or "4g"
       local metaspace = is_mac and "512m" or "1g"
 
-      -- Load Kotlin config switcher
-      local kotlin_config = utils.safe_require("core.kotlin-config", "Failed to load kotlin-config")
-      if kotlin_config then
-        kotlin_config.setup_commands()
-      end
-
       -- Load Java config switcher
       local java_config = utils.safe_require("core.java-config", "Failed to load java-config")
       if java_config then

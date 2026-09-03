@@ -101,6 +101,4 @@ vim.api.nvim_create_user_command('LspRestart', function()
   end
 end, { desc = "Restart LSP clients for current buffer" })
 
--- Setup custom git module
-require('custom.git').setup()
 
