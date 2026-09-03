@@ -1,15 +1,13 @@
 # Neovim Configuration
 
-A modern Neovim configuration written in Lua with a focus on development, LSP support, and mobile development tooling.
+A modern Neovim configuration written in Lua with a focus on Kotlin/Android development and LSP support.
 
 ## Features
 
 - **Plugin Management**: lazy.nvim for fast, lazy-loading plugins
-- **LSP Support**: Kotlin, Clang, Haskell, and more via mason.nvim
-- **Autoformatting**: conform.nvim with support for multiple formatters
-- **Android Development**: Custom ADB integration for device management and app installation
+- **LSP Support**: Kotlin (JetBrains official), Java, Clang, Haskell, and more via mason.nvim
+- **Autoformatting**: conform.nvim with ktfmt for Kotlin
 - **Fuzzy Finding**: Telescope.nvim with ripgrep backend
-- **Git Integration**: Git blame with gutter display and custom git status commands
 - **Theme**: Nordic colorscheme with optimized UI
 
 ## Installation
@@ -17,17 +15,10 @@ A modern Neovim configuration written in Lua with a focus on development, LSP su
 ### Prerequisites
 
 - [Neovim 0.9+](https://neovim.io/) (recommended: latest stable)
-- [Git](https://git-scm.com/) (for cloning and LSP servers)
+- [Git](https://git-scm.com/)
 - `ripgrep` (for telescope fuzzy finder)
   ```bash
-  # macOS
   brew install ripgrep
-
-  # Ubuntu/Debian
-  sudo apt-get install ripgrep
-
-  # Arch
-  sudo pacman -S ripgrep
   ```
 
 ### Setup
@@ -47,178 +38,155 @@ A modern Neovim configuration written in Lua with a focus on development, LSP su
    nvim
    ```
 
-4. **Install LSP servers and tools** (optional, but recommended):
+4. **Install LSP servers and tools**:
    ```
    :Mason
    ```
-   Mason provides a UI to install language servers, formatters, linters, and DAP servers.
 
-### Optional Dependencies
+### Kotlin Development
 
-For full functionality, consider installing:
+For Kotlin support, install the JetBrains official kotlin-lsp:
 
-- **Android Development**: `adb` (Android SDK Platform Tools)
-  ```bash
-  # macOS
-  brew install android-platform-tools
+```bash
+# Install ktfmt (formatter)
+brew install ktfmt
 
-  # Ubuntu/Debian
-  sudo apt-get install android-tools-adb
-  ```
+# Install kotlin-lsp
+curl -L https://github.com/Kotlin/kotlin-lsp/releases/latest/download/kotlin-lsp.zip -o /tmp/kotlin-lsp.zip
+unzip /tmp/kotlin-lsp.zip -d ~/.local/opt/
+chmod +x ~/.local/opt/kotlin-lsp/kotlin-lsp.sh
+```
 
-- **Kotlin Development**: Install Kotlin LSP via Mason (`:Mason`)
-- **Language Servers**: Use Mason to install servers for your languages
-
-## Useful Commands
-
-1. **`:Lazy`**: Open the plugin manager interface
-   - View installed plugins
-   - Check for updates
-   - Profile plugin load times
-
-2. **`:Mason`**: Open the LSP/DAP/formatter/linter installer
-   - Install language servers
-   - Manage formatter and linter versions
-
-3. **`:CleanupLSPCache`**: Clean LSP caches (Kotlin & Java)
-   - Removes cached data from `~/.local/share/nvim/jdtls/` and `~/.cache/nvim/kotlin-lsp/`
-   - Use this if you experience memory issues or LSP corruption
-   - Requires Neovim restart after running
-
-4. **`:KotlinLspList`**: List available Kotlin language servers
-5. **`:KotlinLspSwitch`**: Switch between Kotlin language servers
-6. **`:KotlinFormatterList`**: List available Kotlin formatters
-7. **`:KotlinFormatterSwitch`**: Switch between Kotlin formatters
-8. **`:CustomGitStatus`**: Show git status in a split
-9. **`:CustomAdbDevices`**: List connected Android devices
-10. **`:AdbPickInstall`**: Pick an APK to install on a connected device
-11. **`:AdbLogcat`**: Stream logcat output in a split
+See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 
 ## Keybindings
 
 ### Leader Key
 
-The leader key is set to `<Space>`.
+The leader key is `<Space>`.
 
-### General Navigation
-- `Y` - Yank to end of line (y$)
-- `j` / `k` - Navigate by visual lines (wrap-aware)
-- `<Esc>` - Clear search highlighting
-- `<C-s>` - Save file (works in normal, insert, and visual modes)
+### LSP Navigation
 
-### Diagnostics & LSP
-- `gl` - Show line diagnostics in floating window
-- `]d` - Jump to next diagnostic
-- `[d` - Jump to previous diagnostic
-- `gd` - Go to definition
-- `gD` - Go to declaration
-- `gI` - Go to implementation
-- `gy` - Go to type definition
-- `gr` - Show references/usages
-- `<Leader>ca` - Code actions (e.g., implement interface members)
-- `<Leader>fm` - Format current buffer
+| Keys | Action |
+|------|--------|
+| `gd` | Go to definition |
+| `gD` | Go to declaration |
+| `gI` | Go to implementation |
+| `gr` | Find references/usages |
+| `gy` | Go to type definition |
+| `K` | Show hover documentation |
 
-### Search & Navigation (Leader + key)
-- `<Leader>f` - Fuzzy search in file content (live grep)
-- `<Leader>p` - Find files
-- `<Leader>o` - Search open buffers
-- `<Leader>l` - Toggle file explorer
-- `<Leader>lf` - Find and reveal current file in file explorer tree
-- `<Leader>ne` - Create new file in current file's directory
-- `<Leader>q` - Delete buffer (in telescope)
+### Diagnostics
 
-### Git (Leader + key)
-- `<Leader>gb` - Toggle git blame on current line (virtual text)
-- `<Leader>gB` - Show git blame for current line in popup
-- `<Leader>g?` - Show full buffer git blame
-- `<Leader>gs` - Git status (short format)
-- `<Leader>gS` - Git status (full format)
+| Keys | Action |
+|------|--------|
+| `gl` | Show line diagnostics (error popup) |
+| `<leader>e` | Next diagnostic |
+| `<leader>E` | Previous diagnostic |
 
-### Android/ADB (Leader + a + key)
+### Code Actions & Refactoring
 
-#### Device & Installation
-- `<Leader>ad` - Pick and set device
-- `<Leader>ai` - Pick APK and install on device
-- `<Leader>aI` - Pick APK and install on device (allow downgrade)
+| Keys | Action |
+|------|--------|
+| `<leader>ca` | Code actions (quick fixes) |
+| `<S-F6>` | Rename symbol |
+| `<leader>fm` | Format buffer |
 
-#### Logcat & Debugging
-- `<Leader>al` - Stream all logcat (Info level and above)
-- `<Leader>aL` - Stream app-specific logcat (verbose, with PID filter, clears first)
-- `<Leader>aG` - Grab foreground app package (auto-detects running app)
-- `<Leader>aw` - Open log bookmarks menu (select: Crashes, Network, Database, UI, or App logs)
-- `<Leader>as` - Search logcat by regex pattern (normal mode)
-- `<Leader>aS` - Search logcat by regex pattern (clear first)
-- `<Leader>as` (visual) - Use selected text as regex seed (auto-escaped)
+### File Navigation (Telescope)
 
-#### Log Bookmarks (`<Leader>aw`)
-Press `<Leader>aw` to open a menu with pre-configured log filters:
-- **Crashes** - `AndroidRuntime.*FATAL|Exception`
-- **Network** - `HttpConnection|OkHttp|Retrofit|Socket`
-- **Database** - `SQLite|Room|Database|cursor`
-- **UI/Layout** - `ViewGroup|LayoutInflater|View|draw`
-- **App logs** - Filter by your app package (set via `<Leader>aG`)
+| Keys | Action |
+|------|--------|
+| `<leader>p` | Find files |
+| `<leader>f` | Find in files (grep) |
+| `<leader>o` | Open buffers |
+| `<leader>s` | Document symbols (outline of current file) |
+| `<leader>S` | Workspace symbols (search across project) |
+| `<leader>r` | Recent files |
 
-#### Recommended Workflow
-1. Launch your Android app on a connected device
-2. Press `<Leader>aG` to auto-detect and store your app's package name
-3. Press `<Leader>aw` and select a bookmark (e.g., "Crashes" or "App logs")
-4. Logs appear in a terminal split with verbose output and threadtime format
-5. Press `q` to close the logcat window
+### File Explorer
 
-## Folder structure
+| Keys | Action |
+|------|--------|
+| `<leader>l` | Toggle file explorer |
+| `<leader>lf` | Reveal current file in explorer |
 
-### [lua/config/keymaps.lua](lua/config/keymaps.lua)
-- Define your custom keymaps here using the [vim.keymap](https://neovim.io/doc/user/lua.html#vim.keymap) module.
-- Since the keymaps are binded after the plugins are loaded, then it can use functions exported by plugins.
+### General
 
-### [lua/config/options.lua](lua/config/options.lua)
-- Define your custom neovim options here using [vim.opt](https://neovim.io/doc/user/lua.html#vim.opt).
+| Keys | Action |
+|------|--------|
+| `Y` | Yank to end of line |
+| `j` / `k` | Navigate by visual lines (wrap-aware) |
+| `<Esc>` | Clear search highlighting |
+| `<C-s>` | Save file |
+| `jj` or `jk` | Exit insert mode |
+| `<C-o>` | Jump back (after go to definition) |
+| `<C-i>` | Jump forward |
+| `]m` / `[m` | Jump to next/previous function |
 
-### [lua/config/package-manager.lua](lua/config/package-manager.lua)
-- Out of the box configuration for the package manager.
+### Treesitter Text Objects
 
-### [lua/plugins/*.lua](lua/plugins/)
-- Plugin directory which contains the plugins to download, with the plugin's configurations.
-- Each module in the directory should return a Lua table that contains the plugin/s to download using `lazy.nvim`.
-  See [lazy.nvim startup sequence](https://github.com/folke/lazy.nvim?tab=readme-ov-file#%EF%B8%8F-startup-sequence)
+| Keys | Action |
+|------|--------|
+| `af` | Select around function |
+| `if` | Select inside function |
+| `]m` / `[m` | Next/previous function start |
+| `]M` / `[M` | Next/previous function end |
 
-## Memory Management & Troubleshooting
+## Useful Commands
 
-### LSP Memory Optimization
+| Command | Description |
+|---------|-------------|
+| `:Lazy` | Open plugin manager |
+| `:Mason` | Open LSP/formatter installer |
+| `:LspInfo` | Check LSP status |
+| `:LspLog` | View LSP logs |
+| `:KotlinFormat` | Manually format Kotlin file |
+| `:CleanupLSPCache` | Clean LSP caches (requires restart) |
+| `:CleanupLSPLogs` | Clean log files |
+| `:checkhealth` | Diagnose nvim setup issues |
 
-This configuration includes memory optimizations for Java and Kotlin LSP servers to prevent memory leaks:
+## Folder Structure
 
-- **Kotlin LSP**: Limited to 4GB heap (`-Xmx4g`) and 1GB metaspace (`-XX:MaxMetaspaceSize=1g`)
-- **Java LSP (jdtls)**: Same memory limits as Kotlin LSP
-- **Debouncing**: Both LSPs use 500ms debouncing to reduce frequent re-indexing
-- **Gradle Configuration Cache**: Enabled (not disabled) to improve performance and reduce memory usage
+```
+~/.config/nvim/
+├── init.lua                 # Entry point
+├── lua/
+│   ├── core/
+│   │   ├── keymaps.lua      # Key bindings
+│   │   ├── options.lua      # Neovim options
+│   │   ├── paths.lua        # Path configuration
+│   │   └── utils.lua        # Helper functions
+│   └── plugins/
+│       ├── language-server.lua  # LSP configuration
+│       ├── kotlin-formatter.lua # ktfmt setup
+│       ├── fuzzy-finder.lua     # Telescope
+│       ├── file-explorer.lua    # nvim-tree
+│       ├── parser.lua           # Treesitter
+│       └── theming.lua          # Colorscheme
+```
 
-### Memory Issues?
+## Troubleshooting
 
-If you experience high memory usage (10+ GB):
+### LSP not attaching
 
-1. **Run the cleanup command**:
-   ```vim
-   :CleanupLSPCache
-   ```
-   Then restart Neovim.
+```vim
+:LspInfo                  " Check status
+:LspLog                   " View errors
+```
 
-2. **Check for background processes**: If running Android emulator (AVD) in the same terminal, consider:
-   - Running it in a separate terminal window
-   - Using `emulator -avd <name> &` to background the process
-   - Closing the emulator when not needed
+### Kotlin LSP issues
 
-3. **Monitor LSP memory**: Use Activity Monitor (macOS) or `htop` (Linux) to identify which LSP is consuming memory.
+```bash
+# Kill stuck processes
+pkill -9 -f kotlin-lsp
 
-4. **Adjust memory limits**: If 4GB per LSP is too high for your system, you can reduce the limits in:
-   - `lua/plugins/language-server.lua:189` (Kotlin LSP)
-   - `lua/plugins/language-server.lua:255-256` (Java LSP)
+# Clear cache
+:CleanupLSPCache
+# Then restart Neovim
+```
 
-### Performance Tips
+### High memory usage
 
-- **nvim-tree**: Configured to lazy-load only when opened (not on startup)
-- **Large projects**: The debouncing settings help reduce LSP overhead on file changes
-- **Cache locations**:
-  - Kotlin LSP: `~/.cache/nvim/kotlin-lsp/<project-name>/`
-  - Java LSP: `~/.local/share/nvim/jdtls/<project-name>/`
-
+1. Run `:CleanupLSPCache` and restart
+2. Check which LSP is consuming memory with Activity Monitor / htop
+3. Memory limits are configured in `lua/plugins/language-server.lua`
