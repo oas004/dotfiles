@@ -210,6 +210,17 @@ install_rust() {
         fi
     else
         info "Rust already installed: $(rustc --version)"
+        # wasm-tools requires Rust 1.82+ for edition2024 support
+        local rust_version
+        rust_version=$(rustc --version | grep -oE '[0-9]+\.[0-9]+' | head -1)
+        local major minor
+        major=$(echo "$rust_version" | cut -d. -f1)
+        minor=$(echo "$rust_version" | cut -d. -f2)
+        if [[ "$major" -eq 1 && "$minor" -lt 82 ]]; then
+            warn "Rust $rust_version is too old for wasm-tools (needs 1.82+)"
+            info "Updating Rust toolchain..."
+            run rustup update stable
+        fi
     fi
 
     # Ensure rust-analyzer component is installed

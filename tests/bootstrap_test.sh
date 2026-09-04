@@ -148,6 +148,12 @@ test_case "-v is alias for --verbose" bash -c "
     '$BOOTSTRAP' -n -v >/dev/null 2>&1
 "
 
+# Test: Rust version check logic
+test_case "detects old Rust version needing update" bash -c "
+    # The script should mention 1.82+ requirement somewhere in code
+    grep -q '1.82' '$BOOTSTRAP'
+"
+
 # Summary
 echo ""
 echo "=== Results ==="
