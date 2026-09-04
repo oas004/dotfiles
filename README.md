@@ -1,27 +1,55 @@
 # Neovim Configuration
 
-A modern Neovim configuration written in Lua with a focus on Kotlin/Android development and LSP support.
+A modern Neovim configuration written in Lua with LSP support for Kotlin/Android, Rust/WebAssembly, and more.
 
 ## Features
 
 - **Plugin Management**: lazy.nvim for fast, lazy-loading plugins
-- **LSP Support**: Kotlin (JetBrains official), Java, Clang, Haskell, and more via mason.nvim
-- **Autoformatting**: conform.nvim with ktfmt for Kotlin
+- **LSP Support**: Kotlin, Rust, Java, Clang, Haskell, and more via mason.nvim
+- **WebAssembly**: WIT syntax highlighting, wasm-tools integration
+- **Autoformatting**: conform.nvim with ktfmt for Kotlin, rustfmt for Rust
 - **Fuzzy Finding**: Telescope.nvim with ripgrep backend
 - **Theme**: Nordic colorscheme with optimized UI
 
 ## Installation
 
-### Prerequisites
+### Quick Start (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/oas004/dotfiles.git ~/.config/nvim
+
+# Run the bootstrap script (works on macOS and Linux)
+~/.config/nvim/bootstrap.sh
+```
+
+The bootstrap script installs all dependencies including Neovim, Rust toolchain, wasm-tools, and syncs plugins.
+
+### Manual Setup
+
+#### Prerequisites
 
 - [Neovim 0.9+](https://neovim.io/) (recommended: latest stable)
 - [Git](https://git-scm.com/)
+- [Rust](https://rustup.rs/) (for rust-analyzer and wasm tools)
 - `ripgrep` (for telescope fuzzy finder)
-  ```bash
-  brew install ripgrep
-  ```
 
-### Setup
+#### macOS
+```bash
+brew install neovim ripgrep
+```
+
+#### Ubuntu/Debian
+```bash
+sudo apt install neovim ripgrep
+```
+
+#### Fedora
+```bash
+sudo dnf install neovim ripgrep
+```
+
+#### Setup Steps
 
 1. **Backup your current config** (if you have one):
    ```bash
@@ -42,6 +70,25 @@ A modern Neovim configuration written in Lua with a focus on Kotlin/Android deve
    ```
    :Mason
    ```
+
+### Rust / WebAssembly Development
+
+The bootstrap script installs everything, but if you need to set up manually:
+
+```bash
+# Install Rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Add components
+rustup component add rust-analyzer rustfmt
+
+# WebAssembly targets
+rustup target add wasm32-unknown-unknown
+rustup target add wasm32-wasip1
+
+# WebAssembly tooling
+cargo install wasm-tools wit-bindgen-cli
+```
 
 ### Kotlin Development
 

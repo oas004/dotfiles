@@ -104,6 +104,7 @@ return {
         "hls",
         "clangd",
         "jdtls",
+        "rust_analyzer",
       }
 
       -- kotlin-lsp is NOT in Mason, so we don't add it here

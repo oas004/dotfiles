@@ -11,6 +11,8 @@ return {
                     "c", "lua", "vim", "vimdoc", "query",
                     "go", "gomod", "gosum", "gowork",
                     "javascript", "json", "kotlin", "typescript", "yaml",
+                    -- Rust / WebAssembly
+                    "rust", "toml", "wit",
                 },
                 sync_install = false,
                 auto_install = false,
