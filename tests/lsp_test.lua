@@ -104,18 +104,40 @@ test("hls uses ormolu", function()
   assert_eq(vim.tbl_get(vim.lsp.config.hls, "settings", "haskell", "formattingProvider"), "ormolu")
 end)
 
+-- Mirrors project_dir() in language-server.lua: folder name plus a short hash of the root
+local function cache_dir(base, root)
+  local r = vim.fs.normalize(root)
+  return base .. "/" .. vim.fs.basename(r) .. "-" .. vim.fn.sha256(r):sub(1, 8)
+end
+
 test("jdtls cmd has JVM memory args and per-root workspace", function()
   local paths = require("core.paths")
-  local a, b = proj .. "-a", proj .. "-b"
-  table.insert(created_dirs, paths.lsp_cache.jdtls .. "/" .. a)
-  table.insert(created_dirs, paths.lsp_cache.jdtls .. "/" .. b)
-  local argv = resolve_cmd(vim.lsp.config.jdtls.cmd, tmp .. "/" .. a)
+  local a, b = tmp .. "/" .. proj .. "-a", tmp .. "/" .. proj .. "-b"
+  table.insert(created_dirs, cache_dir(paths.lsp_cache.jdtls, a))
+  table.insert(created_dirs, cache_dir(paths.lsp_cache.jdtls, b))
+  local argv = resolve_cmd(vim.lsp.config.jdtls.cmd, a)
   assert_true(has_arg(argv, "^%-%-jvm%-arg=%-Xmx%d+g$"), "no -Xmx: " .. vim.inspect(argv))
   assert_true(has_arg(argv, "MaxMetaspaceSize="), "no MaxMetaspaceSize: " .. vim.inspect(argv))
-  assert_eq(argv[vim.fn.index(argv, "-data") + 2], paths.lsp_cache.jdtls .. "/" .. a, "-data dir")
+  assert_eq(argv[vim.fn.index(argv, "-data") + 2], cache_dir(paths.lsp_cache.jdtls, a), "-data dir")
 
-  local other = resolve_cmd(vim.lsp.config.jdtls.cmd, tmp .. "/" .. b)
-  assert_eq(other[vim.fn.index(other, "-data") + 2], paths.lsp_cache.jdtls .. "/" .. b, "-data dir per root")
+  local other = resolve_cmd(vim.lsp.config.jdtls.cmd, b)
+  assert_eq(other[vim.fn.index(other, "-data") + 2], cache_dir(paths.lsp_cache.jdtls, b), "-data dir per root")
+end)
+
+test("jdtls workspaces differ for same-named projects in different places", function()
+  local paths = require("core.paths")
+  local a, b = tmp .. "/x/" .. proj, tmp .. "/y/" .. proj
+  table.insert(created_dirs, cache_dir(paths.lsp_cache.jdtls, a))
+  table.insert(created_dirs, cache_dir(paths.lsp_cache.jdtls, b))
+  local da = resolve_cmd(vim.lsp.config.jdtls.cmd, a)
+  local db = resolve_cmd(vim.lsp.config.jdtls.cmd, b)
+  local wa, wb = da[vim.fn.index(da, "-data") + 2], db[vim.fn.index(db, "-data") + 2]
+  assert_true(wa ~= wb, "same workspace for both: " .. tostring(wa))
+end)
+
+test("jdtls has no hard-coded JavaSE-17 runtime", function()
+  assert_true(vim.tbl_get(vim.lsp.config.jdtls, "settings", "java", "configuration", "runtimes") == nil,
+    "runtimes still configured")
 end)
 
 test("kotlin_lsp config exists with kotlin filetype", function()
@@ -127,12 +149,12 @@ end)
 
 test("kotlin_lsp cmd uses external binary and per-root --system-path", function()
   local paths = require("core.paths")
-  local name = proj .. "-kt"
-  table.insert(created_dirs, paths.lsp_cache.kotlin_lsp .. "/" .. name)
-  local argv = resolve_cmd(vim.lsp.config.kotlin_lsp.cmd, tmp .. "/" .. name)
+  local root = tmp .. "/" .. proj .. "-kt"
+  table.insert(created_dirs, cache_dir(paths.lsp_cache.kotlin_lsp, root))
+  local argv = resolve_cmd(vim.lsp.config.kotlin_lsp.cmd, root)
   assert_eq(argv[1], paths.external.kotlin_lsp, "binary")
   assert_true(vim.tbl_contains(argv, "--stdio"), "no --stdio")
-  assert_eq(argv[vim.fn.index(argv, "--system-path") + 2], paths.lsp_cache.kotlin_lsp .. "/" .. name, "--system-path")
+  assert_eq(argv[vim.fn.index(argv, "--system-path") + 2], cache_dir(paths.lsp_cache.kotlin_lsp, root), "--system-path")
 end)
 
 print("\n=== Completion Tests ===\n")
@@ -181,8 +203,12 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
     local buf_maps = {}
     for _, m in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "n")) do buf_maps[m.lhs] = true end
     local leader = vim.g.mapleader or "\\"
-    for _, lhs in ipairs({ leader .. "ca", "gi", "go", "gs", "<F2>", "<F3>", "<F4>" }) do
+    for _, lhs in ipairs({ leader .. "ca", "gs", "<F2>", "<F4>" }) do
       assert_true(buf_maps[lhs], lhs .. " not mapped in buffer")
+    end
+    -- gi/go would shadow builtins, <F3> would bypass conform
+    for _, lhs in ipairs({ "gi", "go", "<F3>" }) do
+      assert_true(not buf_maps[lhs], lhs .. " should not be mapped in buffer")
     end
     -- Global maps from core/keymaps.lua must not be shadowed
     for _, lhs in ipairs({ "gd", "gD", "gr", "gl" }) do

@@ -98,15 +98,14 @@ return {
       local jvm_mem = is_mac and "2g" or "4g"
       local metaspace = is_mac and "512m" or "1g"
 
-      -- Load Java config switcher
-      local java_config = utils.safe_require("core.java-config", "Failed to load java-config")
-      if java_config then
-        java_config.setup_commands()
-      end
-
-      -- Per-project cache directory, named after the project root
+      -- Per-project cache directory: folder name plus a short hash of the full
+      -- root path, so two projects with the same folder name don't share one
       local function project_dir(base, root_dir)
-        local name = root_dir and vim.fs.basename(vim.fs.normalize(root_dir)) or "default"
+        local name = "default"
+        if root_dir then
+          local root = vim.fs.normalize(root_dir)
+          name = vim.fs.basename(root) .. "-" .. vim.fn.sha256(root):sub(1, 8)
+        end
         local dir = base .. "/" .. name
         vim.fn.mkdir(dir, "p")
         return dir
@@ -162,14 +161,6 @@ return {
           java = {
             home = vim.env.JAVA_HOME or "",
             eclipse = { downloadSources = true },
-            configuration = {
-              runtimes = {
-                {
-                  name = "JavaSE-17",
-                  path = vim.env.JAVA_HOME or "",
-                },
-              },
-            },
             maven = { downloadSources = true },
             implementationsCodeLens = { enabled = true },
             referencesCodeLens = { enabled = true },
@@ -208,14 +199,13 @@ return {
       end
 
       -- Buffer-local keymaps (what lsp-zero's default_keymaps used to set).
-      -- Global maps from core/keymaps.lua (gd, gD, gr, gl, ...) win over these,
-      -- and K comes from Neovim's built-in LSP defaults.
+      -- Global maps from core/keymaps.lua (gd, gD, gr, gl, gI, gy, ...) win over
+      -- these, and K comes from Neovim's built-in LSP defaults. lsp-zero's gi/go
+      -- are left out since they shadow builtins and gI/gy already cover them;
+      -- <F3> is left out so formatting goes through <leader>fm.
       local buffer_maps = {
         { "n", "gs", vim.lsp.buf.signature_help, "Show function signature" },
-        { "n", "gi", vim.lsp.buf.implementation, "Go to implementation" },
-        { "n", "go", vim.lsp.buf.type_definition, "Go to type definition" },
         { "n", "<F2>", vim.lsp.buf.rename, "Rename symbol" },
-        { { "n", "x" }, "<F3>", function() vim.lsp.buf.format({ async = true }) end, "Format" },
         { { "n", "x" }, "<F4>", vim.lsp.buf.code_action, "Execute code action" },
       }
 
