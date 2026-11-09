@@ -7,12 +7,14 @@
 -- it settles.
 --
 -- mason-lspconfig skips ensure_installed in headless mode, so without help
--- CI would have no language servers. This script runs mason-lspconfig's own
--- ensure_installed step explicitly (set WARMUP_MASON=0 to skip that).
+-- CI would have no language servers. This script installs the same servers
+-- with :MasonInstall, which blocks in headless mode and exits non-zero if any
+-- install fails (set WARMUP_MASON=0 to skip that). The server list is read
+-- from mason-lspconfig's settings table, the only non-public piece here.
 --
 -- "Settled" means no Mason package is installing and nvim has had no child
--- processes for WARMUP_QUIET_MS. The script always exits 0; install
--- failures show up in the report and in the tests that need the tool.
+-- processes for WARMUP_QUIET_MS. Apart from Mason install failures the
+-- script exits 0; other problems show up in the tests that need the tool.
 
 local quiet_ms = tonumber(vim.env.WARMUP_QUIET_MS) or 20000
 local max_ms = tonumber(vim.env.WARMUP_MAX_MS) or 900000
@@ -33,12 +35,19 @@ if ok_registry and vim.env.WARMUP_MASON ~= "0" then
   if ok_settings then
     ensure_installed = settings.current.ensure_installed or {}
   end
-  registry.refresh(vim.schedule_wrap(function()
-    local ok, err = pcall(require("mason-lspconfig.features.ensure_installed"))
-    if not ok then
-      out("could not run mason-lspconfig ensure_installed: " .. tostring(err))
+  registry.refresh() -- synchronous without a callback
+  local map = require("mason-lspconfig").get_mappings().lspconfig_to_package
+  local missing = {}
+  for _, server in ipairs(ensure_installed) do
+    local pkg = map[server]
+    if pkg and not registry.is_installed(pkg) then
+      table.insert(missing, pkg)
     end
-  end))
+  end
+  if #missing > 0 then
+    out("installing: " .. table.concat(missing, ", "))
+    vim.cmd("MasonInstall " .. table.concat(missing, " "))
+  end
 end
 
 local function mason_busy()

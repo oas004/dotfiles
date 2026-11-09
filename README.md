@@ -98,11 +98,11 @@ For Kotlin support, install the JetBrains official kotlin-lsp:
 # Install ktfmt (formatter)
 brew install ktfmt
 
-# Install kotlin-lsp
-curl -L https://github.com/Kotlin/kotlin-lsp/releases/latest/download/kotlin-lsp.zip -o /tmp/kotlin-lsp.zip
-unzip /tmp/kotlin-lsp.zip -d ~/.local/opt/
-chmod +x ~/.local/opt/kotlin-lsp/kotlin-lsp.sh
+# Install kotlin-lsp into ~/.local/opt/kotlin-lsp
+INSTALL_KOTLIN=1 ~/.config/nvim/bootstrap.sh
 ```
+
+To install kotlin-lsp by hand, download the standalone archive for your platform from the [kotlin-lsp releases page](https://github.com/Kotlin/kotlin-lsp/releases) and extract it so that `~/.local/opt/kotlin-lsp/kotlin-lsp.sh` exists. The macOS `.sit` file is a zip archive.
 
 See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 

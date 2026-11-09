@@ -43,8 +43,17 @@ jobs:
           ln -s "$GITHUB_WORKSPACE" ~/.config/nvim
 
       # kotlin-lsp is not in Mason. The config only registers it when the
-      # launcher exists at ~/.local/opt/kotlin-lsp/kotlin-lsp.sh.
+      # launcher exists at ~/.local/opt/kotlin-lsp/kotlin-lsp.sh. The archive
+      # is ~370MB, so cache the extracted install per version.
+      - name: Cache kotlin-lsp
+        id: kotlin-lsp-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/opt/kotlin-lsp
+          key: kotlin-lsp-${{ runner.os }}-${{ env.KOTLIN_LSP_VERSION }}
+
       - name: Install kotlin-lsp
+        if: steps.kotlin-lsp-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/.local/opt/kotlin-lsp
           curl -fsSL "https://download.jetbrains.com/language-server/kotlin-server/${KOTLIN_LSP_VERSION}/kotlin-server-${KOTLIN_LSP_VERSION}.tar.gz" \
