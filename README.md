@@ -121,7 +121,10 @@ The leader key is `<Space>`.
 | `gd` | Go to definition |
 | `gD` | Go to declaration |
 | `gI` | Go to implementation |
-| `gr` | Find references/usages |
+| `grr` | Find references/usages |
+| `grn` | Rename symbol |
+| `gra` | Code actions |
+| `gri` | Go to implementation |
 | `gy` | Go to type definition |
 | `K` | Show hover documentation |
 
@@ -139,7 +142,7 @@ The leader key is `<Space>`.
 |------|--------|
 | `<leader>ca` | Code actions (quick fixes) |
 | `<S-F6>` | Rename symbol |
-| `<leader>fm` | Format buffer |
+| `<leader>cf` | Format buffer |
 
 ### File Navigation (Telescope)
 
@@ -157,14 +160,12 @@ The leader key is `<Space>`.
 | Keys | Action |
 |------|--------|
 | `<leader>l` | Toggle file explorer |
-| `<leader>lf` | Reveal current file in explorer |
+| `<leader>L` | Reveal current file in explorer |
 
 ### General
 
 | Keys | Action |
 |------|--------|
-| `Y` | Yank to end of line |
-| `j` / `k` | Navigate by visual lines (wrap-aware) |
 | `<Esc>` | Clear search highlighting |
 | `<C-s>` | Save file |
 | `jj` or `jk` | Exit insert mode |
@@ -219,8 +220,8 @@ Files changed on disk by an agent are reloaded automatically (`autoread` plus `:
 
 ## Folder Structure
 
-- `init.lua` is the entry point. It loads the core modules and defines a few LSP maintenance commands.
-- `lua/core/` holds editor setup that is not a plugin: options, keymaps, the lazy.nvim bootstrap, shared helpers, and central path definitions.
+- `init.lua` is the entry point. It loads the core modules and trims the LSP log on startup.
+- `lua/core/` holds editor setup that is not a plugin: options, keymaps, user commands (`:CleanupLSPCache`, `:CleanupLSPLogs`, `:LspClients`), the lazy.nvim bootstrap, shared helpers, and central path definitions.
 - `lua/plugins/` holds lazy.nvim plugin specs, grouped by area. lazy.nvim imports every file in this directory.
 - `tests/` holds the test suite (see Development below).
 - `bootstrap.sh` installs dependencies on a new machine.

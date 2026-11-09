@@ -4,7 +4,12 @@ return {
         "nvim-telescope/telescope.nvim",
         tag = "v0.2.2",
         -- also depends on ripgrep: `brew install ripgrep`
-        dependencies = { "nvim-lua/plenary.nvim" },
+        dependencies = {
+            "nvim-lua/plenary.nvim",
+            -- Listed here rather than as its own spec so it loads with telescope
+            -- instead of at startup.
+            { "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
+        },
         config = function()
             local utils = require('core.utils')
             local telescope = utils.safe_require('telescope', 'Failed to load telescope')
@@ -77,8 +82,4 @@ return {
             { "<Leader>r", function() require("telescope.builtin").oldfiles() end, desc = "Recent files" },
         }
     },
-    {
-        "nvim-telescope/telescope-fzf-native.nvim",
-        build = "make",
-    }
 }

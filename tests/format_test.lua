@@ -105,10 +105,24 @@ for _, ft in ipairs({ "kotlin", "haskell", "c", "cpp", "json", "lua" }) do
   end)
 end
 
-test("<leader>fm is mapped in normal mode", function()
-  local map = vim.fn.maparg("<leader>fm", "n", false, true)
-  assert_true(not vim.tbl_isempty(map), "<leader>fm not mapped")
-  assert_true(map.callback ~= nil, "<leader>fm has no Lua callback")
+test("<leader>cf formats the buffer with conform", function()
+  local map = vim.fn.maparg("<leader>cf", "n", false, true)
+  assert_true(not vim.tbl_isempty(map), "<leader>cf not mapped")
+  assert_eq(map.desc, "Format buffer", "<leader>cf desc")
+  assert_true(map.callback ~= nil, "<leader>cf has no Lua callback")
+  local conform = require("conform")
+  local orig, got = conform.format, nil
+  conform.format = function(opts) got = opts end
+  local ok, err = pcall(map.callback)
+  conform.format = orig
+  assert_true(ok, tostring(err))
+  assert_true(got ~= nil, "<leader>cf did not call conform.format")
+  assert_eq(got.lsp_format, "fallback", "lsp_format")
+end)
+
+test("<leader>fm is no longer mapped", function()
+  assert_true(vim.tbl_isempty(vim.fn.maparg("<leader>fm", "n", false, true)),
+    "<leader>fm still mapped (collides with <leader>f)")
 end)
 
 test(":KotlinFormat and :JavaFormat exist", function()

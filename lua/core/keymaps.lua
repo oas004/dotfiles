@@ -1,56 +1,24 @@
 local keymap = vim.keymap
-local silent = { silent = true }
 
--- Helper to safely set keymaps with error handling
-local function safe_set(mode, lhs, rhs, opts)
-  opts = opts or {}
-  local ok, err = pcall(keymap.set, mode, lhs, rhs, opts)
-  if not ok then
-    vim.notify(string.format("Failed to map '%s': %s", lhs, err), vim.log.levels.WARN)
-  end
-end
+keymap.set("i", "jj", "<Esc>", { desc = "Exit insert mode" })
+keymap.set("i", "jk", "<Esc>", { desc = "Exit insert mode" })
+keymap.set("v", ";;", "<Esc>", { desc = "Exit visual mode" })
 
-safe_set("n", "Y", "y$")
-safe_set("i", "jj", "<Esc>")
-safe_set("i", "jk", "<Esc>")
-safe_set("v", ";;", "<Esc>")
+keymap.set("n", "<Esc>", "<Cmd>nohlsearch<CR><Esc>", { desc = "Clear search highlight" })
+keymap.set("n", "<C-s>", "<Cmd>update<CR>", { desc = "Save file" })
+-- <Esc> rather than <C-C> so InsertLeave autocmds still fire
+keymap.set({ "i", "v" }, "<C-s>", "<Esc><Cmd>update<CR>", { desc = "Save file" })
 
-safe_set("n", "j", "gj")
-safe_set("n", "k", "gk")
-
-safe_set("n", "<Esc>", ":nohl<CR><Esc>", silent)
-safe_set({ "n", "i", "v" }, "<C-s>", "<C-C>:update<CR>", silent)
-
--- Android Studio-like keybindings (Mac)
--- Navigation
-safe_set('n', '<D-b>', vim.lsp.buf.definition, { desc = 'Go to definition (Cmd+B)' })
-safe_set('n', '<D-A-b>', vim.lsp.buf.implementation, { desc = 'Go to implementation (Cmd+Opt+B)' })
-safe_set('n', '<A-F7>', vim.lsp.buf.references, { desc = 'Find usages (Opt+F7)' })
-
--- Refactoring
-safe_set('n', '<S-F6>', vim.lsp.buf.rename, { desc = 'Rename (Shift+F6)' })
-safe_set('n', '<A-CR>', vim.lsp.buf.code_action, { desc = 'Code actions (Opt+Enter)' })
-
--- Diagnostics
-safe_set('n', 'gl', function()
+-- Diagnostics (LSP keymaps are buffer-local, see plugins/language-server.lua)
+keymap.set('n', 'gl', function()
   vim.diagnostic.open_float(nil, { scope = 'line', focus = false, border = 'rounded' })
 end, { desc = 'Line diagnostics' })
 
-safe_set('n', '<leader>e', function() vim.diagnostic.jump({ count = 1, float = true }) end, { desc = 'Next diagnostic' })
-safe_set('n', '<leader>E', function() vim.diagnostic.jump({ count = -1, float = true }) end, { desc = 'Prev diagnostic' })
-
--- LSP navigation (fallback if Cmd keys don't work in terminal)
-safe_set('n', 'gr', function()
-  vim.lsp.buf.references({ includeDeclaration = false })
-end, { desc = 'LSP: References (usages)' })
-
-safe_set('n', 'gd', vim.lsp.buf.definition,      { desc = 'LSP: Go to definition' })
-safe_set('n', 'gD', vim.lsp.buf.declaration,     { desc = 'LSP: Go to declaration' })
-safe_set('n', 'gI', vim.lsp.buf.implementation,  { desc = 'LSP: Go to implementation' })
-safe_set('n', 'gy', vim.lsp.buf.type_definition, { desc = 'LSP: Go to type' })
+keymap.set('n', '<leader>e', function() vim.diagnostic.jump({ count = 1, float = true }) end, { desc = 'Next diagnostic' })
+keymap.set('n', '<leader>E', function() vim.diagnostic.jump({ count = -1, float = true }) end, { desc = 'Prev diagnostic' })
 
 -- Create new file in current file's directory
-safe_set('n', '<Leader>ne', function()
+keymap.set('n', '<Leader>ne', function()
   local dir = vim.fn.expand('%:h')
   if dir == '' then dir = '.' end
   local filename = vim.fn.input('New file in ' .. dir .. '/: ')
@@ -96,4 +64,4 @@ local function copy_code_reference()
   vim.notify('Copied ' .. ref, vim.log.levels.INFO)
 end
 
-safe_set({ 'n', 'x' }, '<leader>yr', copy_code_reference, { desc = 'Copy code reference (path:line) for AI prompt' })
+keymap.set({ 'n', 'x' }, '<leader>yr', copy_code_reference, { desc = 'Copy code reference (path:line) for AI prompt' })

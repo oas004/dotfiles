@@ -77,7 +77,7 @@ return {
     end,
   },
 
-  -- LSP: native vim.lsp.config, servers installed by mason and enabled by mason-lspconfig
+  -- LSP: native vim.lsp.config, servers installed by mason, enabled explicitly below
   {
     "neovim/nvim-lspconfig",
     lazy = false,  -- Load immediately to avoid race conditions
@@ -159,7 +159,8 @@ return {
         },
         settings = {
           java = {
-            home = vim.env.JAVA_HOME or "",
+            -- Left unset without JAVA_HOME, so jdtls picks a JDK itself
+            home = vim.env.JAVA_HOME ~= "" and vim.env.JAVA_HOME or nil,
             eclipse = { downloadSources = true },
             maven = { downloadSources = true },
             implementationsCodeLens = { enabled = true },
@@ -198,26 +199,28 @@ return {
         })
       end
 
-      -- Buffer-local keymaps (what lsp-zero's default_keymaps used to set).
-      -- Global maps from core/keymaps.lua (gd, gD, gr, gl, gI, gy, ...) win over
-      -- these, and K comes from Neovim's built-in LSP defaults. lsp-zero's gi/go
-      -- are left out since they shadow builtins and gI/gy already cover them;
-      -- <F3> is left out so formatting goes through <leader>fm.
+      -- Buffer-local keymaps, set only where a server is attached so builtins
+      -- like gd keep working in other buffers. References, rename, code action,
+      -- implementation and document symbols come from Neovim's built-in
+      -- defaults (grr, grn, gra, gri, gO), and so does K. lsp-zero's gi/go are
+      -- left out since they shadow builtins and gI/gy already cover them;
+      -- <F3> is left out so formatting goes through conform.
       local buffer_maps = {
-        { "n", "gs", vim.lsp.buf.signature_help, "Show function signature" },
-        { "n", "<F2>", vim.lsp.buf.rename, "Rename symbol" },
-        { { "n", "x" }, "<F4>", vim.lsp.buf.code_action, "Execute code action" },
+        { "n", "gd", vim.lsp.buf.definition, "LSP: Go to definition" },
+        { "n", "gD", vim.lsp.buf.declaration, "LSP: Go to declaration" },
+        { "n", "gI", vim.lsp.buf.implementation, "LSP: Go to implementation" },
+        { "n", "gy", vim.lsp.buf.type_definition, "LSP: Go to type definition" },
+        { "n", "gs", vim.lsp.buf.signature_help, "LSP: Show function signature" },
+        { "n", "<F2>", vim.lsp.buf.rename, "LSP: Rename symbol" },
+        { { "n", "x" }, "<F4>", vim.lsp.buf.code_action, "LSP: Code actions" },
+        { "n", "<leader>ca", vim.lsp.buf.code_action, "LSP: Code actions" },
+        -- Android Studio-like keybindings (Mac)
+        { "n", "<D-b>", vim.lsp.buf.definition, "LSP: Go to definition (Cmd+B)" },
+        { "n", "<D-A-b>", vim.lsp.buf.implementation, "LSP: Go to implementation (Cmd+Opt+B)" },
+        { "n", "<A-F7>", vim.lsp.buf.references, "LSP: Find usages (Opt+F7)" },
+        { "n", "<S-F6>", vim.lsp.buf.rename, "LSP: Rename (Shift+F6)" },
+        { "n", "<A-CR>", vim.lsp.buf.code_action, "LSP: Code actions (Opt+Enter)" },
       }
-
-      local function has_global_map(mode, lhs)
-        local want = vim.api.nvim_replace_termcodes(lhs, true, true, true)
-        for _, m in ipairs(vim.api.nvim_get_keymap(mode)) do
-          if vim.api.nvim_replace_termcodes(m.lhs, true, true, true) == want then
-            return true
-          end
-        end
-        return false
-      end
 
       -- Format on save, only for these servers and filetypes, using only that server
       local format_on_save = {
@@ -235,16 +238,8 @@ return {
           if not client then return end
 
           for _, m in ipairs(buffer_maps) do
-            local modes = type(m[1]) == "table" and m[1] or { m[1] }
-            for _, mode in ipairs(modes) do
-              if not has_global_map(mode, m[2]) then
-                vim.keymap.set(mode, m[2], m[3], { buffer = bufnr, desc = m[4] })
-              end
-            end
+            vim.keymap.set(m[1], m[2], m[3], { buffer = bufnr, desc = m[4] })
           end
-
-          vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action,
-            { buffer = bufnr, noremap = true, silent = true, desc = "Code actions" })
 
           local fts = format_on_save[client.name]
           if fts and vim.tbl_contains(fts, vim.bo[bufnr].filetype) then
@@ -275,17 +270,20 @@ return {
         end,
       })
 
-      local servers = {
+      -- Installed by Mason. kotlin_lsp is not in Mason and is enabled above.
+      local mason_servers = {
         "gradle_ls",
         "jedi_language_server",
         "lua_ls",
         "hls",
         "clangd",
         "jdtls",
-        "rust_analyzer",
       }
 
-      -- kotlin-lsp is NOT in Mason, so we don't add it here
+      -- Only these servers are enabled, whatever else Mason has installed.
+      -- rust-analyzer comes from rustup (bootstrap.sh) so it matches the toolchain.
+      local servers = vim.list_extend({ "rust_analyzer" }, mason_servers)
+      vim.lsp.enable(servers)
 
       local mason = utils.safe_require("mason", "mason failed to load")
       if not mason then return end
@@ -295,10 +293,11 @@ return {
       local mason_lsp = utils.safe_require("mason-lspconfig", "mason-lspconfig failed to load")
       if not mason_lsp then return end
 
-      -- mason-lspconfig v2 calls vim.lsp.enable() for each installed server,
-      -- which picks up the vim.lsp.config() overrides above
+      -- automatic_enable defaults to true in mason-lspconfig v2, which would
+      -- vim.lsp.enable() every Mason-installed server, not just the list above
       mason_lsp.setup({
-        ensure_installed = servers,
+        ensure_installed = mason_servers,
+        automatic_enable = false,
       })
     end,
   },

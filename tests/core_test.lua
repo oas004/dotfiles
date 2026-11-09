@@ -56,10 +56,9 @@ local function main()
   end
 
   -- Core modules
-  test("core.utils exposes safe_require and safe_call", function()
+  test("core.utils exposes safe_require", function()
     local utils = require("core.utils")
     assert_true(type(utils.safe_require) == "function", "safe_require missing")
-    assert_true(type(utils.safe_call) == "function", "safe_call missing")
   end)
 
   test("core.paths file_exists and dir_exists work", function()

@@ -11,7 +11,7 @@ opt.wrap = false -- nowrap
 
 -- line numbers
 opt.number = true -- show line numbers
-opt.relativenumber = true -- show relative line numbers (may be overridden by platform detection)
+opt.relativenumber = true -- show relative line numbers
 
 -- indents
 opt.tabstop = 2
@@ -23,15 +23,13 @@ opt.smartindent = true
 opt.autoindent = true
 
 opt.shiftround = true -- round-off indents to align
--- opt.foldmethod = "indent"
 
 -- backups
 opt.swapfile = false
 opt.backup = false
 
--- undo history
+-- undo history (stored in the default undodir, stdpath("state")/undo)
 opt.undofile = true
-opt.undodir = os.getenv("HOME") .. "/.vim/undodir"
 
 -- search
 opt.hlsearch = true
@@ -40,19 +38,14 @@ opt.incsearch = true
 opt.scrolloff = 8
 opt.sidescrolloff = 8
 
-opt.updatetime = 250 -- less frequent updates for better performance
+-- ms of idle before CursorHold fires (default 4000). Lower means the
+-- CursorHold autoreload check below notices changed files sooner.
+opt.updatetime = 250
 
 -- Performance optimizations
 opt.lazyredraw = true -- don't redraw during macros/scripts
 opt.synmaxcol = 300 -- don't syntax highlight long lines
 opt.redrawtime = 1500 -- prevent slow rendering
-
--- Platform-specific optimizations
-local is_mac = vim.fn.has("mac") == 1 or vim.fn.has("macunix") == 1
-if is_mac then
-  -- Reduce cursor hold time on macOS
-  opt.updatetime = 300
-end
 
 -- Reload files changed on disk by other programs (e.g. AI coding agents
 -- such as Claude Code editing files while they are open here).
