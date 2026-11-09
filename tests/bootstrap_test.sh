@@ -171,9 +171,9 @@ make_stub() {
 #   --clean ...        prints $FAKE_NVIM_CONFIG (the stdpath("config") query)
 #   anything else      logs its arguments to $FAKE_NVIM_LOG and exits with
 #                      $FAKE_NVIM_EXIT. Like lazy.nvim, it rewrites
-#                      lazy-lock.json: a startup run appends
-#                      $FAKE_STARTUP_LOCK_LINE, a "Lazy! restore" run appends
-#                      $FAKE_RESTORE_LOCK_LINE.
+#                      lazy-lock.json: a startup run (one that checks
+#                      :Lazy exists) appends $FAKE_STARTUP_LOCK_LINE, a
+#                      "Lazy! restore" run appends $FAKE_RESTORE_LOCK_LINE.
 make_stub "$STUB_ROOT/nvim" nvim '
 if [[ "$1" == "--version" ]]; then echo "NVIM v$FAKE_NVIM_VERSION"; exit 0; fi
 if [[ "$1" == "--clean" ]]; then printf "%s" "$FAKE_NVIM_CONFIG"; exit 0; fi
@@ -181,7 +181,7 @@ printf "%s\n" "$*" >>"${FAKE_NVIM_LOG:-/dev/null}"
 lock="$FAKE_NVIM_CONFIG/lazy-lock.json"
 if [[ "$*" == *"Lazy! restore"* ]]; then
     [[ -n "${FAKE_RESTORE_LOCK_LINE:-}" ]] && echo "$FAKE_RESTORE_LOCK_LINE" >>"$lock"
-elif [[ "$*" != *"nvim-treesitter"* ]]; then
+elif [[ "$*" == *"exists('"'"':Lazy'"'"')"* ]]; then
     [[ -n "${FAKE_STARTUP_LOCK_LINE:-}" ]] && echo "$FAKE_STARTUP_LOCK_LINE" >>"$lock"
 fi
 exit "${FAKE_NVIM_EXIT:-0}"'
@@ -278,6 +278,26 @@ t_nvim_release_unknown_arch() (
 )
 test_case "Neovim release build fails on an unsupported arch" t_nvim_release_unknown_arch
 
+# A failed download must not leave the temp dir behind. Runs in a separate
+# bash so set -e from bootstrap.sh applies (test_case runs tests in an if,
+# which disables it).
+t_nvim_release_cleans_up() (
+    local root="$STUB_ROOT/release-fail"
+    make_stub "$root/bin" curl 'exit 22'
+    # mktemp ignores TMPDIR on some systems, so stub it to use $root/tmp
+    make_stub "$root/bin" mktemp "mkdir -p '$root/tmp/dl' && echo '$root/tmp/dl'"
+    mkdir -p "$root/tmp" "$root/home"
+    local rc=0
+    PATH="$root/bin:$STUB_ROOT/uname:$PATH" FAKE_ARCH=x86_64 HOME="$root/home" \
+        bash -c 'source "$1"; DRY_RUN=0; install_nvim_release; echo "not reached"' _ "$BOOTSTRAP" \
+        >"$root/out" 2>&1 || rc=$?
+    [[ $rc -ne 0 ]] &&
+        ! grep -q "not reached" "$root/out" &&
+        [[ -z "$(ls -A "$root/tmp")" ]] &&
+        [[ ! -e "$root/home/.local/bin/nvim" ]]
+)
+test_case "Neovim release build removes its temp dir when the download fails" t_nvim_release_cleans_up
+
 t_apt_no_neovim_pkg() (
     source "$BOOTSTRAP"
     OS=debian PKG_MGR=apt DRY_RUN=1
@@ -358,12 +378,39 @@ t_sync_runs_restore() (
     # Startup rewrites the lockfile (as lazy.nvim does for itself on a fresh
     # machine); sync_nvim must put it back before Lazy! restore
     export FAKE_STARTUP_LOCK_LINE="lazy.nvim fresh clone"
-    sync_nvim >/dev/null 2>&1 &&
-        grep -q '+Lazy! restore' "$FAKE_NVIM_LOG" &&
-        grep -q "nvim-treesitter" "$FAKE_NVIM_LOG" &&
+    sync_nvim >/dev/null 2>&1 || return 1
+    local -a runs=()
+    local line
+    while IFS= read -r line; do runs+=("$line"); done <"$FAKE_NVIM_LOG"
+    # startup, restore, parser install
+    [[ ${#runs[@]} -eq 3 ]] &&
+        [[ "${runs[0]}" != *"Lazy! restore"* ]] &&
+        [[ "${runs[1]}" == *"+Lazy! restore"* ]] &&
+        [[ "${runs[2]}" == *"nvim-treesitter').install"* ]] &&
         cmp -s "$FAKE_NVIM_CONFIG/original.json" "$FAKE_NVIM_CONFIG/lazy-lock.json"
 )
 test_case "sync_nvim runs Lazy! restore and the parser install" t_sync_runs_restore
+
+# Loading the config starts background parser installs; the startup and
+# restore runs must wait for them before +qa, or half-finished installs
+# break the next one
+t_sync_waits_for_parsers() (
+    source "$BOOTSTRAP"
+    sync_test_setup settle
+    sync_nvim >/dev/null 2>&1 || return 1
+    local -a runs=()
+    local line
+    while IFS= read -r line; do runs+=("$line"); done <"$FAKE_NVIM_LOG"
+    local run
+    for run in "${runs[@]:0:2}"; do
+        # The wait must come after Lazy! restore and before +qa
+        [[ "$run" == *"Lazy! restore"*"pcall(require, 'nvim-treesitter')"* ]] ||
+            [[ "$run" != *"Lazy! restore"* && "$run" == *"pcall(require, 'nvim-treesitter')"* ]] ||
+            return 1
+        [[ "$run" == *"):wait(300000)"*"end +qa" ]] || return 1
+    done
+)
+test_case "sync_nvim waits for background parser installs before quitting" t_sync_waits_for_parsers
 
 t_sync_fails_on_nvim_error() (
     source "$BOOTSTRAP"
@@ -385,7 +432,7 @@ t_sync_fails_on_lock_mismatch() (
     [[ $rc -ne 0 ]] &&
         [[ "$output" == *"not at their lazy-lock.json commit"* ]] &&
         [[ "$output" == *'+   "b.nvim"'* ]] &&
-        ! grep -q "nvim-treesitter" "$FAKE_NVIM_LOG" &&
+        [[ $(wc -l <"$FAKE_NVIM_LOG") -eq 2 ]] &&
         cmp -s "$FAKE_NVIM_CONFIG/original.json" "$FAKE_NVIM_CONFIG/lazy-lock.json"
 )
 test_case "sync_nvim fails when a plugin is not at its locked commit" t_sync_fails_on_lock_mismatch

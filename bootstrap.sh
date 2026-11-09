@@ -246,8 +246,11 @@ install_nvim_release() {
         return 0
     fi
 
-    local tmp
-    tmp="$(mktemp -d)"
+    # Global so the EXIT trap can still see it if curl or tar fails and
+    # set -e exits the script
+    NVIM_RELEASE_TMP="$(mktemp -d)"
+    trap 'rm -rf "$NVIM_RELEASE_TMP"' EXIT
+    local tmp="$NVIM_RELEASE_TMP"
     run curl -fL "$url" -o "$tmp/nvim.tar.gz"
     run tar xzf "$tmp/nvim.tar.gz" -C "$tmp"
     run mkdir -p "$(dirname "$dest")" "$bin_dir"
@@ -255,6 +258,7 @@ install_nvim_release() {
     run mv "$tmp/$name" "$dest"
     run ln -sf "$dest/bin/nvim" "$bin_dir/nvim"
     rm -rf "$tmp"
+    trap - EXIT
 
     case ":$PATH:" in
         *":$bin_dir:"*) ;;
@@ -505,10 +509,24 @@ sync_nvim() {
     ts_install+=" end)"
     ts_install+=" if not (ok and res) then io.stderr:write('Treesitter parser install failed: ' .. (ok and 'see messages above' or tostring(res)) .. '\n') vim.cmd.cquit() end"
     local lazy_loaded="lua if vim.fn.exists(':Lazy') ~= 2 then io.stderr:write('lazy.nvim did not load\n') vim.cmd.cquit() end"
+    # Loading the config starts nvim-treesitter's background install of
+    # missing parsers (lua/plugins/parser.lua), and a restore that moves
+    # nvim-treesitter runs its :TSUpdate build. Quitting while those run
+    # leaves half-finished installs in the cache that break the next
+    # install, so wait for them first. update() and install() wait for an
+    # in-flight install of the same parser. Skipped if nvim-treesitter
+    # isn't loaded or isn't on main yet; failures are left to the strict
+    # parser step at the end.
+    local ts_settle="lua local ok, ts = pcall(require, 'nvim-treesitter')"
+    ts_settle+=" if ok and ts.install and ts.update and vim.g.treesitter_parsers then pcall(function()"
+    ts_settle+=" ts.update(vim.g.treesitter_parsers):wait(300000)"
+    ts_settle+=" ts.install(vim.g.treesitter_parsers):wait(300000)"
+    ts_settle+=" end) end"
 
     if [[ $DRY_RUN -eq 1 ]]; then
         dry "nvim --headless +qa (lazy.nvim installs missing plugins on startup)"
         dry "nvim --headless '+Lazy! restore' +qa"
+        dry "wait for nvim-treesitter's background parser installs before each +qa above"
         dry "check every plugin is at its lazy-lock.json commit, and fail otherwise"
         dry "nvim --headless \"+lua require('nvim-treesitter').install(vim.g.treesitter_parsers):wait(300000)\" +qa"
         return 0
@@ -532,7 +550,7 @@ sync_nvim() {
     # On a fresh machine lazy.nvim installs missing plugins on startup and
     # records its own freshly cloned commit in the lockfile. Put the
     # original lockfile back before restoring so lazy.nvim is restored too.
-    if ! nvim --headless "+$lazy_loaded" +qa; then
+    if ! nvim --headless "+$lazy_loaded" "+$ts_settle" +qa; then
         cp "$snapshot" "$lockfile"
         rm -f "$snapshot"
         error "Neovim plugin install failed (see output above)"
@@ -541,7 +559,7 @@ sync_nvim() {
     cp "$snapshot" "$lockfile"
 
     local restored=1
-    nvim --headless "+$lazy_loaded" "+Lazy! restore" +qa || restored=0
+    nvim --headless "+$lazy_loaded" "+Lazy! restore" "+$ts_settle" +qa || restored=0
     echo ""
     if [[ $restored -eq 1 ]] && ! cmp -s "$snapshot" "$lockfile"; then
         restored=0
