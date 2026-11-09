@@ -6,20 +6,23 @@ This configuration uses the **official JetBrains kotlin-lsp** for language serve
 
 ### 1. Install Required Tools
 
-```bash
-# Install ktfmt (formatter - removes unused imports, Android Studio style)
-brew install ktfmt
+Mason installs both tools the first time you start Neovim, so there is nothing to install by hand. kotlin-lsp is in `ensure_installed` in `lua/plugins/language-server.lua`, and ktfmt is in `vim.g.mason_tools` next to it. Watch the progress, or install them yourself, with:
 
-# Install kotlin-lsp (JetBrains official LSP) into ~/.local/opt/kotlin-lsp
-INSTALL_KOTLIN=1 ~/.config/nvim/bootstrap.sh
+```vim
+:Mason
+:MasonInstall kotlin-lsp ktfmt
 ```
 
-To install kotlin-lsp by hand, download the standalone archive for your platform from https://github.com/Kotlin/kotlin-lsp/releases and extract it so that `~/.local/opt/kotlin-lsp/kotlin-lsp.sh` exists. The macOS `.sit` file is a zip archive.
+kotlin-lsp (~370 MB download) ships its own Java runtime. ktfmt is a jar that Mason runs with `java` from PATH, so it needs Java 17+ there (bootstrap.sh installs JDK 21 for jdtls).
+
+If you used an older version of this config, kotlin-lsp was installed in `~/.local/opt/kotlin-lsp` and ktfmt with Homebrew. Neither is used any more: delete `~/.local/opt/kotlin-lsp`, and `brew uninstall ktfmt` if you don't need it outside Neovim.
 
 ### 2. Current Configuration
 
-- **LSP**: `kotlin-lsp` (JetBrains official) at `~/.local/opt/kotlin-lsp/kotlin-lsp.sh`
-- **Formatter**: `ktfmt` (Google's formatter, removes unused imports)
+- **LSP**: `kotlin-lsp` (JetBrains official), Mason package `kotlin-lsp`. Mason links its launcher into `~/.local/share/nvim/mason/bin` as `intellij-server`, which the config runs with `--stdio` and a per-project `--system-path` under `~/.cache/nvim/kotlin-lsp`
+- **Formatter**: `ktfmt` (removes unused imports), Mason package `ktfmt`, run with `--kotlinlang-style`
+
+Mason puts its bin directory first on PATH inside Neovim only, so `intellij-server` and `ktfmt` are not on your shell's PATH.
 
 ## Commands
 
@@ -62,8 +65,9 @@ or `<leader>cf`. Java and Rust do format on save via `conform.nvim`; see
 ## Troubleshooting
 
 ### kotlin-lsp not found
-Make sure it's installed at `~/.local/opt/kotlin-lsp/kotlin-lsp.sh`. Download from:
-https://github.com/Kotlin/kotlin-lsp/releases
+If opening a Kotlin file warns that spawning `intellij-server` failed, Mason has not finished installing kotlin-lsp yet. Check `:Mason` (or `:MasonLog` if the install failed), then reopen the file once it is installed.
+
+On Linux arm64 the Mason registry's kotlin-lsp entry (263.7084.0) has a typo in its `bin` path (`{{{ version ...`), so the install fails there. Until it is fixed, download `kotlin-server-<version>-aarch64.tar.gz` from https://github.com/Kotlin/kotlin-lsp/releases and put its `bin/intellij-server` on your PATH; the config runs whichever `intellij-server` it finds.
 
 ### LSP not attaching
 ```vim

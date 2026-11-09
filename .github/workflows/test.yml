@@ -15,7 +15,6 @@ permissions:
   contents: read
 
 env:
-  KOTLIN_LSP_VERSION: 263.7084.0
   TREE_SITTER_VERSION: v0.27.2
   SELENE_VERSION: 0.32.0
   LUALS_VERSION: 3.19.2
@@ -105,24 +104,7 @@ jobs:
           mkdir -p ~/.config
           ln -s "$GITHUB_WORKSPACE" ~/.config/nvim
 
-      # kotlin-lsp is not in Mason. The config only registers it when the
-      # launcher exists at ~/.local/opt/kotlin-lsp/kotlin-lsp.sh. The archive
-      # is ~370MB, so cache the extracted install per version.
-      - name: Cache kotlin-lsp
-        id: kotlin-lsp-cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.local/opt/kotlin-lsp
-          key: kotlin-lsp-${{ runner.os }}-${{ env.KOTLIN_LSP_VERSION }}
-
-      - name: Install kotlin-lsp
-        if: steps.kotlin-lsp-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p ~/.local/opt/kotlin-lsp
-          curl -fsSL "https://download.jetbrains.com/language-server/kotlin-server/${KOTLIN_LSP_VERSION}/kotlin-server-${KOTLIN_LSP_VERSION}.tar.gz" \
-            | tar xz --strip-components=1 -C ~/.local/opt/kotlin-lsp
-          chmod +x ~/.local/opt/kotlin-lsp/kotlin-lsp.sh
-
+      # kotlin-lsp is installed by Mason in the warm-up step below
       - name: Restore plugins from lazy-lock.json
         # Loading the config starts nvim-treesitter's background parser
         # installs. Wait for them before quitting: +qa alone leaves
@@ -153,8 +135,10 @@ jobs:
           && git -C ~/.local/share/nvim/lazy/nvim-treesitter log --oneline -1
 
       # Let Mason and nvim-treesitter finish their background installs once,
-      # so each test's fresh nvim doesn't restart and abandon them.
-      - name: Warm up (Mason servers, treesitter parsers)
+      # so each test's fresh nvim doesn't restart and abandon them. This is
+      # also where Mason installs the servers (kotlin-lsp included) and the
+      # formatters in vim.g.mason_tools.
+      - name: Warm up (Mason servers and formatters, treesitter parsers)
         timeout-minutes: 10
         run: nvim --headless -c "luafile .github/scripts/ci_warmup.lua"
 

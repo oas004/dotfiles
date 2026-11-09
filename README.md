@@ -5,9 +5,9 @@ A modern Neovim configuration written in Lua with LSP support for Kotlin/Android
 ## Features
 
 - **Plugin Management**: lazy.nvim for fast, lazy-loading plugins
-- **LSP Support**: Kotlin (kotlin-lsp, installed separately), Rust (rust-analyzer from rustup), and Java, C/C++, Haskell, Python, Lua and Gradle via mason.nvim
+- **LSP Support**: Rust (rust-analyzer from rustup), and Kotlin (JetBrains kotlin-lsp), Java, C/C++, Haskell, Python, Lua and Gradle via mason.nvim
 - **WebAssembly**: treesitter highlighting for WIT files; bootstrap.sh installs the wasm-tools CLI and the wasm32 Rust targets
-- **Autoformatting**: conform.nvim with ktfmt for Kotlin, rustfmt for Rust
+- **Autoformatting**: conform.nvim with ktfmt for Kotlin, google-java-format for Java (both installed by Mason), rustfmt for Rust
 - **Fuzzy Finding**: Telescope.nvim with ripgrep backend
 - **Theme**: Nordic colorscheme with optimized UI
 
@@ -27,9 +27,11 @@ The bootstrap script installs all dependencies including Neovim, the Rust toolch
 
 On Debian/Ubuntu, apt's `neovim` package is older than 0.11, so the script installs the official release build instead: it extracts `nvim-linux-x86_64.tar.gz` (or `nvim-linux-arm64.tar.gz`) from https://github.com/neovim/neovim/releases into `~/.local/opt/nvim` and symlinks `~/.local/bin/nvim` to it. Make sure `~/.local/bin` is on your PATH. Set `NVIM_RELEASE` to pick a release tag (default `stable`, e.g. `NVIM_RELEASE=v0.12.0`).
 
-jdtls needs Java 21+ and uses `JAVA_HOME` if it is set, otherwise `java` on PATH; gradle_ls uses `java` on PATH. If that is an older Java, the script installs JDK 21 (or, on macOS, finds one that is already installed) and prints the `JAVA_HOME` and `PATH` lines to add to your shell profile. Homebrew's `openjdk@21` is keg-only, so on macOS you need to set them either way.
+jdtls needs Java 21+ and uses `JAVA_HOME` if it is set, otherwise `java` on PATH; gradle_ls and ktfmt use `java` on PATH. If that is an older Java, the script installs JDK 21 (or, on macOS, finds one that is already installed) and prints the `JAVA_HOME` and `PATH` lines to add to your shell profile. Homebrew's `openjdk@21` is keg-only, so on macOS you need to set them either way.
 
-The script does not install ghcup, which Mason uses to install haskell-language-server. It warns if ghcup is missing; to use Haskell, install ghcup and GHC with `curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh`. It also doesn't install google-java-format, which conform uses to format Java on save (`:MasonInstall google-java-format`); without it, Java formatting falls back to jdtls.
+The script does not install ghcup, which Mason uses to install haskell-language-server. It warns if ghcup is missing; to use Haskell, install ghcup and GHC with `curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh`.
+
+The language servers (kotlin-lsp included) and the ktfmt and google-java-format formatters are installed by Mason, not by the script. Mason starts installing whatever is missing the first time you open Neovim; `:Mason` shows the progress. Mason's bin directory (`~/.local/share/nvim/mason/bin`) is put on PATH inside Neovim only, so these tools are not on your shell's PATH.
 
 ### Manual Setup
 
@@ -41,10 +43,10 @@ The script does not install ghcup, which Mason uses to install haskell-language-
 - `ripgrep` (for telescope fuzzy finder)
 - [`tree-sitter` CLI](https://github.com/tree-sitter/tree-sitter/blob/master/crates/cli/README.md) 0.26.1+ (not the npm package), plus `curl`, `tar` and a C compiler, for installing treesitter parsers
 - `unzip` and `gzip`, which Mason uses along with `curl`, `git` and `tar` to download and extract servers
-- JDK 21+ for jdtls and gradle_ls, as `java` on PATH (and `JAVA_HOME`, if you set it)
+- JDK 21+ for jdtls, gradle_ls and ktfmt, as `java` on PATH (and `JAVA_HOME`, if you set it)
 - `python3` with the `venv` module (`python3-venv` on Debian/Ubuntu), for jedi-language-server and the jdtls launcher
 - [ghcup](https://www.haskell.org/ghcup/) and GHC, for haskell-language-server (optional)
-- `jq` (json formatter) and `google-java-format` (Java formatter, optional; without it Java formatting falls back to jdtls)
+- `jq` (json formatter)
 
 #### macOS
 ```bash
@@ -90,7 +92,7 @@ sudo dnf install neovim ripgrep tree-sitter-cli gcc unzip jq java-21-openjdk-dev
    nvim
    ```
 
-4. **Install LSP servers and tools**:
+4. **Let Mason install the LSP servers and formatters** (kotlin-lsp, ktfmt and google-java-format included). This starts on its own; follow it with:
    ```
    :Mason
    ```
@@ -116,17 +118,7 @@ cargo install wasm-tools wit-bindgen-cli
 
 ### Kotlin Development
 
-For Kotlin support, install the JetBrains official kotlin-lsp:
-
-```bash
-# Install ktfmt (formatter)
-brew install ktfmt
-
-# Install kotlin-lsp into ~/.local/opt/kotlin-lsp
-INSTALL_KOTLIN=1 ~/.config/nvim/bootstrap.sh
-```
-
-To install kotlin-lsp by hand, download the standalone archive for your platform from the [kotlin-lsp releases page](https://github.com/Kotlin/kotlin-lsp/releases) and extract it so that `~/.local/opt/kotlin-lsp/kotlin-lsp.sh` exists. The macOS `.sit` file is a zip archive.
+Mason installs the JetBrains kotlin-lsp and the ktfmt formatter, so there is nothing to install by hand. kotlin-lsp (~370 MB) ships its own Java runtime; ktfmt runs on `java` from PATH (Java 17+).
 
 See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 

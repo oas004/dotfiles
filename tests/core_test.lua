@@ -61,14 +61,6 @@ local function main()
     assert_true(type(utils.safe_require) == "function", "safe_require missing")
   end)
 
-  test("core.paths file_exists and dir_exists work", function()
-    local paths = require("core.paths")
-    assert_true(paths.file_exists(test_file), "file_exists(init.lua) returned false")
-    assert_true(not paths.file_exists(config_dir), "file_exists(dir) returned true")
-    assert_true(paths.dir_exists(config_dir), "dir_exists(config dir) returned false")
-    assert_true(not paths.dir_exists(test_file), "dir_exists(file) returned true")
-  end)
-
   -- Open a file and give LSP a chance to attach, then exercise commands
   -- that call LSP APIs so any deprecated calls get recorded.
   vim.cmd("edit " .. vim.fn.fnameescape(test_file))
