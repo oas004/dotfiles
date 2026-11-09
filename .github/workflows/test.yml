@@ -103,7 +103,14 @@ jobs:
           chmod +x ~/.local/opt/kotlin-lsp/kotlin-lsp.sh
 
       - name: Restore plugins from lazy-lock.json
-        run: nvim --headless "+Lazy! restore" +qa
+        # Loading the config starts nvim-treesitter's background parser
+        # installs. Wait for them before quitting: +qa alone leaves
+        # half-finished installs in ~/.cache/nvim that the warm-up then
+        # collides with (ENOTEMPTY renames, dlopen failures).
+        run: >-
+          nvim --headless "+Lazy! restore"
+          "+lua require('nvim-treesitter').install(vim.g.treesitter_parsers):wait(300000)"
+          +qa
 
       # Let Mason and nvim-treesitter finish their background installs once,
       # so each test's fresh nvim doesn't restart and abandon them.
