@@ -31,3 +31,6 @@ node_modules/
 # Logs
 *.log
 npm-debug.log*
+
+# Written into the config dir at runtime
+java-prefs.json

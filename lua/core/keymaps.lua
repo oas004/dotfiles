@@ -36,8 +36,8 @@ safe_set('n', 'gl', function()
   vim.diagnostic.open_float(nil, { scope = 'line', focus = false, border = 'rounded' })
 end, { desc = 'Line diagnostics' })
 
-safe_set('n', '<leader>e', vim.diagnostic.goto_next, { desc = 'Next diagnostic' })
-safe_set('n', '<leader>E', vim.diagnostic.goto_prev, { desc = 'Prev diagnostic' })
+safe_set('n', '<leader>e', function() vim.diagnostic.jump({ count = 1, float = true }) end, { desc = 'Next diagnostic' })
+safe_set('n', '<leader>E', function() vim.diagnostic.jump({ count = -1, float = true }) end, { desc = 'Prev diagnostic' })
 
 -- LSP navigation (fallback if Cmd keys don't work in terminal)
 safe_set('n', 'gr', function()
@@ -48,11 +48,6 @@ safe_set('n', 'gd', vim.lsp.buf.definition,      { desc = 'LSP: Go to definition
 safe_set('n', 'gD', vim.lsp.buf.declaration,     { desc = 'LSP: Go to declaration' })
 safe_set('n', 'gI', vim.lsp.buf.implementation,  { desc = 'LSP: Go to implementation' })
 safe_set('n', 'gy', vim.lsp.buf.type_definition, { desc = 'LSP: Go to type' })
-
--- Format current buffer
-safe_set('n', '<leader>fm', function()
-  vim.lsp.buf.format({ async = false, timeout_ms = 5000 })
-end, { desc = 'Format buffer' })
 
 -- Create new file in current file's directory
 safe_set('n', '<Leader>ne', function()
