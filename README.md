@@ -187,7 +187,8 @@ The leader key is `<Space>`.
 | `:Mason` | Open LSP/formatter installer |
 | `:LspInfo` | Check LSP status |
 | `:LspLog` | View LSP logs |
-| `:KotlinFormat` | Manually format Kotlin file |
+| `:KotlinFormat` | Format Kotlin file with ktfmt (no LSP fallback) |
+| `:JavaFormat` | Format Java file with google-java-format (no LSP fallback) |
 | `:CleanupLSPCache` | Clean LSP caches (requires restart) |
 | `:CleanupLSPLogs` | Clean log files |
 | `:checkhealth` | Diagnose nvim setup issues |
@@ -205,7 +206,7 @@ The leader key is `<Space>`.
 │   │   └── utils.lua        # Helper functions
 │   └── plugins/
 │       ├── language-server.lua  # LSP configuration
-│       ├── kotlin-formatter.lua # ktfmt setup
+│       ├── formatting.lua       # conform.nvim (ktfmt, google-java-format, rustfmt)
 │       ├── fuzzy-finder.lua     # Telescope
 │       ├── file-explorer.lua    # nvim-tree
 │       ├── parser.lua           # Treesitter
