@@ -241,19 +241,23 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
     assert_not_nil(vim.tbl_get(client.config.capabilities, "textDocument", "completion", "completionItem", "resolveSupport"),
       "running client lacks cmp capabilities")
 
-    local buf_maps = {}
-    for _, m in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "n")) do buf_maps[m.lhs] = true end
-    local leader = vim.g.mapleader or "\\"
-    for _, lhs in ipairs({ leader .. "ca", "gs", "<F2>", "<F4>" }) do
-      assert_true(buf_maps[lhs], lhs .. " not mapped in buffer")
+    -- maparg() on the current buffer prefers buffer-local maps and normalizes
+    -- keys like <D-A-b>, so .buffer == 1 means the map is buffer-local
+    assert_eq(vim.api.nvim_get_current_buf(), bufnr, "current buffer")
+    local function buf_map(mode, lhs)
+      local m = vim.fn.maparg(lhs, mode, false, true)
+      return m.buffer == 1 and m or nil
     end
-    -- gi/go would shadow builtins, <F3> would bypass conform
-    for _, lhs in ipairs({ "gi", "go", "<F3>" }) do
-      assert_true(not buf_maps[lhs], lhs .. " should not be mapped in buffer")
+    for _, lhs in ipairs({ "<leader>ca", "gs", "<F2>", "<F4>", "gd", "gD", "gI", "gy",
+                           "<D-b>", "<D-A-b>", "<A-F7>", "<S-F6>", "<A-CR>" }) do
+      assert_true(buf_map("n", lhs), lhs .. " not mapped in buffer")
     end
-    -- Global maps from core/keymaps.lua must not be shadowed
-    for _, lhs in ipairs({ "gd", "gD", "gr", "gl" }) do
-      assert_true(not buf_maps[lhs], lhs .. " shadowed by a buffer map")
+    assert_true(buf_map("x", "<F4>"), "<F4> not mapped in visual mode")
+    assert_eq(buf_map("n", "gd").desc, "LSP: Go to definition", "gd desc")
+    -- gi/go would shadow builtins, <F3> would bypass conform, gr is left to
+    -- the built-in grr/grn/gra/gri defaults, gl is a global diagnostic map
+    for _, lhs in ipairs({ "gi", "go", "<F3>", "gr", "gl" }) do
+      assert_true(not buf_map("n", lhs), lhs .. " should not be mapped in buffer")
     end
     -- Format-on-save is only for hls and clangd
     local ok = pcall(vim.api.nvim_get_autocmds, { group = "user_lsp_format_" .. bufnr })

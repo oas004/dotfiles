@@ -121,7 +121,10 @@ The leader key is `<Space>`.
 | `gd` | Go to definition |
 | `gD` | Go to declaration |
 | `gI` | Go to implementation |
-| `gr` | Find references/usages |
+| `grr` | Find references/usages |
+| `grn` | Rename symbol |
+| `gra` | Code actions |
+| `gri` | Go to implementation |
 | `gy` | Go to type definition |
 | `K` | Show hover documentation |
 
@@ -163,8 +166,6 @@ The leader key is `<Space>`.
 
 | Keys | Action |
 |------|--------|
-| `Y` | Yank to end of line |
-| `j` / `k` | Navigate by visual lines (wrap-aware) |
 | `<Esc>` | Clear search highlighting |
 | `<C-s>` | Save file |
 | `jj` or `jk` | Exit insert mode |
