@@ -23,7 +23,9 @@ git clone https://github.com/oas004/dotfiles.git ~/.config/nvim
 ~/.config/nvim/bootstrap.sh
 ```
 
-The bootstrap script installs all dependencies including Neovim, Rust toolchain, wasm-tools, and syncs plugins.
+The bootstrap script installs all dependencies including Neovim, Rust toolchain, wasm-tools, and syncs plugins. Plugins are installed at the versions in `lazy-lock.json` (`:Lazy! restore`), and the script fails if a plugin or treesitter parser can't be installed. It also fails if an existing Neovim is older than 0.11.
+
+On Debian/Ubuntu, apt's `neovim` package is older than 0.11, so the script installs the official release build instead: it extracts `nvim-linux-x86_64.tar.gz` (or `nvim-linux-arm64.tar.gz`) from https://github.com/neovim/neovim/releases into `~/.local/opt/nvim` and symlinks `~/.local/bin/nvim` to it. Make sure `~/.local/bin` is on your PATH. Set `NVIM_RELEASE` to pick a release tag (default `stable`, e.g. `NVIM_RELEASE=v0.12.0`).
 
 ### Manual Setup
 
@@ -42,8 +44,15 @@ brew install neovim ripgrep tree-sitter-cli
 
 #### Ubuntu/Debian
 ```bash
-sudo apt install neovim ripgrep build-essential
+sudo apt-get update
+sudo apt-get install ripgrep build-essential curl
 cargo install --locked tree-sitter-cli  # apt's tree-sitter-cli is usually too old
+# apt's neovim is older than 0.11, so use the release build
+# (on arm64, replace nvim-linux-x86_64 with nvim-linux-arm64)
+mkdir -p ~/.local/opt ~/.local/bin
+curl -fL https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.tar.gz | tar xz -C ~/.local/opt
+mv ~/.local/opt/nvim-linux-x86_64 ~/.local/opt/nvim
+ln -sf ~/.local/opt/nvim/bin/nvim ~/.local/bin/nvim
 ```
 
 #### Fedora
