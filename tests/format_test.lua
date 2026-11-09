@@ -176,7 +176,7 @@ test(":KotlinFormat loads conform and formats", function()
   local script = vim.fn.tempname() .. ".lua"
   vim.fn.writefile(vim.split(kotlin_format_child, "\n"), script)
   local proc = vim.system({ vim.v.progpath, "--headless", "-c", "luafile " .. vim.fn.fnameescape(script) },
-    { text = true, stdin = false }):wait(30000)
+    { text = true }):wait(30000)
   vim.fn.delete(script)
   local ok, res = pcall(vim.json.decode, proc.stdout or "")
   assert_true(ok and type(res) == "table", "child nvim printed no result (exit " .. tostring(proc.code) .. "): "

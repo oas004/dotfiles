@@ -92,10 +92,12 @@ return {
   -- LSP: native vim.lsp.config, servers installed by mason, enabled explicitly below
   {
     "neovim/nvim-lspconfig",
-    -- Not lazy-loaded: config also runs mason.setup(), which defines :Mason
-    -- and puts Mason's bin directory on PATH for the servers and for tools
-    -- installed with :MasonInstall (e.g. google-java-format for conform).
-    -- Mason's README advises against deferring its setup.
+    -- Not lazy-loaded. Loading on BufReadPre/BufNewFile would still attach
+    -- servers to the buffer being opened, but config also runs mason.setup(),
+    -- which defines :Mason and puts Mason's bin directory on PATH for the
+    -- servers and for the formatters conform runs (vim.g.mason_tools below),
+    -- and Mason's README advises against deferring that. :LspInfo and
+    -- :LspRestart also come from this plugin.
     lazy = false,
     dependencies = {
       { "hrsh7th/cmp-nvim-lsp" },
