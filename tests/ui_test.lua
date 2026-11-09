@@ -1,5 +1,6 @@
 -- Editor/UI tests: statusline, colorscheme, diagnostic keymaps, leader map
--- prefixes, file explorer, telescope config
+-- prefixes, file explorer, telescope config and pickers, plugin pins vs
+-- lazy-lock.json
 -- Run with: nvim --headless -c "luafile tests/ui_test.lua"
 
 local failed = 0
@@ -180,6 +181,33 @@ test("<leader>L opens nvim-tree on the current file", function()
 end)
 
 -- Telescope
+
+-- Record every warning and error from here on, including deprecations
+-- raised by plugins. Core deprecations go through vim._truncated_echo_once,
+-- which only echoes the first one per session, and plugin deprecations
+-- through vim.notify_once, so wrap those to see repeats too.
+local warnings = {}
+local function record(msg, level)
+  if level == nil or level >= vim.log.levels.WARN then
+    warnings[tostring(msg)] = true
+  end
+end
+local orig_notify, orig_notify_once, orig_echo_once = vim.notify, vim.notify_once, vim._truncated_echo_once
+vim.notify = function(msg, level, opts)
+  record(msg, level or vim.log.levels.INFO)
+  return orig_notify(msg, level, opts)
+end
+vim.notify_once = function(msg, level, opts)
+  record(msg, level or vim.log.levels.INFO)
+  return orig_notify_once(msg, level, opts)
+end
+if orig_echo_once then
+  vim._truncated_echo_once = function(msg)
+    record(msg)
+    return orig_echo_once(msg)
+  end
+end
+
 require("lazy").load({ plugins = { "telescope.nvim" } })
 
 test("telescope-fzf-native loads with telescope", function()
@@ -222,6 +250,133 @@ test("find_files picker opens and closes", function()
   local prompt = vim.api.nvim_get_current_buf()
   assert_true(vim.bo[prompt].filetype == "TelescopePrompt", "picker did not open")
   require("telescope.actions").close(prompt)
+end)
+
+-- In-process LSP server that only answers document and workspace symbol
+-- requests, so the LSP pickers have something to show without a real server.
+local function fake_symbol_server(uri)
+  local range = { start = { line = 0, character = 0 }, ["end"] = { line = 0, character = 5 } }
+  return function(dispatchers)
+    local closing = false
+    local next_id = 0
+    return {
+      request = function(method, _, callback)
+        next_id = next_id + 1
+        local result = vim.NIL
+        if method == "initialize" then
+          result = { capabilities = { documentSymbolProvider = true, workspaceSymbolProvider = true } }
+        elseif method == "textDocument/documentSymbol" then
+          result = { { name = "alpha", kind = 12, range = range, selectionRange = range } }
+        elseif method == "workspace/symbol" then
+          result = { { name = "alpha", kind = 12, location = { uri = uri, range = range } } }
+        end
+        vim.schedule(function() callback(nil, result) end)
+        return true, next_id
+      end,
+      notify = function(method)
+        if method == "exit" then dispatchers.on_exit(0, 15) end
+        return true
+      end,
+      is_closing = function() return closing end,
+      terminate = function() closing = true end,
+    }
+  end
+end
+
+test("telescope pickers open without warnings, errors or deprecations", function()
+  local file = vim.fn.tempname() .. ".txt"
+  vim.fn.writefile({ "alpha beta", "gamma" }, file)
+  vim.cmd("edit " .. vim.fn.fnameescape(file))
+  local buf = vim.api.nvim_get_current_buf()
+  local client_id = vim.lsp.start({
+    name = "ui_test_symbols",
+    cmd = fake_symbol_server(vim.uri_from_fname(file)),
+    root_dir = vim.fn.fnamemodify(file, ":h"),
+  }, { bufnr = buf })
+  assert_not_nil(client_id, "fake LSP client did not start")
+  vim.wait(2000, function()
+    local client = vim.lsp.get_client_by_id(client_id)
+    return client ~= nil and client.initialized
+  end)
+
+  vim.cmd("messages clear")
+  vim.v.errmsg = ""
+  local problems = {}
+  local pickers = {
+    { "<leader>p", "find_files" },
+    { "<leader>f", "live_grep" },
+    { "<leader>o", "buffers" },
+    { "<leader>r", "oldfiles" },
+    { "<leader>s", "lsp_document_symbols" },
+    { "<leader>S", "lsp_workspace_symbols" },
+  }
+  for _, p in ipairs(pickers) do
+    local lhs, picker = p[1], p[2]
+    vim.api.nvim_set_current_buf(buf)
+    local m = find_keymap("n", lhs)
+    if not (m and m.callback) then
+      table.insert(problems, lhs .. " has no callback")
+    else
+      m.callback()
+      local opened = vim.wait(3000, function() return vim.bo.filetype == "TelescopePrompt" end)
+      -- Let the finder and previewer run
+      vim.wait(300)
+      if not opened then
+        table.insert(problems, picker .. " (" .. lhs .. ") did not open")
+      else
+        require("telescope.actions").close(vim.api.nvim_get_current_buf())
+      end
+    end
+  end
+
+  vim.lsp.get_client_by_id(client_id):stop(true)
+  vim.wait(200)
+  for msg in pairs(warnings) do
+    table.insert(problems, "warning: " .. msg)
+  end
+  for line in vim.fn.execute("messages"):gmatch("[^\n]+") do
+    if line:find("Error", 1, true) or line:find("%f[%w]E%d+:") or line:find("deprecated", 1, true) then
+      table.insert(problems, "message: " .. line)
+    end
+  end
+  if vim.v.errmsg ~= "" then
+    table.insert(problems, "v:errmsg: " .. vim.v.errmsg)
+  end
+  table.sort(problems)
+  assert_true(#problems == 0, table.concat(problems, "\n  "))
+end)
+
+-- lazy installs and restores the commit in lazy-lock.json, not the tag or
+-- commit in the spec, so a pin that disagrees with the lockfile is ignored.
+test("plugins pinned by tag or commit are locked at that pin", function()
+  local Config = require("lazy.core.config")
+  local lock = vim.json.decode(table.concat(vim.fn.readfile(Config.options.lockfile), "\n"))
+  local problems = {}
+  for name, plugin in pairs(Config.plugins) do
+    local entry = lock[name]
+    if (plugin.tag or plugin.commit) and not plugin._.is_local then
+      if not entry then
+        table.insert(problems, name .. " has no lazy-lock.json entry")
+      elseif plugin.commit then
+        if entry.commit:sub(1, #plugin.commit) ~= plugin.commit then
+          table.insert(problems, ("%s: spec commit %s, lazy-lock.json %s"):format(name, plugin.commit, entry.commit))
+        end
+      else
+        local res = vim.system(
+          { "git", "rev-parse", "--verify", "--quiet", "refs/tags/" .. plugin.tag .. "^{commit}" },
+          { cwd = plugin.dir, text = true }
+        ):wait()
+        local tag_commit = vim.trim(res.stdout or "")
+        if res.code ~= 0 or tag_commit == "" then
+          table.insert(problems, ("%s: tag %s not found in %s"):format(name, plugin.tag, plugin.dir))
+        elseif tag_commit ~= entry.commit then
+          table.insert(problems, ("%s: tag %s is %s, lazy-lock.json %s"):format(name, plugin.tag, tag_commit, entry.commit))
+        end
+      end
+    end
+  end
+  table.sort(problems)
+  assert_true(#problems == 0, table.concat(problems, "\n  "))
 end)
 
 -- Summary
