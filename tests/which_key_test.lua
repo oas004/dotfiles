@@ -52,12 +52,12 @@ local function assert_no_leader_prefix_collisions(buf)
   assert_true(#collisions == 0, table.concat(collisions, ", "))
 end
 
---- which-key's tree node for lhs in normal mode for the current buffer,
---- rebuilt from the current keymaps.
-local function wk_node(lhs)
-  local mode = require("which-key.buf").get({ mode = "n", update = true })
-  assert_true(mode ~= nil, "which-key has no tree for the current buffer")
-  return mode.tree.root:find(require("which-key.util").keys(lhs, { norm = true }))
+--- which-key's tree node for lhs in mode (default normal) for the current
+--- buffer, rebuilt from the current keymaps.
+local function wk_node(lhs, mode)
+  local m = require("which-key.buf").get({ mode = mode or "n", update = true })
+  assert_true(m ~= nil, "which-key has no tree for the current buffer")
+  return m.tree.root:find(require("which-key.util").keys(lhs, { norm = true }))
 end
 
 out("\n=== which-key Tests ===\n")
@@ -118,28 +118,27 @@ local function main()
   end)
 
   test("visual mode groups for <leader>a and <leader>y", function()
-    local mode = require("which-key.buf").get({ mode = "x", update = true })
-    local util = require("which-key.util")
     for lhs, name in pairs({ ["<leader>a"] = "ai (Claude)", ["<leader>y"] = "yank" }) do
-      local node = mode.tree.root:find(util.keys(lhs, { norm = true }))
+      local node = wk_node(lhs, "x")
       assert_true(node and node:is_group() and node.desc == name, lhs .. " group missing in visual mode")
     end
   end)
 
-  test("<leader>h group is hidden while nothing is mapped under it", function()
-    if #vim.tbl_filter(function(m)
-      return vim.startswith(vim.keycode(m.lhs), vim.keycode("<leader>h"))
-    end, vim.api.nvim_get_keymap("n")) > 0 then
-      return -- something (gitsigns) maps <leader>h*, so the group is real
+  -- README.md is tracked in this repo, so gitsigns attaches to it
+  test("<leader>h is the git hunks group where gitsigns is attached", function()
+    vim.wait(5000, function() return vim.fn.maparg("<leader>hs", "n") ~= "" end)
+    assert_true(vim.fn.maparg("<leader>hs", "n") ~= "", "gitsigns did not attach to README.md")
+    for _, mode in ipairs({ "n", "x" }) do
+      local node = wk_node("<leader>h", mode)
+      assert_true(node and node:is_group() and node.desc == "git hunks", "<leader>h group missing in mode " .. mode)
     end
-    assert_true(wk_node("<leader>h") == nil, "empty <leader>h group is shown")
   end)
 
-  test("<leader>h group shows up once a hunk map exists", function()
-    vim.keymap.set("n", "<leader>hx", "<Cmd>echo<CR>", { buffer = 0, desc = "test hunk map" })
-    local node = wk_node("<leader>h")
-    vim.keymap.del("n", "<leader>hx", { buffer = 0 })
-    assert_true(node and node:is_group() and node.desc == "git hunks", "<leader>h group missing")
+  test("<leader>h group is hidden where nothing is mapped under it", function()
+    vim.cmd("enew")
+    assert_true(vim.fn.maparg("<leader>hs", "n") == "", "<leader>hs mapped in a scratch buffer")
+    assert_true(wk_node("<leader>h") == nil, "empty <leader>h group is shown")
+    vim.cmd("buffer README.md")
   end)
 
   test("<leader>? opens which-key for buffer-local maps", function()
