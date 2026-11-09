@@ -183,10 +183,11 @@ local claude_commands = {
   "ClaudeCodeDiffDeny", "ClaudeCodeCloseAllDiffs",
 }
 
-test("claudecode.nvim is lazy (not loaded at startup)", function()
+test("claudecode.nvim loads on VeryLazy (server up without a keypress)", function()
   local plugin = require("lazy.core.config").plugins["claudecode.nvim"]
   assert_true(plugin ~= nil, "claudecode.nvim spec missing")
-  assert_true(not plugin._.loaded, "claudecode.nvim loaded at startup")
+  local events = type(plugin.event) == "table" and plugin.event or { plugin.event }
+  assert_true(vim.tbl_contains(events, "VeryLazy"), "claudecode.nvim not loaded on VeryLazy: " .. vim.inspect(plugin.event))
 end)
 
 test("claudecode.nvim loads and registers its commands", function()

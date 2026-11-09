@@ -187,7 +187,7 @@ Files changed on disk by an agent are reloaded automatically (`autoread` plus `:
 
 `<leader>yr` copies a code reference to the system clipboard for pasting into a prompt: `path:LINE` in normal mode, `path:START-END` for a visual selection. The path is relative to the cwd (or the git root if the file is outside the cwd).
 
-[claudecode.nvim](https://github.com/coder/claudecode.nvim) connects Neovim to Claude Code: Claude sees your current selection and diagnostics and shows proposed edits as diffs in Neovim. It needs the `claude` CLI on your `PATH` and loads on first use of a key or `:ClaudeCode*` command below. To attach a Claude Code session started in another terminal, run `:ClaudeCodeStart` first, then `/ide` in Claude.
+[claudecode.nvim](https://github.com/coder/claudecode.nvim) connects Neovim to Claude Code: Claude sees your current selection and diagnostics and shows proposed edits as diffs in Neovim. It needs the `claude` CLI on your `PATH` and starts right after Neovim does, so a Claude Code session in another terminal can attach with `/ide`.
 
 | Keys | Action |
 |------|--------|

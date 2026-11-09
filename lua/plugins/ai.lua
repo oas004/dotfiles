@@ -7,22 +7,9 @@ return {
         "coder/claudecode.nvim",
         dependencies = { "folke/snacks.nvim" },
         config = true,
-        cmd = {
-            "ClaudeCode",
-            "ClaudeCodeFocus",
-            "ClaudeCodeSelectModel",
-            "ClaudeCodeAdd",
-            "ClaudeCodeSend",
-            "ClaudeCodeTreeAdd",
-            "ClaudeCodeStatus",
-            "ClaudeCodeStart",
-            "ClaudeCodeStop",
-            "ClaudeCodeOpen",
-            "ClaudeCodeClose",
-            "ClaudeCodeDiffAccept",
-            "ClaudeCodeDiffDeny",
-            "ClaudeCodeCloseAllDiffs",
-        },
+        -- Load right after startup (not on first use) so the IDE server is
+        -- already running when `/ide` is run from a separate Claude session
+        event = "VeryLazy",
         keys = {
             { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Claude: Toggle terminal" },
             { "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Claude: Focus terminal" },
