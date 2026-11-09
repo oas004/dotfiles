@@ -1,13 +1,18 @@
 -- CI warm-up, run once before tests/run.sh:
 --   nvim --headless -c "luafile .github/scripts/ci_warmup.lua"
 --
--- Starting the config kicks off background work: Mason installing the
--- servers in mason-lspconfig's ensure_installed, nvim-treesitter compiling
+-- Starting the config kicks off background work: nvim-treesitter compiling
 -- missing parsers, the lazy.nvim update checker. Each test starts a fresh
 -- nvim that would restart and then abandon that work, so wait here until
--- it settles. "Settled" means nvim has had no child processes for
--- WARMUP_QUIET_MS. The script always exits 0; install failures show up in
--- the report and in the tests that need the missing tool.
+-- it settles.
+--
+-- mason-lspconfig skips ensure_installed in headless mode, so without help
+-- CI would have no language servers. This script runs mason-lspconfig's own
+-- ensure_installed step explicitly (set WARMUP_MASON=0 to skip that).
+--
+-- "Settled" means no Mason package is installing and nvim has had no child
+-- processes for WARMUP_QUIET_MS. The script always exits 0; install
+-- failures show up in the report and in the tests that need the tool.
 
 local quiet_ms = tonumber(vim.env.WARMUP_QUIET_MS) or 20000
 local max_ms = tonumber(vim.env.WARMUP_MAX_MS) or 900000
@@ -20,14 +25,49 @@ local function out(s)
   io.stdout:write(s .. "\n")
 end
 
+local ok_registry, registry = pcall(require, "mason-registry")
+local ensure_installed = {}
+
+if ok_registry and vim.env.WARMUP_MASON ~= "0" then
+  local ok_settings, settings = pcall(require, "mason-lspconfig.settings")
+  if ok_settings then
+    ensure_installed = settings.current.ensure_installed or {}
+  end
+  registry.refresh(vim.schedule_wrap(function()
+    local ok, err = pcall(require("mason-lspconfig.features.ensure_installed"))
+    if not ok then
+      out("could not run mason-lspconfig ensure_installed: " .. tostring(err))
+    end
+  end))
+end
+
+local function mason_busy()
+  if not ok_registry then
+    return false
+  end
+  for _, pkg in ipairs(registry.get_all_packages()) do
+    if pkg:is_installing() then
+      return true
+    end
+  end
+  return false
+end
+
 local function report(reason)
   out(string.format("warm-up finished after %ds: %s", (vim.uv.now() - start) / 1000, reason))
 
-  local ok, registry = pcall(require, "mason-registry")
-  if ok then
+  if ok_registry then
     local names = registry.get_installed_package_names()
     table.sort(names)
     out("mason packages: " .. table.concat(names, ", "))
+    local ok_map, map = pcall(function()
+      return require("mason-lspconfig").get_mappings().lspconfig_to_package
+    end)
+    for _, server in ipairs(ensure_installed) do
+      local pkg = ok_map and map[server]
+      local installed = pkg and registry.is_installed(pkg)
+      out(string.format("  %s (%s): %s", server, pkg or "?", installed and "installed" or "MISSING"))
+    end
   end
 
   local ok_ts, ts_info = pcall(require, "nvim-treesitter.info")
@@ -44,7 +84,8 @@ timer:start(1000, 1000, vim.schedule_wrap(function()
   local now = vim.uv.now()
   local children = vim.api.nvim_get_proc_children(vim.fn.getpid())
 
-  if #children > 0 then
+  local busy = #children > 0 or mason_busy()
+  if busy then
     quiet_since = nil
   else
     quiet_since = quiet_since or now
