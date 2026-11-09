@@ -139,7 +139,7 @@ The leader key is `<Space>`.
 |------|--------|
 | `<leader>ca` | Code actions (quick fixes) |
 | `<S-F6>` | Rename symbol |
-| `<leader>fm` | Format buffer |
+| `<leader>cf` | Format buffer |
 
 ### File Navigation (Telescope)
 
@@ -157,7 +157,7 @@ The leader key is `<Space>`.
 | Keys | Action |
 |------|--------|
 | `<leader>l` | Toggle file explorer |
-| `<leader>lf` | Reveal current file in explorer |
+| `<leader>L` | Reveal current file in explorer |
 
 ### General
 

@@ -1,6 +1,6 @@
 -- Formatting via conform.nvim
 --
---   kotlin -> ktfmt (kotlinlang style), manual only (:KotlinFormat or <leader>fm)
+--   kotlin -> ktfmt (kotlinlang style), manual only (:KotlinFormat or <leader>cf)
 --   java   -> google-java-format, on save
 --   rust   -> rustfmt, on save
 --   json   -> jq / prettierd / prettier, manual only
@@ -52,7 +52,7 @@ return {
     priority = 40, -- Load after LSP
     keys = {
       {
-        "<leader>fm",
+        "<leader>cf",
         function()
           require("conform").format({ async = false, timeout_ms = 5000, lsp_format = "fallback" })
         end,
