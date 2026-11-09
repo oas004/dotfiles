@@ -186,7 +186,8 @@ The leader key is `<Space>`.
 | `:Mason` | Open LSP/formatter installer |
 | `:LspInfo` | Check LSP status |
 | `:LspLog` | View LSP logs |
-| `:KotlinFormat` | Manually format Kotlin file |
+| `:KotlinFormat` | Format Kotlin file with ktfmt (no LSP fallback) |
+| `:JavaFormat` | Format Java file with google-java-format (no LSP fallback) |
 | `:CleanupLSPCache` | Clean LSP caches (requires restart) |
 | `:CleanupLSPLogs` | Clean log files |
 | `:checkhealth` | Diagnose nvim setup issues |

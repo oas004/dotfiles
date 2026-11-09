@@ -46,7 +46,9 @@ ktfmt is used for all Kotlin formatting:
 
 ### Format on Save
 
-Format on save is enabled by default via `conform.nvim`.
+Format on save is not enabled for Kotlin. Format manually with `:KotlinFormat`
+or `<leader>fm`. Java and Rust do format on save via `conform.nvim`; see
+`lua/plugins/formatting.lua`.
 
 ### Manual Formatting
 
