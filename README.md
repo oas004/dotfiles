@@ -29,24 +29,26 @@ The bootstrap script installs all dependencies including Neovim, Rust toolchain,
 
 #### Prerequisites
 
-- [Neovim 0.11+](https://neovim.io/) (recommended: latest stable)
+- [Neovim 0.11+](https://neovim.io/) (recommended: 0.12+, which nvim-treesitter's main branch requires; on 0.11 the config pins an older main commit)
 - [Git](https://git-scm.com/)
 - [Rust](https://rustup.rs/) (for rust-analyzer and wasm tools)
 - `ripgrep` (for telescope fuzzy finder)
+- [`tree-sitter` CLI](https://github.com/tree-sitter/tree-sitter/blob/master/crates/cli/README.md) 0.26.1+ (not the npm package), plus `curl`, `tar` and a C compiler, for installing treesitter parsers
 
 #### macOS
 ```bash
-brew install neovim ripgrep
+brew install neovim ripgrep tree-sitter-cli
 ```
 
 #### Ubuntu/Debian
 ```bash
-sudo apt install neovim ripgrep
+sudo apt install neovim ripgrep build-essential
+cargo install --locked tree-sitter-cli  # apt's tree-sitter-cli is usually too old
 ```
 
 #### Fedora
 ```bash
-sudo dnf install neovim ripgrep
+sudo dnf install neovim ripgrep tree-sitter-cli gcc
 ```
 
 #### Setup Steps
