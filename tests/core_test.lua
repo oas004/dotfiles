@@ -106,17 +106,20 @@ local function main()
       -- new one. On a slow CI runner that took longer than the old 15 s
       -- timeout, so let the initial load finish first. Not every server
       -- reports progress, so this wait is best-effort.
+      local t_progress = vim.uv.now() -- DEBUG
       vim.wait(30000, function()
         for _, c in ipairs(clients) do
           if not progress_done[c.id] or next(c.progress.pending) ~= nil then return false end
         end
         return true
       end, 100)
+      out("DEBUG progress wait " .. (vim.uv.now() - t_progress) .. " ms, done=" .. vim.inspect(progress_done))
 
       vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "-- modified by core_test" })
       assert_true(vim.bo[buf].modified, "buffer should be modified")
 
       local start = vim.uv.now()
+      vim.lsp.log.set_level("debug") -- DEBUG
       vim.cmd(restart_cmd)
 
       local restarted = vim.wait(60000, function()
@@ -126,6 +129,17 @@ local function main()
         return false
       end, 100)
       local exited = #vim.tbl_filter(function(c) return vim.lsp.get_client_by_id(c.id) == nil end, clients)
+      if not restarted then -- DEBUG
+        for _, pid in ipairs(vim.api.nvim_get_proc_children(vim.fn.getpid())) do
+          out("DEBUG child " .. vim.inspect(vim.api.nvim_get_proc(pid)))
+        end
+        for _, c in ipairs(clients) do
+          out("DEBUG client " .. c.id .. " is_stopped=" .. tostring(c:is_stopped()) .. " initialized=" .. tostring(c.initialized)
+            .. " requests=" .. vim.inspect(c.requests))
+        end
+        local lines = vim.fn.readfile(vim.lsp.log.get_filename())
+        for i = math.max(1, #lines - 60), #lines do out("DEBUG log " .. lines[i]:sub(1, 300)) end
+      end
       assert_true(restarted, string.format("no new LSP client attached %d ms after :%s (%d of %d old clients exited)",
         vim.uv.now() - start, restart_cmd, exited, #clients))
       assert_true(vim.bo[buf].modified, "buffer modifications were lost")
