@@ -143,6 +143,11 @@ return {
         settings = {
           Lua = { diagnostics = { globals = { "vim" } } },
         },
+        -- lua-language-server sometimes never exits after the "exit"
+        -- notification. With the default (false) Neovim then waits forever:
+        -- :lsp restart on 0.12 never starts the new server, and quitting
+        -- leaves the old one running. Force-stop it after 2 s instead.
+        exit_timeout = 2000,
       })
 
       vim.lsp.config("clangd", {

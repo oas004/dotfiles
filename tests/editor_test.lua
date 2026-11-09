@@ -56,6 +56,7 @@ local function open_in_child(path, wait_ms)
   vim.fn.writefile(vim.split(child_script, "\n"), script)
   local proc = vim.system(
     { vim.v.progpath, "--headless", path, "-c", "luafile " .. vim.fn.fnameescape(script) },
+    ---@diagnostic disable-next-line: assign-type-mismatch
     { env = { EDITOR_TEST_OUT = result_file, EDITOR_TEST_WAIT = tostring(wait_ms) }, stdin = false }
   ):wait(60000)
   vim.fn.delete(script)
@@ -71,6 +72,7 @@ local function main()
   out("\n=== Editor Defaults Tests ===\n")
 
   local config = vim.diagnostic.config()
+  ---@cast config -nil
 
   test("diagnostics: virtual_text has a prefix and spacing", function()
     assert_eq(type(config.virtual_text), "table", "virtual_text")

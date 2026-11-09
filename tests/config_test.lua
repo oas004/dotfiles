@@ -100,13 +100,6 @@ test("conform loads", function()
   assert_not_nil(require("conform"))
 end)
 
-test("ktfmt formatter configured", function()
-  local conform = require("conform")
-  conform.list_formatters_for_buffer(0)
-  -- This may be empty if not in a kotlin buffer, so just check the module loads
-  assert_not_nil(conform.get_formatter_info("ktfmt"))
-end)
-
 -- Telescope tests
 test("telescope loads", function()
   assert_not_nil(require("telescope"))

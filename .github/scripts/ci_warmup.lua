@@ -50,7 +50,7 @@ if ok_registry and vim.env.WARMUP_MASON ~= "0" then
     -- go through nvim_err_write, which raises inside a headless -c script and
     -- aborts it before the timer below starts. pcall keeps the timer running
     -- even if something else throws.
-    local ok, err = pcall(vim.cmd, "MasonInstall --quiet " .. table.concat(missing, " "))
+    local ok, err = pcall(vim.api.nvim_command, "MasonInstall --quiet " .. table.concat(missing, " "))
     if not ok then
       out("MasonInstall error: " .. tostring(err))
     end
@@ -95,7 +95,7 @@ local function report(reason)
   out(vim.fn.execute("messages"))
 end
 
-local timer = vim.uv.new_timer()
+local timer = assert(vim.uv.new_timer())
 timer:start(1000, 1000, vim.schedule_wrap(function()
   local now = vim.uv.now()
   local children = vim.api.nvim_get_proc_children(vim.fn.getpid())

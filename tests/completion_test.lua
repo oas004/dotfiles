@@ -74,6 +74,7 @@ end)
 test("cmp expands snippets with vim.snippet", function()
   local got
   local orig = vim.snippet.expand
+  ---@diagnostic disable-next-line: duplicate-set-field
   vim.snippet.expand = function(body) got = body end
   local ok, err = pcall(cmp.get_config().snippet.expand, { body = "x$0" })
   vim.snippet.expand = orig

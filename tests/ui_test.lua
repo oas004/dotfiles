@@ -123,12 +123,14 @@ end)
 test("<leader>e (next diagnostic) keymap exists", function()
   local m = find_keymap("n", "<leader>e")
   assert_not_nil(m, "<leader>e not mapped")
+  ---@cast m -nil
   assert_true(m.desc == "Next diagnostic", "unexpected desc: " .. tostring(m.desc))
 end)
 
 test("<leader>E (prev diagnostic) keymap exists", function()
   local m = find_keymap("n", "<leader>E")
   assert_not_nil(m, "<leader>E not mapped")
+  ---@cast m -nil
   assert_true(m.desc == "Prev diagnostic", "unexpected desc: " .. tostring(m.desc))
 end)
 
@@ -158,9 +160,11 @@ end)
 test("<leader>l toggles and <leader>L finds the current file in nvim-tree", function()
   local l = find_keymap("n", "<leader>l")
   assert_not_nil(l, "<leader>l not mapped")
+  ---@cast l -nil
   assert_true(l.desc == "nvim-tree: Toggle", "unexpected <leader>l desc: " .. tostring(l.desc))
   local L = find_keymap("n", "<leader>L")
   assert_not_nil(L, "<leader>L not mapped")
+  ---@cast L -nil
   assert_true(L.desc == "nvim-tree: Find current file", "unexpected <leader>L desc: " .. tostring(L.desc))
   assert_true(find_keymap("n", "<leader>lf") == nil, "<leader>lf still mapped (collides with <leader>l)")
 end)
@@ -170,6 +174,7 @@ test("<leader>L opens nvim-tree on the current file", function()
   require("lazy").load({ plugins = { "nvim-tree.lua" } })
   local L = find_keymap("n", "<leader>L")
   assert_not_nil(L and L.callback, "<leader>L has no callback after nvim-tree loaded")
+  ---@cast L -nil
   L.callback()
   vim.wait(500, function() return vim.bo.filetype == "NvimTree" end)
   assert_true(vim.bo.filetype == "NvimTree", "nvim-tree did not open and focus")
@@ -197,11 +202,13 @@ vim.notify = function(msg, level, opts)
   record(msg, level or vim.log.levels.INFO)
   return orig_notify(msg, level, opts)
 end
+---@diagnostic disable-next-line: duplicate-set-field
 vim.notify_once = function(msg, level, opts)
   record(msg, level or vim.log.levels.INFO)
   return orig_notify_once(msg, level, opts)
 end
 if orig_echo_once then
+  ---@diagnostic disable-next-line: duplicate-set-field
   vim._truncated_echo_once = function(msg)
     record(msg)
     return orig_echo_once(msg)
@@ -294,9 +301,10 @@ test("telescope pickers open without warnings, errors or deprecations", function
     root_dir = vim.fn.fnamemodify(file, ":h"),
   }, { bufnr = buf })
   assert_not_nil(client_id, "fake LSP client did not start")
+  ---@cast client_id -nil
   vim.wait(2000, function()
     local client = vim.lsp.get_client_by_id(client_id)
-    return client ~= nil and client.initialized
+    return client ~= nil and client.initialized == true
   end)
 
   vim.cmd("messages clear")

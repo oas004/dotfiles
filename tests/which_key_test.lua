@@ -180,7 +180,7 @@ local function main()
   -- stale lock file is left (as in tests/ai_test.lua)
   local notify = vim.notify
   vim.notify = function() end
-  pcall(vim.cmd, "ClaudeCodeStop")
+  pcall(vim.api.nvim_command, "ClaudeCodeStop")
   vim.notify = notify
 
   out("\n=== Results ===")
