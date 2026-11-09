@@ -3,9 +3,6 @@ require("core.package-manager")
 require("core.keymaps")
 require("core.commands")
 
--- LSP log management: reduce log level and auto-cleanup
-vim.lsp.log.set_level("WARN") -- Only log warnings and errors (default is INFO)
-
 -- Delete the LSP log on startup if it exceeds 50MB
 do
   local paths = require('core.paths')
