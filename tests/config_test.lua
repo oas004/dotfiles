@@ -87,13 +87,11 @@ test("lspconfig loads", function()
 end)
 
 test("kotlin_lsp config exists", function()
-  local configs = require("lspconfig.configs")
-  assert_not_nil(configs.kotlin_lsp, "kotlin_lsp config not registered")
+  assert_not_nil(vim.lsp.config.kotlin_lsp, "kotlin_lsp config not registered")
 end)
 
 test("kotlin_lsp has correct filetypes", function()
-  local configs = require("lspconfig.configs")
-  local ft = configs.kotlin_lsp.filetypes or configs.kotlin_lsp.config_def.default_config.filetypes
+  local ft = vim.lsp.config.kotlin_lsp.filetypes or {}
   assert_true(vim.tbl_contains(ft, "kotlin"), "kotlin not in filetypes")
 end)
 

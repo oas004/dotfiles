@@ -100,11 +100,11 @@ For Kotlin support, install the JetBrains official kotlin-lsp:
 # Install ktfmt (formatter)
 brew install ktfmt
 
-# Install kotlin-lsp
-curl -L https://github.com/Kotlin/kotlin-lsp/releases/latest/download/kotlin-lsp.zip -o /tmp/kotlin-lsp.zip
-unzip /tmp/kotlin-lsp.zip -d ~/.local/opt/
-chmod +x ~/.local/opt/kotlin-lsp/kotlin-lsp.sh
+# Install kotlin-lsp into ~/.local/opt/kotlin-lsp
+INSTALL_KOTLIN=1 ~/.config/nvim/bootstrap.sh
 ```
+
+To install kotlin-lsp by hand, download the standalone archive for your platform from the [kotlin-lsp releases page](https://github.com/Kotlin/kotlin-lsp/releases) and extract it so that `~/.local/opt/kotlin-lsp/kotlin-lsp.sh` exists. The macOS `.sit` file is a zip archive.
 
 See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 
@@ -130,8 +130,8 @@ The leader key is `<Space>`.
 | Keys | Action |
 |------|--------|
 | `gl` | Show line diagnostics (error popup) |
-| `<leader>e` | Next diagnostic |
-| `<leader>E` | Previous diagnostic |
+| `<leader>e` | Next diagnostic (shows it in a float) |
+| `<leader>E` | Previous diagnostic (shows it in a float) |
 
 ### Code Actions & Refactoring
 
@@ -170,7 +170,6 @@ The leader key is `<Space>`.
 | `jj` or `jk` | Exit insert mode |
 | `<C-o>` | Jump back (after go to definition) |
 | `<C-i>` | Jump forward |
-| `]m` / `[m` | Jump to next/previous function |
 
 ### Treesitter Text Objects
 
@@ -181,6 +180,29 @@ The leader key is `<Space>`.
 | `]m` / `[m` | Next/previous function start |
 | `]M` / `[M` | Next/previous function end |
 
+## AI Integration
+
+Setup for working alongside AI coding agents such as Claude Code (no inline completion).
+
+Files changed on disk by an agent are reloaded automatically (`autoread` plus `:checktime` on focus, buffer enter, cursor hold and leaving/closing a terminal), with a notification when a buffer is reloaded. Buffers with unsaved changes are not overwritten; Neovim asks first.
+
+`<leader>yr` copies a code reference to the system clipboard for pasting into a prompt: `path:LINE` in normal mode, `path:START-END` for a visual selection. The path is relative to the cwd (or the git root if the file is outside the cwd).
+
+[claudecode.nvim](https://github.com/coder/claudecode.nvim) connects Neovim to Claude Code: Claude sees your current selection and diagnostics and shows proposed edits as diffs in Neovim. It needs the `claude` CLI on your `PATH` and starts right after Neovim does, so a Claude Code session in another terminal can attach with `/ide`.
+
+| Keys | Action |
+|------|--------|
+| `<leader>yr` | Copy `path:line` reference (visual: `path:start-end`) |
+| `<leader>ac` | Toggle Claude terminal |
+| `<leader>af` | Focus Claude terminal |
+| `<leader>ar` | Resume a previous Claude session |
+| `<leader>aC` | Continue the last Claude session |
+| `<leader>am` | Select Claude model |
+| `<leader>ab` | Add current buffer to Claude's context |
+| `<leader>as` | Send visual selection to Claude (in nvim-tree: add file) |
+| `<leader>aa` | Accept proposed diff (or `:w` in the diff) |
+| `<leader>ad` | Deny proposed diff (or `:q` in the diff) |
+
 ## Useful Commands
 
 | Command | Description |
@@ -189,30 +211,40 @@ The leader key is `<Space>`.
 | `:Mason` | Open LSP/formatter installer |
 | `:LspInfo` | Check LSP status |
 | `:LspLog` | View LSP logs |
-| `:KotlinFormat` | Manually format Kotlin file |
+| `:KotlinFormat` | Format Kotlin file with ktfmt (no LSP fallback) |
+| `:JavaFormat` | Format Java file with google-java-format (no LSP fallback) |
 | `:CleanupLSPCache` | Clean LSP caches (requires restart) |
 | `:CleanupLSPLogs` | Clean log files |
 | `:checkhealth` | Diagnose nvim setup issues |
 
 ## Folder Structure
 
+- `init.lua` is the entry point. It loads the core modules and defines a few LSP maintenance commands.
+- `lua/core/` holds editor setup that is not a plugin: options, keymaps, the lazy.nvim bootstrap, shared helpers, and central path definitions.
+- `lua/plugins/` holds lazy.nvim plugin specs, grouped by area. lazy.nvim imports every file in this directory.
+- `tests/` holds the test suite (see Development below).
+- `bootstrap.sh` installs dependencies on a new machine.
+
+## Development
+
+Run the whole test suite with:
+
+```bash
+tests/run.sh
 ```
-~/.config/nvim/
-├── init.lua                 # Entry point
-├── lua/
-│   ├── core/
-│   │   ├── keymaps.lua      # Key bindings
-│   │   ├── options.lua      # Neovim options
-│   │   ├── paths.lua        # Path configuration
-│   │   └── utils.lua        # Helper functions
-│   └── plugins/
-│       ├── language-server.lua  # LSP configuration
-│       ├── kotlin-formatter.lua # ktfmt setup
-│       ├── fuzzy-finder.lua     # Telescope
-│       ├── file-explorer.lua    # nvim-tree
-│       ├── parser.lua           # Treesitter
-│       └── theming.lua          # Colorscheme
+
+It runs `tests/bootstrap_test.sh`, every `tests/*_test.lua` in a fresh headless Neovim, and a startup smoke test that opens sample files and fails on errors in `:messages`. It exits non-zero if anything fails. `TEST_SKIP` skips tests by name, and the header of `tests/run.sh` lists the other options. CI runs the same script on every push and pull request.
+
+To test changes without touching your live config, check them out in a separate directory under `~/.config` and point Neovim at it with `NVIM_APPNAME`, which also gives it its own plugin and data directories:
+
+```bash
+git worktree add ~/.config/nvim-dev -b my-change
+cd ~/.config/nvim-dev
+NVIM_APPNAME=nvim-dev nvim             # try it interactively
+NVIM_APPNAME=nvim-dev tests/run.sh     # run the tests against it
 ```
+
+`tests/run.sh` refuses to run if Neovim would load a config other than the checkout it lives in.
 
 ## Troubleshooting
 
