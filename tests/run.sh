@@ -98,18 +98,12 @@ run_with_timeout() {
 # run_test fails the test if that file is not empty.
 deprecation_hook='local file = vim.env.NVIM_TEST_DEPRECATIONS
 local orig = vim.deprecate
-vim.deprecate = function(name, ...)
-  local msg = orig(name, ...)
+vim.deprecate = function(...)
+  local msg = orig(...)
   if msg and file then
-    local trace = debug.traceback("", 2)
-    -- TEMPORARY: telescope.nvim at the commit in lazy-lock.json calls
-    -- vim.tbl_islist. The telescope PR fixes that; remove this entry with it.
-    if name == "vim.tbl_islist" and trace:find("lua/telescope/", 1, true) then
-      return msg
-    end
     local f = io.open(file, "a")
     if f then
-      f:write(msg, trace, "\n")
+      f:write(msg, debug.traceback("", 2), "\n")
       f:close()
     end
   end

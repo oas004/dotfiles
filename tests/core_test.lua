@@ -69,6 +69,17 @@ local function main()
     assert_true(not paths.dir_exists(test_file), "dir_exists(file) returned true")
   end)
 
+  -- Client ids that have finished a $/progress sequence (lua_ls: "Loading
+  -- workspace"), recorded from the start so a fast load isn't missed.
+  local progress_done = {}
+  vim.api.nvim_create_autocmd("LspProgress", {
+    callback = function(ev)
+      if vim.tbl_get(ev.data, "params", "value", "kind") == "end" then
+        progress_done[ev.data.client_id] = true
+      end
+    end,
+  })
+
   -- Open a file and give LSP a chance to attach, then exercise commands
   -- that call LSP APIs so any deprecated calls get recorded.
   vim.cmd("edit " .. vim.fn.fnameescape(test_file))
@@ -89,18 +100,34 @@ local function main()
       local old_ids = {}
       for _, c in ipairs(clients) do old_ids[c.id] = true end
 
+      -- lua_ls is slow to exit while it is still loading the workspace
+      -- (which includes $VIMRUNTIME from .luarc.json), and on 0.12
+      -- :lsp restart waits for the old server to exit before starting the
+      -- new one. On a slow CI runner that took longer than the old 15 s
+      -- timeout, so let the initial load finish first. Not every server
+      -- reports progress, so this wait is best-effort.
+      vim.wait(30000, function()
+        for _, c in ipairs(clients) do
+          if not progress_done[c.id] or next(c.progress.pending) ~= nil then return false end
+        end
+        return true
+      end, 100)
+
       vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "-- modified by core_test" })
       assert_true(vim.bo[buf].modified, "buffer should be modified")
 
+      local start = vim.uv.now()
       vim.cmd(restart_cmd)
 
-      local restarted = vim.wait(15000, function()
+      local restarted = vim.wait(60000, function()
         for _, c in ipairs(vim.lsp.get_clients({ bufnr = buf })) do
           if not old_ids[c.id] then return true end
         end
         return false
       end, 100)
-      assert_true(restarted, "no new LSP client attached after :" .. restart_cmd)
+      local exited = #vim.tbl_filter(function(c) return vim.lsp.get_client_by_id(c.id) == nil end, clients)
+      assert_true(restarted, string.format("no new LSP client attached %d ms after :%s (%d of %d old clients exited)",
+        vim.uv.now() - start, restart_cmd, exited, #clients))
       assert_true(vim.bo[buf].modified, "buffer modifications were lost")
     end)
   end
