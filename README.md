@@ -190,6 +190,19 @@ The leader key is `<Space>`.
 | `]m` / `[m` | Next/previous function start |
 | `]M` / `[M` | Next/previous function end |
 
+### Git (gitsigns)
+
+[gitsigns.nvim](https://github.com/lewis6991/gitsigns.nvim) shows added, changed and deleted lines in the sign column. These maps are only set in buffers for files in a git repository.
+
+| Keys | Action |
+|------|--------|
+| `]c` / `[c` | Next/previous hunk (in diff mode: next/previous change) |
+| `<leader>hs` | Stage hunk (visual: stage selected lines) |
+| `<leader>hr` | Reset hunk (visual: reset selected lines) |
+| `<leader>hp` | Preview hunk |
+| `<leader>hb` | Blame current line |
+| `ih` | Select hunk (text object, e.g. `dih`, `vih`) |
+
 ## AI Integration
 
 Setup for working alongside AI coding agents such as Claude Code (no inline completion).
