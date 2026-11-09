@@ -118,8 +118,7 @@ end)
 
 test("buffers picker does not map <Leader>q in insert mode", function()
   local mappings = require("telescope.config").pickers.buffers.mappings
-  assert_true(mappings.i["<Leader>q"] == nil, "<Leader>q still mapped in insert mode")
-  assert_true(mappings.i["<C-d>"] == "delete_buffer", "<C-d> not mapped to delete_buffer")
+  assert_true(mappings.i == nil or mappings.i["<Leader>q"] == nil, "<Leader>q still mapped in insert mode")
   assert_true(mappings.n["<Leader>q"] == "delete_buffer", "<Leader>q missing in normal mode")
 end)
 

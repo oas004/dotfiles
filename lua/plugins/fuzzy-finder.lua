@@ -42,11 +42,9 @@ return {
                 pickers = {
                     buffers = {
                         sort_lastused = true,
+                        -- Insert mode uses telescope's default <M-d> for delete_buffer;
+                        -- a <Leader> map there would fire while typing in the prompt
                         mappings = {
-                            -- <Leader> in insert mode would fire while typing in the prompt
-                            i = {
-                                ["<C-d>"] = "delete_buffer",
-                            },
                             n = {
                                 ["<Leader>q"] = "delete_buffer",
                             }
