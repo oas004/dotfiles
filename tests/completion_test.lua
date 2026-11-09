@@ -2,7 +2,7 @@
 -- Run with: nvim --headless -c "luafile tests/completion_test.lua"
 --
 -- The keypress tests run asynchronously. Keys are fed into the typeahead and
--- each check is queued behind them with <Cmd>, so it runs only after those
+-- each check is queued behind them as a <Plug> map, so it runs only after those
 -- keys (and the ones vim.snippet and cmp feed while handling them) have been
 -- processed.
 
@@ -236,6 +236,10 @@ end)
 
 local i = 0
 local retries = 0
+local SYNC = "<Plug>(completion-test-sync)"
+local CHECK = "<Plug>(completion-test-check)"
+
+-- Fed with remapping, so the <Plug> maps below fire
 local function feed(keys)
   vim.api.nvim_feedkeys(t(keys), "t", false)
 end
@@ -260,7 +264,7 @@ local function next_step()
   if not ok then return fail(s.name, keys) end
   -- The sync hop queues the check behind keys that vim.snippet and cmp feed
   -- while processing these keys
-  feed(keys .. "<Cmd>lua _G.__completion_sync()<CR>")
+  feed(keys .. SYNC)
 end
 
 local function check()
@@ -269,7 +273,7 @@ local function check()
   if ok and res == false then
     retries = retries + 1
     if retries > 100 then return fail(s.name, "timed out waiting") end
-    vim.defer_fn(function() feed("<Cmd>lua _G.__completion_check()<CR>") end, 20)
+    vim.defer_fn(function() feed(CHECK) end, 20)
     return
   end
   retries = 0
@@ -279,10 +283,8 @@ local function check()
   next_step()
 end
 
-_G.__completion_sync = function()
-  feed("<Cmd>lua _G.__completion_check()<CR>")
-end
-_G.__completion_check = check
+vim.keymap.set({ "i", "s" }, SYNC, function() feed(CHECK) end)
+vim.keymap.set({ "i", "s" }, CHECK, check)
 
 -- Safety net so a stuck key sequence fails instead of hanging
 vim.defer_fn(function()
