@@ -165,6 +165,10 @@ install_system_deps() {
         esac
     else
         info "Neovim already installed: $(nvim --version | head -1)"
+        # nvim-treesitter main needs Neovim 0.12+; on 0.11 the config pins an older commit
+        if [[ "$(nvim --clean --headless -c 'lua io.write(vim.fn.has("nvim-0.12"))' +qa 2>/dev/null)" != "1" ]]; then
+            warn "Neovim 0.12+ recommended (nvim-treesitter main is pinned to an older commit on 0.11)"
+        fi
     fi
 
     if ! command_exists rg; then
@@ -238,6 +242,36 @@ install_rust() {
     else
         info "rustfmt already installed"
     fi
+}
+
+# Treesitter tooling: nvim-treesitter main compiles parsers with the
+# tree-sitter CLI (0.26.1+, not the npm package) and a C compiler
+install_treesitter_cli() {
+    info "Checking tree-sitter CLI..."
+
+    if ! command_exists cc && ! command_exists gcc && ! command_exists clang; then
+        warn "No C compiler found; treesitter parsers cannot be compiled"
+    fi
+
+    if command_exists tree-sitter; then
+        info "tree-sitter CLI already installed: $(tree-sitter --version)"
+        return
+    fi
+
+    info "Installing tree-sitter CLI..."
+    case "$PKG_MGR" in
+        brew|dnf|pacman)
+            install_pkg tree-sitter-cli
+            ;;
+        *)
+            # Distro packages (e.g. Debian/Ubuntu) are often older than 0.26.1
+            if command_exists cargo || [[ $DRY_RUN -eq 1 ]]; then
+                run cargo install --locked tree-sitter-cli
+            else
+                warn "tree-sitter CLI: install manually (cargo install --locked tree-sitter-cli)"
+            fi
+            ;;
+    esac
 }
 
 # WebAssembly tooling
@@ -319,13 +353,16 @@ setup_directories() {
 # Sync Neovim plugins
 sync_nvim() {
     info "Syncing Neovim plugins..."
+    # Parser installs are async, so wait for them before quitting.
+    # vim.g.treesitter_parsers is the list from lua/plugins/parser.lua.
+    local ts_install="lua require('nvim-treesitter').install(vim.g.treesitter_parsers):wait(300000)"
     if [[ $DRY_RUN -eq 1 ]]; then
         dry "nvim --headless '+Lazy! sync' +qa"
-        dry "nvim --headless '+TSInstall rust toml wit' +qa"
+        dry "nvim --headless \"+$ts_install\" +qa"
     else
         nvim --headless "+Lazy! sync" +qa 2>/dev/null || true
         info "Installing treesitter parsers..."
-        nvim --headless "+TSInstall rust toml wit" +qa 2>/dev/null || true
+        nvim --headless "+$ts_install" +qa 2>/dev/null || true
     fi
 }
 
@@ -377,6 +414,7 @@ main() {
     setup_directories
     install_system_deps
     install_rust
+    install_treesitter_cli
     install_wasm_tools
     install_kotlin_tools
     sync_nvim
