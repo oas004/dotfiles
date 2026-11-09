@@ -178,6 +178,29 @@ The leader key is `<Space>`.
 | `]m` / `[m` | Next/previous function start |
 | `]M` / `[M` | Next/previous function end |
 
+## AI Integration
+
+Setup for working alongside AI coding agents such as Claude Code (no inline completion).
+
+Files changed on disk by an agent are reloaded automatically (`autoread` plus `:checktime` on focus, buffer enter, cursor hold and leaving/closing a terminal), with a notification when a buffer is reloaded. Buffers with unsaved changes are not overwritten; Neovim asks first.
+
+`<leader>yr` copies a code reference to the system clipboard for pasting into a prompt: `path:LINE` in normal mode, `path:START-END` for a visual selection. The path is relative to the cwd (or the git root if the file is outside the cwd).
+
+[claudecode.nvim](https://github.com/coder/claudecode.nvim) connects Neovim to Claude Code: Claude sees your current selection and diagnostics and shows proposed edits as diffs in Neovim. It needs the `claude` CLI on your `PATH` and starts right after Neovim does, so a Claude Code session in another terminal can attach with `/ide`.
+
+| Keys | Action |
+|------|--------|
+| `<leader>yr` | Copy `path:line` reference (visual: `path:start-end`) |
+| `<leader>ac` | Toggle Claude terminal |
+| `<leader>af` | Focus Claude terminal |
+| `<leader>ar` | Resume a previous Claude session |
+| `<leader>aC` | Continue the last Claude session |
+| `<leader>am` | Select Claude model |
+| `<leader>ab` | Add current buffer to Claude's context |
+| `<leader>as` | Send visual selection to Claude (in nvim-tree: add file) |
+| `<leader>aa` | Accept proposed diff (or `:w` in the diff) |
+| `<leader>ad` | Deny proposed diff (or `:q` in the diff) |
+
 ## Useful Commands
 
 | Command | Description |
