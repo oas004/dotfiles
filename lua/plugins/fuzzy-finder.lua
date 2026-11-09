@@ -2,7 +2,7 @@
 return {
     {
         "nvim-telescope/telescope.nvim",
-        tag = "0.1.5",
+        tag = "v0.2.2",
         -- also depends on ripgrep: `brew install ripgrep`
         dependencies = { "nvim-lua/plenary.nvim" },
         config = function()
@@ -12,7 +12,9 @@ return {
 
             telescope.setup({
                 defaults = {
-                    file_ignore_patterns = { "node_modules", ".git" },
+                    -- Lua patterns matched against the relative path. Anchor ".git" to a
+                    -- path component so .github/ and .gitignore are not hidden.
+                    file_ignore_patterns = { "^%.git/", "/%.git/", "node_modules/" },
                     -- Performance optimizations
                     layout_strategy = "horizontal",
                     sorting_strategy = "ascending",
@@ -40,10 +42,9 @@ return {
                 pickers = {
                     buffers = {
                         sort_lastused = true,
+                        -- Insert mode uses telescope's default <M-d> for delete_buffer;
+                        -- a <Leader> map there would fire while typing in the prompt
                         mappings = {
-                            i = {
-                                ["<Leader>q"] = "delete_buffer",
-                            },
                             n = {
                                 ["<Leader>q"] = "delete_buffer",
                             }
@@ -55,10 +56,9 @@ return {
                 }
             })
 
-            -- Load fzf extension if available
-            if vim.fn.executable("fzf") == 1 then
-              pcall(telescope.load_extension, "fzf")
-            end
+            -- telescope-fzf-native is a compiled C sorter and does not need the
+            -- fzf binary. pcall covers the case where `make` has not been run.
+            pcall(telescope.load_extension, "fzf")
         end,
         keys = {
             -- Android Studio-like keybindings (Mac)

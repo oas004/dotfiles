@@ -1,12 +1,3 @@
-local function everforest()
-    return {
-        "sainnhe/everforest",
-        config = function ()
-            vim.cmd("colorscheme everforest")
-        end
-    }
-end
-
 local function nordic()
   return {
     "AlexvZyl/nordic.nvim",
@@ -14,7 +5,7 @@ local function nordic()
     priority = 1000,
     config = function()
       require("nordic").setup({
-        -- Disable italic comments for better readability
+        -- Reduce the overall amount of blue in the theme (diverges from base Nord)
         reduced_blue = true,
       })
       require("nordic").load()
@@ -44,6 +35,13 @@ return {
     nordic(),
     {
         "nvim-lualine/lualine.nvim",
-        event = "BufReadPre",
+        event = { "BufReadPre", "BufNewFile" },
+        dependencies = { "nvim-tree/nvim-web-devicons" },
+        opts = {
+            options = {
+                -- nordic.nvim ships a lualine theme at lua/lualine/themes/nordic.lua
+                theme = "nordic",
+            },
+        },
     },
 }

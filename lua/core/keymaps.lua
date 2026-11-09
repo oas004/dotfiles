@@ -36,8 +36,8 @@ safe_set('n', 'gl', function()
   vim.diagnostic.open_float(nil, { scope = 'line', focus = false, border = 'rounded' })
 end, { desc = 'Line diagnostics' })
 
-safe_set('n', '<leader>e', vim.diagnostic.goto_next, { desc = 'Next diagnostic' })
-safe_set('n', '<leader>E', vim.diagnostic.goto_prev, { desc = 'Prev diagnostic' })
+safe_set('n', '<leader>e', function() vim.diagnostic.jump({ count = 1, float = true }) end, { desc = 'Next diagnostic' })
+safe_set('n', '<leader>E', function() vim.diagnostic.jump({ count = -1, float = true }) end, { desc = 'Prev diagnostic' })
 
 -- LSP navigation (fallback if Cmd keys don't work in terminal)
 safe_set('n', 'gr', function()
