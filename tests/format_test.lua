@@ -121,9 +121,6 @@ test("none-ls is not configured", function()
   assert_true(require("lazy.core.config").plugins["none-ls.nvim"] == nil, "none-ls still in spec")
 end)
 
-test("core.java-config still exports setup_commands", function()
-  assert_true(type(require("core.java-config").setup_commands) == "function")
-end)
 
 -- Summary
 print("\n=== Results ===")

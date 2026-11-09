@@ -5,8 +5,8 @@
 --   rust   -> rustfmt, on save
 --   json   -> jq / prettierd / prettier, manual only
 --
--- Format on save for haskell and c/cpp is handled by lsp-zero in
--- language-server.lua, so format_on_save below returns nil for those.
+-- Format on save for haskell and c/cpp goes through their language servers
+-- (see language-server.lua), so format_on_save below returns nil for those.
 
 -- Filetypes conform formats on save. Everything else is left alone.
 local format_on_save_filetypes = {
