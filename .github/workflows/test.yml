@@ -66,7 +66,7 @@ jobs:
       # Let Mason and nvim-treesitter finish their background installs once,
       # so each test's fresh nvim doesn't restart and abandon them.
       - name: Warm up (Mason servers, treesitter parsers)
-        timeout-minutes: 20
+        timeout-minutes: 10
         run: nvim --headless -c "luafile .github/scripts/ci_warmup.lua"
 
       - name: Run tests

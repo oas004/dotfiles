@@ -46,7 +46,14 @@ if ok_registry and vim.env.WARMUP_MASON ~= "0" then
   end
   if #missing > 0 then
     out("installing: " .. table.concat(missing, ", "))
-    vim.cmd("MasonInstall " .. table.concat(missing, " "))
+    -- --quiet: installer stderr (e.g. hls's `+ ghcup ...` trace) would otherwise
+    -- go through nvim_err_write, which raises inside a headless -c script and
+    -- aborts it before the timer below starts. pcall keeps the timer running
+    -- even if something else throws.
+    local ok, err = pcall(vim.cmd, "MasonInstall --quiet " .. table.concat(missing, " "))
+    if not ok then
+      out("MasonInstall error: " .. tostring(err))
+    end
   end
 end
 
