@@ -1,4 +1,5 @@
--- Editor/UI tests: statusline, diagnostic keymaps, telescope config
+-- Editor/UI tests: statusline, colorscheme, diagnostic keymaps, leader map
+-- prefixes, file explorer, telescope config
 -- Run with: nvim --headless -c "luafile tests/ui_test.lua"
 
 local failed = 0
@@ -33,12 +34,67 @@ local function find_keymap(mode, lhs)
   return nil
 end
 
+local leader = vim.api.nvim_replace_termcodes(vim.g.mapleader or "\\", true, true, true)
+
+--- Fail if any normal mode <leader> map is a strict prefix of another one.
+--- Such a pair makes the shorter map wait for timeoutlen before it fires.
+--- Covers global maps (including lazy's key handler stubs for plugins that
+--- are not loaded yet) and the buffer-local maps of buf.
+local function assert_no_leader_prefix_collisions(buf)
+  local lhss = {}
+  local maps = vim.list_extend(vim.api.nvim_get_keymap("n"), vim.api.nvim_buf_get_keymap(buf, "n"))
+  for _, m in ipairs(maps) do
+    local raw = vim.api.nvim_replace_termcodes(m.lhs, true, true, true)
+    if raw ~= leader and raw:sub(1, #leader) == leader then
+      lhss[raw] = true
+    end
+  end
+  local collisions = {}
+  for a in pairs(lhss) do
+    for b in pairs(lhss) do
+      if a ~= b and b:sub(1, #a) == a then
+        table.insert(collisions, vim.fn.keytrans(a) .. " is a prefix of " .. vim.fn.keytrans(b))
+      end
+    end
+  end
+  table.sort(collisions)
+  assert_true(#collisions == 0, table.concat(collisions, ", "))
+end
+
+local function plugin_loaded(name)
+  local plugin = require("lazy.core.config").plugins[name]
+  return plugin ~= nil and plugin._.loaded ~= nil
+end
+
 -- Wait for lazy to finish loading
 vim.wait(3000, function()
   return require("lazy").stats().loaded > 0
 end)
 
 print("\n=== UI Tests ===\n")
+
+-- Checked before anything below loads telescope
+test("telescope-fzf-native is not loaded at startup", function()
+  assert_true(not plugin_loaded("telescope.nvim"), "telescope loaded at startup")
+  assert_true(not plugin_loaded("telescope-fzf-native.nvim"), "telescope-fzf-native loaded at startup")
+end)
+
+test("no <leader> map is a prefix of another (before lazy-loading)", function()
+  assert_no_leader_prefix_collisions(vim.api.nvim_get_current_buf())
+end)
+
+-- Colorscheme overrides
+test("nordic highlight overrides survive :colorscheme", function()
+  local function comment_fg()
+    return vim.api.nvim_get_hl(0, { name = "Comment" }).fg
+  end
+  assert_true(vim.g.colors_name == "nordic", "colorscheme is " .. tostring(vim.g.colors_name))
+  assert_true(comment_fg() == 0xb8cde6, "Comment override not applied at startup")
+  vim.cmd.colorscheme("default")
+  vim.cmd.colorscheme("nordic")
+  assert_true(comment_fg() == 0xb8cde6, "Comment override lost after :colorscheme nordic")
+  assert_true(vim.api.nvim_get_hl(0, { name = "Search" }).bold == true, "Search override lost")
+end)
 
 -- Open a real file so BufReadPre fires and lazy loads event-triggered plugins
 vim.cmd("edit README.md")
@@ -97,8 +153,42 @@ test("diagnostic keymaps jump without errors", function()
   end
 end)
 
+-- File explorer
+test("<leader>l toggles and <leader>L finds the current file in nvim-tree", function()
+  local l = find_keymap("n", "<leader>l")
+  assert_not_nil(l, "<leader>l not mapped")
+  assert_true(l.desc == "nvim-tree: Toggle", "unexpected <leader>l desc: " .. tostring(l.desc))
+  local L = find_keymap("n", "<leader>L")
+  assert_not_nil(L, "<leader>L not mapped")
+  assert_true(L.desc == "nvim-tree: Find current file", "unexpected <leader>L desc: " .. tostring(L.desc))
+  assert_true(find_keymap("n", "<leader>lf") == nil, "<leader>lf still mapped (collides with <leader>l)")
+end)
+
+test("<leader>L opens nvim-tree on the current file", function()
+  local file = vim.api.nvim_buf_get_name(0)
+  require("lazy").load({ plugins = { "nvim-tree.lua" } })
+  local L = find_keymap("n", "<leader>L")
+  assert_not_nil(L and L.callback, "<leader>L has no callback after nvim-tree loaded")
+  L.callback()
+  vim.wait(500, function() return vim.bo.filetype == "NvimTree" end)
+  assert_true(vim.bo.filetype == "NvimTree", "nvim-tree did not open and focus")
+  local node = require("nvim-tree.api").tree.get_node_under_cursor()
+  assert_true(node and node.absolute_path == file, "cursor not on current file: " .. tostring(node and node.absolute_path))
+  -- Buffer-local maps in the tree (e.g. lazy ft keys) must not collide either
+  assert_no_leader_prefix_collisions(vim.api.nvim_get_current_buf())
+  require("nvim-tree.api").tree.close()
+end)
+
 -- Telescope
 require("lazy").load({ plugins = { "telescope.nvim" } })
+
+test("telescope-fzf-native loads with telescope", function()
+  assert_true(plugin_loaded("telescope-fzf-native.nvim"), "telescope-fzf-native not loaded")
+end)
+
+test("no <leader> map is a prefix of another (after lazy-loading)", function()
+  assert_no_leader_prefix_collisions(vim.api.nvim_get_current_buf())
+end)
 
 test("telescope ignore patterns keep .github and .gitignore", function()
   local patterns = require("telescope.config").values.file_ignore_patterns
