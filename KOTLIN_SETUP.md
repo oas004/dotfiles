@@ -10,12 +10,11 @@ This configuration uses the **official JetBrains kotlin-lsp** for language serve
 # Install ktfmt (formatter - removes unused imports, Android Studio style)
 brew install ktfmt
 
-# Install kotlin-lsp (JetBrains official LSP)
-# Download from: https://github.com/Kotlin/kotlin-lsp/releases
-curl -L https://github.com/Kotlin/kotlin-lsp/releases/latest/download/kotlin-lsp.zip -o /tmp/kotlin-lsp.zip
-unzip /tmp/kotlin-lsp.zip -d ~/.local/opt/
-chmod +x ~/.local/opt/kotlin-lsp/kotlin-lsp.sh
+# Install kotlin-lsp (JetBrains official LSP) into ~/.local/opt/kotlin-lsp
+INSTALL_KOTLIN=1 ~/.config/nvim/bootstrap.sh
 ```
+
+To install kotlin-lsp by hand, download the standalone archive for your platform from https://github.com/Kotlin/kotlin-lsp/releases and extract it so that `~/.local/opt/kotlin-lsp/kotlin-lsp.sh` exists. The macOS `.sit` file is a zip archive.
 
 ### 2. Current Configuration
 
@@ -47,7 +46,9 @@ ktfmt is used for all Kotlin formatting:
 
 ### Format on Save
 
-Format on save is enabled by default via `conform.nvim`.
+Format on save is not enabled for Kotlin. Format manually with `:KotlinFormat`
+or `<leader>fm`. Java and Rust do format on save via `conform.nvim`; see
+`lua/plugins/formatting.lua`.
 
 ### Manual Formatting
 

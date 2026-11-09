@@ -291,18 +291,41 @@ install_kotlin_tools() {
         info "ktfmt already installed"
     fi
 
-    # kotlin-lsp
+    # kotlin-lsp: standalone build from download.jetbrains.com (the GitHub
+    # releases page links there). macOS gets a .sit file, which is a zip.
     local kotlin_lsp_dir="$HOME/.local/opt/kotlin-lsp"
     if [[ ! -x "$kotlin_lsp_dir/kotlin-lsp.sh" ]]; then
-        info "Installing kotlin-lsp..."
+        local ver="${KOTLIN_LSP_VERSION:-263.7084.0}"
+        local suffix=""
+        case "$(uname -m)" in arm64|aarch64) suffix="-aarch64" ;; esac
+        local ext="tar.gz"
+        [[ "$OS" == "macos" ]] && ext="sit"
+        local url="https://download.jetbrains.com/language-server/kotlin-server/$ver/kotlin-server-$ver$suffix.$ext"
+
+        info "Installing kotlin-lsp $ver..."
         if [[ $DRY_RUN -eq 1 ]]; then
-            dry "Download and extract kotlin-lsp to $kotlin_lsp_dir"
+            dry "Download $url and extract it to $kotlin_lsp_dir"
         else
-            mkdir -p "$HOME/.local/opt"
-            curl -L https://github.com/Kotlin/kotlin-lsp/releases/latest/download/kotlin-lsp.zip -o /tmp/kotlin-lsp.zip
-            unzip -o /tmp/kotlin-lsp.zip -d "$HOME/.local/opt/"
+            local tmp
+            tmp="$(mktemp -d)"
+            curl -fL "$url" -o "$tmp/archive"
+            mkdir -p "$tmp/x"
+            if [[ "$ext" == "sit" ]]; then
+                unzip -q "$tmp/archive" -d "$tmp/x"
+            else
+                tar xzf "$tmp/archive" -C "$tmp/x"
+            fi
+            # Use the archive's top-level directory if it has exactly one
+            local src="$tmp/x"
+            local entries=("$tmp/x"/*)
+            if [[ ${#entries[@]} -eq 1 && -d "${entries[0]}" ]]; then
+                src="${entries[0]}"
+            fi
+            mkdir -p "$(dirname "$kotlin_lsp_dir")"
+            rm -rf "$kotlin_lsp_dir"
+            mv "$src" "$kotlin_lsp_dir"
             chmod +x "$kotlin_lsp_dir/kotlin-lsp.sh"
-            rm /tmp/kotlin-lsp.zip
+            rm -rf "$tmp"
         fi
     else
         info "kotlin-lsp already installed"
