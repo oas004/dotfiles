@@ -5,8 +5,6 @@ return {
     lazy = false,  -- Load immediately
     priority = 30, -- Load after conform
     dependencies = {
-      { "L3MON4D3/LuaSnip" },
-      { "saadparwaiz1/cmp_luasnip" },
       { "hrsh7th/cmp-buffer" },
     },
     config = function()
@@ -14,8 +12,6 @@ return {
 
       local cmp = utils.safe_require("cmp", "nvim-cmp failed to load")
       if not cmp then return end
-
-      local luasnip = utils.safe_require("luasnip", "LuaSnip failed to load")
 
       local select = { behavior = cmp.SelectBehavior.Select }
 
@@ -34,17 +30,32 @@ return {
         end)
       end
 
+      -- Move through the menu if it is open, otherwise jump to the next or
+      -- previous snippet placeholder. Mapped in select mode as well, since
+      -- vim.snippet selects placeholders in select mode.
+      local function select_or_jump(direction)
+        return cmp.mapping(function(fallback)
+          if cmp.visible() then
+            if direction == 1 then
+              cmp.select_next_item(select)
+            else
+              cmp.select_prev_item(select)
+            end
+          elseif vim.snippet.active({ direction = direction }) then
+            vim.snippet.jump(direction)
+          else
+            fallback()
+          end
+        end, { "i", "s" })
+      end
+
       cmp.setup({
         snippet = {
           expand = function(args)
-            if luasnip then
-              luasnip.lsp_expand(args.body)
-            else
-              vim.snippet.expand(args.body)
-            end
+            vim.snippet.expand(args.body)
           end,
         },
-        -- Show the source next to each item, e.g. [LSP], [buffer], [luasnip]
+        -- Show the source next to each item, e.g. [LSP], [buffer]
         formatting = {
           fields = { "abbr", "menu", "kind" },
           format = function(entry, item)
@@ -55,8 +66,8 @@ return {
         },
         mapping = cmp.mapping.preset.insert({
           ["<C-Space>"] = cmp.mapping.complete(),
-          ["<Tab>"]     = cmp.mapping.select_next_item(select),
-          ["<S-Tab>"]   = cmp.mapping.select_prev_item(select),
+          ["<Tab>"]     = select_or_jump(1),
+          ["<S-Tab>"]   = select_or_jump(-1),
           ["<CR>"]      = cmp.mapping.confirm({ select = true }),
           ["<C-u>"]     = cmp.mapping.scroll_docs(-4),
           ["<C-d>"]     = cmp.mapping.scroll_docs(4),
@@ -70,7 +81,6 @@ return {
         }),
         sources = cmp.config.sources({
           { name = "nvim_lsp" },
-          { name = "luasnip" },
           { name = "buffer" },
         }),
       })

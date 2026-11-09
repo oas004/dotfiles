@@ -23,6 +23,14 @@ APT_UPDATED=0
 # The config needs Neovim 0.11+ (vim.lsp.config/vim.lsp.enable)
 MIN_NVIM_VERSION="0.11.0"
 
+# jdtls needs Java 21+ to run, and gradle_ls runs on the same JDK
+MIN_JAVA_VERSION=21
+# macOS JDK lookup; a variable so the tests can point it elsewhere
+MACOS_JAVA_HOME_CMD="/usr/libexec/java_home"
+
+# Warnings repeated at the end by print_summary, one per line
+SUMMARY_WARNINGS=""
+
 usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
@@ -74,6 +82,12 @@ info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; }
 dry() { echo -e "${BLUE}[DRY-RUN]${NC} Would: $1"; }
+
+# Warn now and again in the summary
+warn_later() {
+    warn "$1"
+    SUMMARY_WARNINGS+="$1"$'\n'
+}
 
 command_exists() { command -v "$1" &>/dev/null; }
 
@@ -303,24 +317,119 @@ install_system_deps() {
         info "ripgrep already installed"
     fi
 
-    if ! command_exists git; then
-        info "Installing git..."
-        install_pkg git
-    else
-        info "git already installed"
+    # Mason downloads and extracts servers with curl, git, unzip, tar and
+    # gzip. unzip also extracts kotlin-lsp on macOS. jq is the json
+    # formatter in lua/plugins/formatting.lua.
+    local tool
+    for tool in git unzip tar gzip jq; do
+        if ! command_exists "$tool"; then
+            info "Installing $tool..."
+            install_pkg "$tool"
+        else
+            info "$tool already installed"
+        fi
+    done
+}
+
+# Print the major version of a java binary, e.g. 21 (empty if unknown)
+java_major() {
+    local ver
+    ver="$("$1" -version 2>&1 | sed -n 's/.*version "\([^"]*\)".*/\1/p' | head -1)" || true
+    # Java 8 and older report 1.8.0_x
+    [[ "$ver" == 1.* ]] && ver="${ver#1.}"
+    echo "${ver%%[!0-9]*}"
+}
+
+# Shell profile lines that make the JDK at $1 the one jdtls (JAVA_HOME) and
+# gradle_ls (java on PATH) run on
+java_env_hint() {
+    echo "export JAVA_HOME=\"$1\"; export PATH=\"\$JAVA_HOME/bin:\$PATH\""
+}
+
+# JDK for jdtls and gradle_ls. jdtls uses $JAVA_HOME if set, else java on PATH.
+install_jdk() {
+    info "Checking JDK (jdtls and gradle_ls need Java $MIN_JAVA_VERSION+)..."
+
+    local java_bin="java" major=""
+    [[ -n "${JAVA_HOME:-}" ]] && java_bin="$JAVA_HOME/bin/java"
+    command_exists "$java_bin" && major="$(java_major "$java_bin")"
+    if [[ -n "$major" ]] && ((major >= MIN_JAVA_VERSION)); then
+        info "Java $major already installed"
+        return
+    fi
+    local found="Java ${major:-not found}"
+    [[ -n "${JAVA_HOME:-}" ]] && found+=" (JAVA_HOME=$JAVA_HOME)"
+
+    # On macOS a JDK 21+ may be installed without being the default.
+    # java_home returns some other JDK if none matches, so check its version.
+    if [[ -x "$MACOS_JAVA_HOME_CMD" ]]; then
+        local home
+        home="$("$MACOS_JAVA_HOME_CMD" -v "$MIN_JAVA_VERSION+" 2>/dev/null)" || true
+        major=""
+        [[ -n "$home" ]] && major="$(java_major "$home/bin/java")"
+        if [[ -n "$major" ]] && ((major >= MIN_JAVA_VERSION)); then
+            warn_later "$found is too old for jdtls, but Java $major is installed. Add to your shell profile: $(java_env_hint "$home")"
+            return
+        fi
     fi
 
-    # Node.js (needed for some LSPs)
-    if ! command_exists node; then
-        info "Installing Node.js..."
-        case "$PKG_MGR" in
-            brew)   run brew install node ;;
-            apt)    apt_install nodejs npm ;;
-            dnf)    run_sudo dnf install -y nodejs npm ;;
-            pacman) run_sudo pacman -S --noconfirm nodejs npm ;;
-        esac
+    info "Installing JDK $MIN_JAVA_VERSION..."
+    local ok=1
+    case "$PKG_MGR" in
+        brew)   run brew install "openjdk@$MIN_JAVA_VERSION" || ok=0 ;;
+        apt)    apt_install "openjdk-$MIN_JAVA_VERSION-jdk" || ok=0 ;;
+        dnf)    run_sudo dnf install -y "java-$MIN_JAVA_VERSION-openjdk-devel" || ok=0 ;;
+        pacman) run_sudo pacman -S --noconfirm "jdk$MIN_JAVA_VERSION-openjdk" || ok=0 ;;
+        *)      ok=0 ;;
+    esac
+    if [[ $ok -eq 0 ]]; then
+        # Not fatal: some distros (e.g. Debian 12) have no JDK 21 package
+        warn_later "Could not install JDK $MIN_JAVA_VERSION. Install JDK $MIN_JAVA_VERSION+ (e.g. from https://adoptium.net) and add to your shell profile: $(java_env_hint "<jdk dir>")"
+        return
+    fi
+
+    if [[ "$PKG_MGR" == "brew" ]]; then
+        # Homebrew's openjdk@21 is keg-only: not on PATH or seen by java_home
+        local prefix
+        prefix="$(brew --prefix 2>/dev/null)" || prefix="/opt/homebrew"
+        warn_later "openjdk@$MIN_JAVA_VERSION is keg-only. Add to your shell profile: $(java_env_hint "$prefix/opt/openjdk@$MIN_JAVA_VERSION/libexec/openjdk.jdk/Contents/Home")"
+    elif [[ $DRY_RUN -eq 0 ]]; then
+        major=""
+        command_exists "$java_bin" && major="$(java_major "$java_bin")"
+        if [[ -z "$major" ]] || ((major < MIN_JAVA_VERSION)); then
+            warn_later "$found is still the default. Add to your shell profile: $(java_env_hint "/usr/lib/jvm/<JDK $MIN_JAVA_VERSION dir>")"
+        fi
+    fi
+}
+
+# python3 with venv: Mason installs jedi-language-server into a venv, and
+# Mason's jdtls launcher is a Python script
+install_python() {
+    info "Checking python3 with venv..."
+
+    # Debian/Ubuntu split ensurepip, which venv needs, into python3-venv
+    if python3 -c 'import ensurepip, venv' &>/dev/null; then
+        info "python3 with venv already installed"
+        return
+    fi
+
+    info "Installing python3 with venv..."
+    case "$PKG_MGR" in
+        brew)   run brew install python ;;
+        apt)    apt_install python3 python3-venv ;;
+        dnf)    run_sudo dnf install -y python3 ;;
+        pacman) run_sudo pacman -S --noconfirm python ;;
+        *)      warn "Unknown package manager, install python3 with venv manually" ;;
+    esac
+}
+
+# Mason installs haskell-language-server with ghcup. ghcup's installer is
+# interactive and installs GHC as well, so it is left to the user.
+check_ghcup() {
+    if command_exists ghcup; then
+        info "ghcup already installed"
     else
-        info "Node.js already installed"
+        warn_later "ghcup not found, so Mason can't install haskell-language-server (hls). To use Haskell, install ghcup and GHC: curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh"
     fi
 }
 
@@ -349,21 +458,25 @@ install_rust() {
         fi
     fi
 
-    # Ensure rust-analyzer component is installed
-    if ! command_exists rust-analyzer; then
-        info "Installing rust-analyzer..."
-        run rustup component add rust-analyzer
-    else
-        info "rust-analyzer already installed"
-    fi
+    # rust-analyzer (the LSP server) and rustfmt (conform's Rust formatter).
+    # rustup puts proxies for both in ~/.cargo/bin even when the component
+    # isn't installed, so check that the tool actually runs.
+    local component
+    for component in rust-analyzer rustfmt; do
+        if rustup_has_component "$component" || "$component" --version &>/dev/null; then
+            info "$component already installed"
+        else
+            info "Installing $component..."
+            run rustup component add "$component"
+        fi
+    done
+}
 
-    # Ensure rustfmt is installed
-    if ! command_exists rustfmt; then
-        info "Installing rustfmt..."
-        run rustup component add rustfmt
-    else
-        info "rustfmt already installed"
-    fi
+# True if the rustup component is installed for the default toolchain
+rustup_has_component() {
+    local installed
+    installed="$(rustup component list --installed 2>/dev/null)" || return 1
+    grep -Eq "^$1(-|\$)" <<<"$installed"
 }
 
 # Treesitter tooling: nvim-treesitter main compiles parsers with the
@@ -598,9 +711,27 @@ print_summary() {
         echo "Installed tools:"
         echo "  - Neovim: $(nvim --version | head -1)"
         command_exists rustc && echo "  - Rust: $(rustc --version)"
-        echo "  - rust-analyzer: $(rust-analyzer --version 2>/dev/null || echo 'via rustup')"
+        local ra_version
+        if ra_version="$(rust-analyzer --version 2>/dev/null)"; then
+            echo "  - rust-analyzer: $ra_version"
+        else
+            SUMMARY_WARNINGS+="rust-analyzer does not run; install it with: rustup component add rust-analyzer"$'\n'
+        fi
         command_exists wasm-tools && echo "  - wasm-tools: $(wasm-tools --version)"
         command_exists wit-bindgen && echo "  - wit-bindgen: $(wit-bindgen --version)"
+        echo ""
+    fi
+
+    # conform formats Java with it on save, falling back to jdtls without it
+    if ! command_exists google-java-format; then
+        SUMMARY_WARNINGS+="google-java-format not found, so Java format on save falls back to jdtls. Install it with :MasonInstall google-java-format"$'\n'
+    fi
+
+    if [[ -n "$SUMMARY_WARNINGS" ]]; then
+        local line
+        while IFS= read -r line; do
+            if [[ -n "$line" ]]; then warn "$line"; fi
+        done <<<"$SUMMARY_WARNINGS"
         echo ""
     fi
 
@@ -629,6 +760,9 @@ main() {
     detect_os
     setup_directories
     install_system_deps
+    install_jdk
+    install_python
+    check_ghcup
     install_rust
     install_treesitter_cli
     install_wasm_tools

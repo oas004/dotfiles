@@ -2,7 +2,9 @@
 return {
     {
         "nvim-telescope/telescope.nvim",
-        tag = "v0.2.2",
+        -- Follows master: releases lag behind it, and v0.2.2 still passes file
+        -- names through the shell in the previewer's mime type check (fixed in
+        -- 1e1bab7). lazy-lock.json holds the commit actually installed.
         -- also depends on ripgrep: `brew install ripgrep`
         dependencies = {
             "nvim-lua/plenary.nvim",
