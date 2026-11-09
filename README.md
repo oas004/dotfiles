@@ -136,6 +136,10 @@ See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 
 The leader key is `<Space>`.
 
+### which-key
+
+[which-key.nvim](https://github.com/folke/which-key.nvim) shows a popup with the keys that can follow a prefix (`<leader>`, `g`, `z`, `]`, ...) when you pause after typing it. It loads right after startup. The `<leader>` groups are `a` (Claude), `c` (code), `h` (git hunks), `n` (new) and `y` (yank); a group only shows up when something is mapped under it. `<leader>?` lists the keymaps local to the current buffer, such as the LSP maps. `:checkhealth which-key` reports overlapping and duplicate mappings.
+
 ### LSP Navigation
 
 `gd`, `gD`, `gI`, `gy` and `gs` are set only in buffers with an attached language server. `grr`, `grn`, `gra`, `gri`, `gO` and `K` are Neovim's built-in LSP defaults.
