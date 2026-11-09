@@ -102,7 +102,7 @@ end)
 
 test("ktfmt formatter configured", function()
   local conform = require("conform")
-  local formatters = conform.list_formatters_for_buffer(0)
+  conform.list_formatters_for_buffer(0)
   -- This may be empty if not in a kotlin buffer, so just check the module loads
   assert_not_nil(conform.get_formatter_info("ktfmt"))
 end)

@@ -40,8 +40,16 @@ local function main()
 
   out("\n=== Core Tests ===\n")
 
-  -- User commands
-  for _, name in ipairs({ "LspClients", "CleanupLSPCache", "CleanupLSPLogs", "LspRestart", "LspInfo" }) do
+  -- User commands. On Neovim 0.12+ nvim-lspconfig no longer defines
+  -- :LspRestart and :LspInfo; the builtin :lsp command (:lsp restart) and
+  -- :checkhealth vim.lsp replace them.
+  local builtin_lsp = vim.fn.exists(":lsp") == 2
+  local restart_cmd = builtin_lsp and "lsp restart" or "LspRestart"
+  local commands = { "LspClients", "CleanupLSPCache", "CleanupLSPLogs" }
+  if not builtin_lsp then
+    vim.list_extend(commands, { "LspRestart", "LspInfo" })
+  end
+  for _, name in ipairs(commands) do
     test(":" .. name .. " command exists", function()
       assert_true(command_exists(name), ":" .. name .. " is not defined")
     end)
@@ -75,16 +83,16 @@ local function main()
 
   local clients = vim.lsp.get_clients({ bufnr = buf })
   if #clients == 0 then
-    out("- skipped :LspRestart test (no LSP client attached to init.lua)")
+    out("- skipped :" .. restart_cmd .. " test (no LSP client attached to init.lua)")
   else
-    test(":LspRestart works on a modified buffer", function()
+    test(":" .. restart_cmd .. " works on a modified buffer", function()
       local old_ids = {}
       for _, c in ipairs(clients) do old_ids[c.id] = true end
 
       vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "-- modified by core_test" })
       assert_true(vim.bo[buf].modified, "buffer should be modified")
 
-      vim.cmd("LspRestart")
+      vim.cmd(restart_cmd)
 
       local restarted = vim.wait(15000, function()
         for _, c in ipairs(vim.lsp.get_clients({ bufnr = buf })) do
@@ -92,7 +100,7 @@ local function main()
         end
         return false
       end, 100)
-      assert_true(restarted, "no new LSP client attached after :LspRestart")
+      assert_true(restarted, "no new LSP client attached after :" .. restart_cmd)
       assert_true(vim.bo[buf].modified, "buffer modifications were lost")
     end)
   end
