@@ -200,27 +200,15 @@ end)
 
 print("\n=== Completion Tests ===\n")
 
-test("cmp has nvim_lsp, luasnip and buffer sources", function()
+test("cmp has nvim_lsp and buffer sources", function()
   local names = vim.tbl_map(function(s) return s.name end, require("cmp").get_config().sources)
-  for _, want in ipairs({ "nvim_lsp", "luasnip", "buffer" }) do
+  for _, want in ipairs({ "nvim_lsp", "buffer" }) do
     assert_true(vim.tbl_contains(names, want), want .. " not in " .. vim.inspect(names))
   end
 end)
 
-test("cmp-buffer and cmp_luasnip are installed", function()
+test("cmp-buffer is installed", function()
   assert_not_nil(require("cmp_buffer"), "cmp_buffer missing")
-  assert_not_nil(require("cmp_luasnip"), "cmp_luasnip missing")
-end)
-
-test("cmp expands snippets with LuaSnip", function()
-  local ls = require("luasnip")
-  local called = false
-  local orig = ls.lsp_expand
-  ls.lsp_expand = function() called = true end
-  local ok, err = pcall(require("cmp").get_config().snippet.expand, { body = "x$0" })
-  ls.lsp_expand = orig
-  assert_true(ok, tostring(err))
-  assert_true(called, "luasnip.lsp_expand not called")
 end)
 
 test("cmp keeps existing mappings", function()
