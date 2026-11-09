@@ -23,9 +23,13 @@ git clone https://github.com/oas004/dotfiles.git ~/.config/nvim
 ~/.config/nvim/bootstrap.sh
 ```
 
-The bootstrap script installs all dependencies including Neovim, Rust toolchain, wasm-tools, and syncs plugins. Plugins are installed at the versions in `lazy-lock.json` (`:Lazy! restore`), and the script fails if a plugin or treesitter parser can't be installed. It also fails if an existing Neovim is older than 0.11.
+The bootstrap script installs all dependencies including Neovim, the Rust toolchain (with the rust-analyzer and rustfmt components), wasm-tools, a JDK 21, python3 with venv, jq and the tools Mason needs, and syncs plugins. Plugins are installed at the versions in `lazy-lock.json` (`:Lazy! restore`), and the script fails if a plugin or treesitter parser can't be installed. It also fails if an existing Neovim is older than 0.11.
 
 On Debian/Ubuntu, apt's `neovim` package is older than 0.11, so the script installs the official release build instead: it extracts `nvim-linux-x86_64.tar.gz` (or `nvim-linux-arm64.tar.gz`) from https://github.com/neovim/neovim/releases into `~/.local/opt/nvim` and symlinks `~/.local/bin/nvim` to it. Make sure `~/.local/bin` is on your PATH. Set `NVIM_RELEASE` to pick a release tag (default `stable`, e.g. `NVIM_RELEASE=v0.12.0`).
+
+jdtls needs Java 21+ and uses `JAVA_HOME` if it is set, otherwise `java` on PATH; gradle_ls uses `java` on PATH. If that is an older Java, the script installs JDK 21 (or, on macOS, finds one that is already installed) and prints the `JAVA_HOME` and `PATH` lines to add to your shell profile. Homebrew's `openjdk@21` is keg-only, so on macOS you need to set them either way.
+
+The script does not install ghcup, which Mason uses to install haskell-language-server. It warns if ghcup is missing; to use Haskell, install ghcup and GHC with `curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh`. It also doesn't install google-java-format, which conform uses to format Java on save (`:MasonInstall google-java-format`); without it, Java formatting falls back to jdtls.
 
 ### Manual Setup
 
@@ -33,19 +37,27 @@ On Debian/Ubuntu, apt's `neovim` package is older than 0.11, so the script insta
 
 - [Neovim 0.11+](https://neovim.io/) (recommended: 0.12+, which nvim-treesitter's main branch requires; on 0.11 the config pins an older main commit)
 - [Git](https://git-scm.com/)
-- [Rust](https://rustup.rs/) (for rust-analyzer and wasm tools)
+- [Rust](https://rustup.rs/) with the `rust-analyzer` and `rustfmt` components (`rustup component add rust-analyzer rustfmt`), plus the wasm tools
 - `ripgrep` (for telescope fuzzy finder)
 - [`tree-sitter` CLI](https://github.com/tree-sitter/tree-sitter/blob/master/crates/cli/README.md) 0.26.1+ (not the npm package), plus `curl`, `tar` and a C compiler, for installing treesitter parsers
+- `unzip` and `gzip`, which Mason uses along with `curl`, `git` and `tar` to download and extract servers
+- JDK 21+ for jdtls and gradle_ls, as `java` on PATH (and `JAVA_HOME`, if you set it)
+- `python3` with the `venv` module (`python3-venv` on Debian/Ubuntu), for jedi-language-server and the jdtls launcher
+- [ghcup](https://www.haskell.org/ghcup/) and GHC, for haskell-language-server (optional)
+- `jq` (json formatter) and `google-java-format` (Java formatter, optional; without it Java formatting falls back to jdtls)
 
 #### macOS
 ```bash
-brew install neovim ripgrep tree-sitter-cli
+brew install neovim ripgrep tree-sitter-cli jq openjdk@21
+# openjdk@21 is keg-only, so point JAVA_HOME and PATH at it in your shell profile
+export JAVA_HOME="$(brew --prefix)/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
 #### Ubuntu/Debian
 ```bash
 sudo apt-get update
-sudo apt-get install ripgrep build-essential curl
+sudo apt-get install ripgrep build-essential curl git unzip jq openjdk-21-jdk python3 python3-venv
 cargo install --locked tree-sitter-cli  # apt's tree-sitter-cli is usually too old
 # apt's neovim is older than 0.11, so use the release build
 # (on arm64, replace nvim-linux-x86_64 with nvim-linux-arm64)
@@ -57,8 +69,9 @@ ln -sf ~/.local/opt/nvim/bin/nvim ~/.local/bin/nvim
 
 #### Fedora
 ```bash
-sudo dnf install neovim ripgrep tree-sitter-cli gcc
+sudo dnf install neovim ripgrep tree-sitter-cli gcc unzip jq java-21-openjdk-devel python3
 ```
+
 
 #### Setup Steps
 
