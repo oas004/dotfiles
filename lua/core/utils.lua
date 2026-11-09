@@ -29,30 +29,4 @@ function M.safe_call(fn, error_msg)
   return true, result
 end
 
---- Check if a file exists
---- @param path string The file path to check
---- @return boolean exists Whether the file exists
-function M.file_exists(path)
-  local stat = vim.loop.fs_stat(path)
-  return stat ~= nil and stat.type == "file"
-end
-
---- Check if a directory exists
---- @param path string The directory path to check
---- @return boolean exists Whether the directory exists
-function M.dir_exists(path)
-  local stat = vim.loop.fs_stat(path)
-  return stat ~= nil and stat.type == "directory"
-end
-
---- Get platform information
---- @return table platform Table with 'is_mac', 'is_linux', 'is_windows' fields
-function M.get_platform()
-  return {
-    is_mac = vim.fn.has("mac") == 1 or vim.fn.has("macunix") == 1,
-    is_linux = vim.fn.has("unix") == 1 and vim.fn.has("mac") == 0,
-    is_windows = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1,
-  }
-end
-
 return M

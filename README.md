@@ -29,7 +29,7 @@ The bootstrap script installs all dependencies including Neovim, Rust toolchain,
 
 #### Prerequisites
 
-- [Neovim 0.9+](https://neovim.io/) (recommended: latest stable)
+- [Neovim 0.11+](https://neovim.io/) (recommended: latest stable)
 - [Git](https://git-scm.com/)
 - [Rust](https://rustup.rs/) (for rust-analyzer and wasm tools)
 - `ripgrep` (for telescope fuzzy finder)
@@ -98,11 +98,11 @@ For Kotlin support, install the JetBrains official kotlin-lsp:
 # Install ktfmt (formatter)
 brew install ktfmt
 
-# Install kotlin-lsp
-curl -L https://github.com/Kotlin/kotlin-lsp/releases/latest/download/kotlin-lsp.zip -o /tmp/kotlin-lsp.zip
-unzip /tmp/kotlin-lsp.zip -d ~/.local/opt/
-chmod +x ~/.local/opt/kotlin-lsp/kotlin-lsp.sh
+# Install kotlin-lsp into ~/.local/opt/kotlin-lsp
+INSTALL_KOTLIN=1 ~/.config/nvim/bootstrap.sh
 ```
+
+To install kotlin-lsp by hand, download the standalone archive for your platform from the [kotlin-lsp releases page](https://github.com/Kotlin/kotlin-lsp/releases) and extract it so that `~/.local/opt/kotlin-lsp/kotlin-lsp.sh` exists. The macOS `.sit` file is a zip archive.
 
 See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 
@@ -168,7 +168,6 @@ The leader key is `<Space>`.
 | `jj` or `jk` | Exit insert mode |
 | `<C-o>` | Jump back (after go to definition) |
 | `<C-i>` | Jump forward |
-| `]m` / `[m` | Jump to next/previous function |
 
 ### Treesitter Text Objects
 
@@ -195,23 +194,32 @@ The leader key is `<Space>`.
 
 ## Folder Structure
 
+- `init.lua` is the entry point. It loads the core modules and defines a few LSP maintenance commands.
+- `lua/core/` holds editor setup that is not a plugin: options, keymaps, the lazy.nvim bootstrap, shared helpers, and central path definitions.
+- `lua/plugins/` holds lazy.nvim plugin specs, grouped by area. lazy.nvim imports every file in this directory.
+- `tests/` holds the test suite (see Development below).
+- `bootstrap.sh` installs dependencies on a new machine.
+
+## Development
+
+Run the whole test suite with:
+
+```bash
+tests/run.sh
 ```
-~/.config/nvim/
-├── init.lua                 # Entry point
-├── lua/
-│   ├── core/
-│   │   ├── keymaps.lua      # Key bindings
-│   │   ├── options.lua      # Neovim options
-│   │   ├── paths.lua        # Path configuration
-│   │   └── utils.lua        # Helper functions
-│   └── plugins/
-│       ├── language-server.lua  # LSP configuration
-│       ├── formatting.lua       # conform.nvim (ktfmt, google-java-format, rustfmt)
-│       ├── fuzzy-finder.lua     # Telescope
-│       ├── file-explorer.lua    # nvim-tree
-│       ├── parser.lua           # Treesitter
-│       └── theming.lua          # Colorscheme
+
+It runs `tests/bootstrap_test.sh`, every `tests/*_test.lua` in a fresh headless Neovim, and a startup smoke test that opens sample files and fails on errors in `:messages`. It exits non-zero if anything fails. `TEST_SKIP` skips tests by name, and the header of `tests/run.sh` lists the other options. CI runs the same script on every push and pull request.
+
+To test changes without touching your live config, check them out in a separate directory under `~/.config` and point Neovim at it with `NVIM_APPNAME`, which also gives it its own plugin and data directories:
+
+```bash
+git worktree add ~/.config/nvim-dev -b my-change
+cd ~/.config/nvim-dev
+NVIM_APPNAME=nvim-dev nvim             # try it interactively
+NVIM_APPNAME=nvim-dev tests/run.sh     # run the tests against it
 ```
+
+`tests/run.sh` refuses to run if Neovim would load a config other than the checkout it lives in.
 
 ## Troubleshooting
 
