@@ -8,7 +8,6 @@ set -euo pipefail
 #   ./bootstrap.sh              # Full installation
 #   ./bootstrap.sh --dry-run    # Show what would be installed
 #   ./bootstrap.sh --help       # Show help
-#   INSTALL_KOTLIN=1 ./bootstrap.sh  # Include Kotlin tooling
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -23,7 +22,8 @@ APT_UPDATED=0
 # The config needs Neovim 0.11+ (vim.lsp.config/vim.lsp.enable)
 MIN_NVIM_VERSION="0.11.0"
 
-# jdtls needs Java 21+ to run, and gradle_ls runs on the same JDK
+# jdtls needs Java 21+ to run, and gradle_ls and ktfmt (Mason java-jar
+# wrappers, ktfmt needs 17+) run on the same JDK
 MIN_JAVA_VERSION=21
 # macOS JDK lookup; a variable so the tests can point it elsewhere
 MACOS_JAVA_HOME_CMD="/usr/libexec/java_home"
@@ -43,14 +43,12 @@ Options:
     -h, --help       Show this help message
 
 Environment variables:
-    INSTALL_KOTLIN=1    Include Kotlin tooling (ktfmt, kotlin-lsp)
     NVIM_RELEASE=tag    Neovim release tag to install on Debian/Ubuntu
                         (default: stable, e.g. v0.12.0)
 
 Examples:
     $(basename "$0")                    # Full installation
     $(basename "$0") --dry-run          # Preview changes
-    INSTALL_KOTLIN=1 $(basename "$0")   # Include Kotlin
 EOF
 }
 
@@ -287,7 +285,7 @@ install_nvim_release() {
 install_system_deps() {
     info "Checking system dependencies..."
 
-    # Used for the Neovim release build, rustup and kotlin-lsp downloads
+    # Used for the Neovim release build and rustup downloads, and by Mason
     if ! command_exists curl; then
         info "Installing curl..."
         install_pkg curl
@@ -318,7 +316,7 @@ install_system_deps() {
     fi
 
     # Mason downloads and extracts servers with curl, git, unzip, tar and
-    # gzip. unzip also extracts kotlin-lsp on macOS. jq is the json
+    # gzip (kotlin-lsp's macOS .sit archive is a zip). jq is the json
     # formatter in lua/plugins/formatting.lua.
     local tool
     for tool in git unzip tar gzip jq; do
@@ -346,7 +344,8 @@ java_env_hint() {
     echo "export JAVA_HOME=\"$1\"; export PATH=\"\$JAVA_HOME/bin:\$PATH\""
 }
 
-# JDK for jdtls and gradle_ls. jdtls uses $JAVA_HOME if set, else java on PATH.
+# JDK for jdtls, gradle_ls and ktfmt. jdtls uses $JAVA_HOME if set, else
+# java on PATH; the others use java on PATH.
 install_jdk() {
     info "Checking JDK (jdtls and gradle_ls need Java $MIN_JAVA_VERSION+)..."
 
@@ -538,69 +537,6 @@ install_wasm_tools() {
     fi
 }
 
-# Kotlin tooling (optional)
-install_kotlin_tools() {
-    if [[ "${INSTALL_KOTLIN:-}" != "1" ]]; then
-        return
-    fi
-
-    info "Installing Kotlin tooling..."
-
-    # ktfmt
-    if ! command_exists ktfmt; then
-        case "$PKG_MGR" in
-            brew)
-                run brew install ktfmt
-                ;;
-            *)
-                warn "ktfmt: install manually from https://github.com/facebook/ktfmt"
-                ;;
-        esac
-    else
-        info "ktfmt already installed"
-    fi
-
-    # kotlin-lsp: standalone build from download.jetbrains.com (the GitHub
-    # releases page links there). macOS gets a .sit file, which is a zip.
-    local kotlin_lsp_dir="$HOME/.local/opt/kotlin-lsp"
-    if [[ ! -x "$kotlin_lsp_dir/kotlin-lsp.sh" ]]; then
-        local ver="${KOTLIN_LSP_VERSION:-263.7084.0}"
-        local suffix=""
-        case "$(uname -m)" in arm64|aarch64) suffix="-aarch64" ;; esac
-        local ext="tar.gz"
-        [[ "$OS" == "macos" ]] && ext="sit"
-        local url="https://download.jetbrains.com/language-server/kotlin-server/$ver/kotlin-server-$ver$suffix.$ext"
-
-        info "Installing kotlin-lsp $ver..."
-        if [[ $DRY_RUN -eq 1 ]]; then
-            dry "Download $url and extract it to $kotlin_lsp_dir"
-        else
-            local tmp
-            tmp="$(mktemp -d)"
-            curl -fL "$url" -o "$tmp/archive"
-            mkdir -p "$tmp/x"
-            if [[ "$ext" == "sit" ]]; then
-                unzip -q "$tmp/archive" -d "$tmp/x"
-            else
-                tar xzf "$tmp/archive" -C "$tmp/x"
-            fi
-            # Use the archive's top-level directory if it has exactly one
-            local src="$tmp/x"
-            local entries=("$tmp/x"/*)
-            if [[ ${#entries[@]} -eq 1 && -d "${entries[0]}" ]]; then
-                src="${entries[0]}"
-            fi
-            mkdir -p "$(dirname "$kotlin_lsp_dir")"
-            rm -rf "$kotlin_lsp_dir"
-            mv "$src" "$kotlin_lsp_dir"
-            chmod +x "$kotlin_lsp_dir/kotlin-lsp.sh"
-            rm -rf "$tmp"
-        fi
-    else
-        info "kotlin-lsp already installed"
-    fi
-}
-
 # Create necessary directories
 setup_directories() {
     info "Setting up directories..."
@@ -722,11 +658,6 @@ print_summary() {
         echo ""
     fi
 
-    # conform formats Java with it on save, falling back to jdtls without it
-    if ! command_exists google-java-format; then
-        SUMMARY_WARNINGS+="google-java-format not found, so Java format on save falls back to jdtls. Install it with :MasonInstall google-java-format"$'\n'
-    fi
-
     if [[ -n "$SUMMARY_WARNINGS" ]]; then
         local line
         while IFS= read -r line; do
@@ -737,12 +668,9 @@ print_summary() {
 
     echo "Next steps:"
     echo "  1. Open Neovim: nvim"
-    echo "  2. Run :Mason to install/manage LSP servers"
+    echo "  2. Wait for Mason to install the language servers and formatters (:Mason shows progress)"
     echo "  3. Run :checkhealth to verify setup"
     echo ""
-    if [[ "${INSTALL_KOTLIN:-}" != "1" ]]; then
-        echo "For Kotlin support, run: INSTALL_KOTLIN=1 $0"
-    fi
 }
 
 # Main
@@ -766,7 +694,6 @@ main() {
     install_rust
     install_treesitter_cli
     install_wasm_tools
-    install_kotlin_tools
     sync_nvim
     print_summary
 }

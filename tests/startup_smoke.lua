@@ -25,13 +25,8 @@ local settle_ms = tonumber(vim.env.SMOKE_SETTLE_MS) or 2000
 local expected = {
   lua = { client = "lua_ls", available = function() return vim.fn.executable("lua-language-server") == 1 end },
   rs = { client = "rust_analyzer", available = function() return vim.fn.executable("rust-analyzer") == 1 end },
-  kt = {
-    client = "kotlin_lsp",
-    available = function()
-      local paths = require("core.paths")
-      return paths.file_exists(paths.external.kotlin_lsp)
-    end,
-  },
+  -- Mason's kotlin-lsp package links its launcher as intellij-server
+  kt = { client = "kotlin_lsp", available = function() return vim.fn.executable("intellij-server") == 1 end },
 }
 
 -- Lowercased :messages lines containing any of these fail the test.

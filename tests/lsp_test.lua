@@ -156,22 +156,19 @@ test("jdtls java.home follows JAVA_HOME and is never empty", function()
   end
 end)
 
--- Same list as language-server.lua, kotlin_lsp only when its binary exists
-local listed = { "gradle_ls", "jedi_language_server", "lua_ls", "hls", "clangd", "jdtls", "rust_analyzer" }
+-- Same list as language-server.lua
+local listed = { "gradle_ls", "jedi_language_server", "lua_ls", "hls", "clangd", "jdtls", "kotlin_lsp", "rust_analyzer" }
 
 test("listed servers are enabled", function()
   for _, name in ipairs(listed) do
     assert_true(vim.lsp.is_enabled(name), name .. " not enabled")
   end
-  local kotlin = require("core.paths").file_exists(require("core.paths").external.kotlin_lsp)
-  assert_eq(vim.lsp.is_enabled("kotlin_lsp"), kotlin, "kotlin_lsp enabled")
 end)
 
 test("servers outside the list are not enabled", function()
   for _, name in ipairs({ "yamlls", "jsonls", "html", "ts_ls", "terraformls", "dockerls" }) do
     assert_true(not vim.lsp.is_enabled(name), name .. " is enabled")
   end
-  local allowed = vim.list_extend({ "kotlin_lsp" }, listed)
   local enabled
   if vim.lsp.get_configs then
     enabled = vim.tbl_map(function(c) return c.name end, vim.lsp.get_configs({ enabled = true }))
@@ -181,7 +178,7 @@ test("servers outside the list are not enabled", function()
     enabled = vim.tbl_keys(vim.lsp._enabled_configs)
   end
   for _, name in ipairs(enabled) do
-    assert_true(vim.tbl_contains(allowed, name), "unexpected server enabled: " .. name)
+    assert_true(vim.tbl_contains(listed, name), "unexpected server enabled: " .. name)
   end
 end)
 
@@ -195,6 +192,24 @@ test("rust_analyzer comes from rustup, not Mason", function()
   assert_true(not vim.tbl_contains(ensure, "rust_analyzer"), "rust_analyzer in ensure_installed")
 end)
 
+test("Mason installs kotlin-lsp, ktfmt and google-java-format", function()
+  local ensure = require("mason-lspconfig.settings").current.ensure_installed
+  assert_true(vim.tbl_contains(ensure, "kotlin_lsp"), "kotlin_lsp not in ensure_installed")
+  local map = require("mason-lspconfig").get_mappings().lspconfig_to_package
+  assert_eq(map.kotlin_lsp, "kotlin-lsp", "kotlin_lsp package")
+  local tools = vim.g.mason_tools or {}
+  assert_true(vim.tbl_contains(tools, "ktfmt"), "ktfmt not in vim.g.mason_tools")
+  assert_true(vim.tbl_contains(tools, "google-java-format"), "google-java-format not in vim.g.mason_tools")
+  local registry = require("mason-registry")
+  registry.refresh() -- synchronous without a callback
+  for _, name in ipairs(vim.list_extend({ "kotlin-lsp" }, tools)) do
+    assert_true(registry.has_package(name), name .. " is not in the Mason registry")
+  end
+  -- The cmd below runs this name, so it must be what the package links into mason/bin
+  local bin = registry.get_package("kotlin-lsp").spec.bin
+  assert_true(bin and bin["intellij-server"] ~= nil, "kotlin-lsp has no intellij-server bin: " .. vim.inspect(bin))
+end)
+
 test("kotlin_lsp config exists with kotlin filetype", function()
   local cfg = vim.lsp.config.kotlin_lsp
   assert_not_nil(cfg, "kotlin_lsp not configured")
@@ -203,12 +218,12 @@ test("kotlin_lsp config exists with kotlin filetype", function()
   assert_true(vim.tbl_contains(cfg.root_markers or {}, "settings.gradle.kts"), "settings.gradle.kts not a root marker")
 end)
 
-test("kotlin_lsp cmd uses external binary and per-root --system-path", function()
+test("kotlin_lsp cmd runs Mason's intellij-server with per-root --system-path", function()
   local paths = require("core.paths")
   local root = tmp .. "/" .. proj .. "-kt"
   table.insert(created_dirs, cache_dir(paths.lsp_cache.kotlin_lsp, root))
   local argv = resolve_cmd(vim.lsp.config.kotlin_lsp.cmd, root)
-  assert_eq(argv[1], paths.external.kotlin_lsp, "binary")
+  assert_eq(argv[1], "intellij-server", "binary")
   assert_true(vim.tbl_contains(argv, "--stdio"), "no --stdio")
   assert_eq(argv[vim.fn.index(argv, "--system-path") + 2], cache_dir(paths.lsp_cache.kotlin_lsp, root), "--system-path")
 end)
@@ -289,6 +304,16 @@ if vim.fn.executable(mason_bin .. "clangd") == 1 then
   end)
 else
   skip("clangd runtime attach", "Mason clangd not installed")
+end
+
+-- kotlin_lsp's cmd runs plain "intellij-server", which must resolve to
+-- Mason's copy in the same way. The smoke test checks that it attaches.
+if vim.fn.executable(mason_bin .. "intellij-server") == 1 then
+  test("intellij-server on PATH is Mason's kotlin-lsp", function()
+    assert_eq(vim.fn.exepath("intellij-server"), mason_bin .. "intellij-server", "intellij-server on PATH")
+  end)
+else
+  skip("kotlin-lsp on PATH", "Mason kotlin-lsp not installed")
 end
 
 -- Summary

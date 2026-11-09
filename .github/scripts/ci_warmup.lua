@@ -6,11 +6,13 @@
 -- nvim that would restart and then abandon that work, so wait here until
 -- it settles.
 --
--- mason-lspconfig skips ensure_installed in headless mode, so without help
--- CI would have no language servers. This script installs the same servers
--- with :MasonInstall, which blocks in headless mode and exits non-zero if any
--- install fails (set WARMUP_MASON=0 to skip that). The server list is read
--- from mason-lspconfig's settings table, the only non-public piece here.
+-- mason-lspconfig skips ensure_installed in headless mode, and so does the
+-- config's install of vim.g.mason_tools (formatters), so without help CI would
+-- have no language servers or Mason formatters. This script installs the same
+-- packages with :MasonInstall, which blocks in headless mode and exits
+-- non-zero if any install fails (set WARMUP_MASON=0 to skip that). The server
+-- list is read from mason-lspconfig's settings table, the only non-public
+-- piece here.
 --
 -- "Settled" means no Mason package is installing and nvim has had no child
 -- processes for WARMUP_QUIET_MS. Apart from Mason install failures the
@@ -29,6 +31,7 @@ end
 
 local ok_registry, registry = pcall(require, "mason-registry")
 local ensure_installed = {}
+local tools = vim.g.mason_tools or {}
 
 if ok_registry and vim.env.WARMUP_MASON ~= "0" then
   local ok_settings, settings = pcall(require, "mason-lspconfig.settings")
@@ -41,6 +44,11 @@ if ok_registry and vim.env.WARMUP_MASON ~= "0" then
   for _, server in ipairs(ensure_installed) do
     local pkg = map[server]
     if pkg and not registry.is_installed(pkg) then
+      table.insert(missing, pkg)
+    end
+  end
+  for _, pkg in ipairs(tools) do
+    if not registry.is_installed(pkg) then
       table.insert(missing, pkg)
     end
   end
@@ -83,6 +91,9 @@ local function report(reason)
       local pkg = ok_map and map[server]
       local installed = pkg and registry.is_installed(pkg)
       out(string.format("  %s (%s): %s", server, pkg or "?", installed and "installed" or "MISSING"))
+    end
+    for _, pkg in ipairs(tools) do
+      out(string.format("  %s: %s", pkg, registry.is_installed(pkg) and "installed" or "MISSING"))
     end
   end
 
