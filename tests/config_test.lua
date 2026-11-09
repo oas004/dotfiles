@@ -112,7 +112,7 @@ end)
 -- Core modules
 test("core.paths loads", function()
   local paths = require("core.paths")
-  assert_not_nil(paths.external.kotlin_lsp)
+  assert_not_nil(paths.lsp_cache.kotlin_lsp)
 end)
 
 test("core.utils loads", function()

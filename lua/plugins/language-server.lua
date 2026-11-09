@@ -193,35 +193,19 @@ return {
         },
       })
 
-      -- kotlin-lsp (JetBrains official, installed outside Mason).
-      -- Filetypes and root markers come from nvim-lspconfig's lsp/kotlin_lsp.lua.
-      local kotlin_lsp_path = paths.external.kotlin_lsp
+      -- kotlin-lsp (JetBrains official). Mason's kotlin-lsp package links its
+      -- launcher into mason/bin as intellij-server, the same command
+      -- nvim-lspconfig's lsp/kotlin_lsp.lua uses; filetypes and root markers
+      -- come from there too. Only the per-project --system-path is added.
       vim.lsp.config("kotlin_lsp", {
         cmd = function(dispatchers, config)
           return start_rpc({
-            kotlin_lsp_path,
+            "intellij-server",
             "--stdio",
             "--system-path", project_dir(paths.lsp_cache.kotlin_lsp, config.root_dir),
           }, dispatchers, config)
         end,
       })
-
-      if paths.file_exists(kotlin_lsp_path) then
-        vim.lsp.enable("kotlin_lsp")
-      else
-        -- Kotlin is optional, so only mention it once a Kotlin buffer is opened
-        vim.api.nvim_create_autocmd("FileType", {
-          pattern = "kotlin",
-          once = true,
-          callback = function()
-            vim.notify(
-              "kotlin-lsp not found at " .. kotlin_lsp_path .. "\nInstall from: https://github.com/Kotlin/kotlin-lsp/releases",
-              vim.log.levels.WARN,
-              { title = "Kotlin LSP" }
-            )
-          end,
-        })
-      end
 
       -- Buffer-local keymaps, set only where a server is attached so builtins
       -- like gd keep working in other buffers. References, rename, code action,
@@ -275,7 +259,7 @@ return {
         end,
       })
 
-      -- Installed by Mason. kotlin_lsp is not in Mason and is enabled above.
+      -- Installed by Mason
       local mason_servers = {
         "gradle_ls",
         "jedi_language_server",
@@ -283,7 +267,12 @@ return {
         "hls",
         "clangd",
         "jdtls",
+        "kotlin_lsp",
       }
+
+      -- Formatters for conform (lua/plugins/formatting.lua), installed by
+      -- Mason below. Mason package names, read by .github/scripts/ci_warmup.lua.
+      vim.g.mason_tools = { "ktfmt", "google-java-format" }
 
       -- Only these servers are enabled, whatever else Mason has installed.
       -- rust-analyzer comes from rustup (bootstrap.sh) so it matches the toolchain.
@@ -304,6 +293,26 @@ return {
         ensure_installed = mason_servers,
         automatic_enable = false,
       })
+
+      -- ensure_installed for vim.g.mason_tools, done the way mason-lspconfig
+      -- does it for servers: after a registry refresh, and not in headless
+      -- mode, where nvim may quit before an install finishes. mason.setup()
+      -- puts mason/bin first on PATH, so conform finds the tools there.
+      if #vim.api.nvim_list_uis() > 0 then
+        local registry = require("mason-registry")
+        registry.refresh(vim.schedule_wrap(function()
+          for _, name in ipairs(vim.g.mason_tools) do
+            local ok, pkg = pcall(registry.get_package, name)
+            if ok and not pkg:is_installed() and not pkg:is_installing() then
+              pkg:install({}, vim.schedule_wrap(function(success)
+                if not success then
+                  vim.notify("Mason failed to install " .. name .. ", see :Mason and :MasonLog", vim.log.levels.ERROR)
+                end
+              end))
+            end
+          end
+        end))
+      end
     end,
   },
 }

@@ -133,15 +133,12 @@ test_case "dry-run mentions wit-bindgen" bash -c "
     [[ \"\$output\" == *'wit-bindgen'* ]]
 "
 
-# Test: INSTALL_KOTLIN environment variable
-test_case "INSTALL_KOTLIN=1 mentions kotlin tooling" bash -c "
+# Test: kotlin-lsp and ktfmt come from Mason, so the script installs neither,
+# not even with the old INSTALL_KOTLIN=1
+test_case "kotlin-lsp and ktfmt are left to Mason" bash -c "
     output=\$(INSTALL_KOTLIN=1 '$BOOTSTRAP' --dry-run 2>&1)
-    [[ \"\$output\" == *'Kotlin'* ]]
-"
-
-test_case "without INSTALL_KOTLIN skips kotlin" bash -c "
-    output=\$('$BOOTSTRAP' --dry-run 2>&1)
-    [[ \"\$output\" != *'Installing Kotlin'* ]]
+    [[ \"\$output\" != *'kotlin-lsp'* ]] && [[ \"\$output\" != *'ktfmt'* ]] &&
+        [[ \"\$output\" != *'INSTALL_KOTLIN'* ]] && [[ \"\$output\" != *'.local/opt/kotlin'* ]]
 "
 
 # Test: Verbose mode
@@ -409,17 +406,16 @@ t_summary_rust_analyzer_broken() (
 )
 test_case "summary warns when rust-analyzer does not run" t_summary_rust_analyzer_broken
 
+# Mason installs google-java-format into its own bin dir, which is not on the
+# shell's PATH, so the summary must not warn that it is missing
 t_summary_google_java_format() (
     source "$BOOTSTRAP"
     local output
     DRY_RUN=1
     output=$(PATH="$STUB_ROOT/empty" print_summary 2>&1) &&
-        [[ "$output" == *"google-java-format not found"* ]] &&
-        make_stub "$STUB_ROOT/gjf" google-java-format 'exit 0' &&
-        output=$(PATH="$STUB_ROOT/gjf" print_summary 2>&1) &&
         [[ "$output" != *"google-java-format"* ]]
 )
-test_case "summary warns when google-java-format is missing" t_summary_google_java_format
+test_case "summary does not warn about google-java-format" t_summary_google_java_format
 
 # Test: fresh machine gets what Mason and the formatters need, and no Node.js
 t_system_deps_per_pkg_mgr() (

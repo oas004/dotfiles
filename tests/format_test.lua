@@ -295,6 +295,37 @@ test("none-ls is not configured", function()
   assert_true(require("lazy.core.config").plugins["none-ls.nvim"] == nil, "none-ls still in spec")
 end)
 
+-- ktfmt and google-java-format are installed by Mason (vim.g.mason_tools in
+-- language-server.lua), and mason.setup() puts mason/bin first on PATH, so
+-- conform should run Mason's copies. On CI they must be installed (by
+-- .github/scripts/ci_warmup.lua); locally they are skipped until Mason has
+-- installed them.
+local mason_bin = vim.fn.stdpath("data") .. "/mason/bin/"
+local samples = {
+  { tool = "ktfmt", ft = "kotlin", input = { "fun  main( ) { println( 1 ) }" },
+    want = { "fun main() {", "    println(1)", "}" } },
+  { tool = "google-java-format", ft = "java", input = { "class A {  void f( ) { } }" },
+    want = { "class A {", "  void f() {}", "}" } },
+}
+for _, s in ipairs(samples) do
+  if vim.fn.executable(mason_bin .. s.tool) == 1 or vim.env.CI then
+    test("conform formats " .. s.ft .. " with Mason's " .. s.tool, function()
+      assert_eq(vim.fn.exepath(s.tool), mason_bin .. s.tool, s.tool .. " on PATH")
+      local buf = scratch(s.ft)
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, s.input)
+      local err ---@type string?
+      require("conform").format({ bufnr = buf, formatters = { s.tool }, async = false, timeout_ms = 30000 },
+        function(e) err = e end)
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      vim.api.nvim_buf_delete(buf, { force = true })
+      assert_true(err == nil, tostring(err))
+      assert_eq(lines, s.want, s.tool .. " output")
+    end)
+  else
+    print("- conform formats " .. s.ft .. " with Mason's " .. s.tool .. " (skipped: not installed)")
+  end
+end
+
 
 -- Summary
 print("\n=== Results ===")
