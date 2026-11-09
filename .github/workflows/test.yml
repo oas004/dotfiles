@@ -17,6 +17,7 @@ permissions:
 env:
   NVIM_VERSION: v0.11.4
   KOTLIN_LSP_VERSION: 263.7084.0
+  TREE_SITTER_VERSION: v0.27.2
 
 jobs:
   # Branch protection requires the check named "test"; keep this job id
@@ -36,6 +37,16 @@ jobs:
 
       - name: Install ripgrep
         run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      # nvim-treesitter's main branch compiles parsers with the tree-sitter CLI
+      - name: Install tree-sitter CLI
+        run: |
+          mkdir -p ~/.local/bin
+          curl -fsSL "https://github.com/tree-sitter/tree-sitter/releases/download/${TREE_SITTER_VERSION}/tree-sitter-linux-x64.gz" \
+            | gunzip > ~/.local/bin/tree-sitter
+          chmod +x ~/.local/bin/tree-sitter
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          ~/.local/bin/tree-sitter --version
 
       - name: Use this checkout as the Neovim config
         run: |
