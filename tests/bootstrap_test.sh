@@ -3,8 +3,9 @@
 # Run with: ./tests/bootstrap_test.sh
 #
 # SC1090: the tests source "$BOOTSTRAP". SC2016: stub bodies are single
-# quoted on purpose, they expand when the stub runs.
-# shellcheck disable=SC1090,SC2016
+# quoted on purpose, they expand when the stub runs. SC2034: variables like
+# DRY_RUN and PKG_MGR are read by the sourced bootstrap.sh functions.
+# shellcheck disable=SC1090,SC2016,SC2034
 
 set -euo pipefail
 
@@ -315,7 +316,7 @@ t_apt_update_once() (
     source "$BOOTSTRAP"
     PKG_MGR=apt DRY_RUN=1
     local output
-    output=$({ install_pkg git; install_pkg ripgrep; apt_install nodejs npm; } 2>&1)
+    output=$({ install_pkg git; install_pkg ripgrep; apt_install python3 python3-venv; } 2>&1)
     [[ $(grep -c 'apt-get update' <<<"$output") -eq 1 ]] &&
         [[ $(grep -c 'apt-get install' <<<"$output") -eq 3 ]] &&
         [[ "$(grep -m1 'apt-get' <<<"$output")" == *"apt-get update"* ]]
@@ -328,8 +329,7 @@ t_apt_update_fresh_machine() (
     local output
     output=$(PATH="$STUB_ROOT/uname" FAKE_ARCH=x86_64 install_system_deps 2>&1)
     [[ $(grep -c 'apt-get update' <<<"$output") -eq 1 ]] &&
-        [[ "$output" == *"apt-get install -y curl"* ]] &&
-        [[ "$output" == *"apt-get install -y nodejs npm"* ]]
+        [[ "$output" == *"apt-get install -y curl"* ]]
 )
 test_case "fresh apt machine updates once and installs curl" t_apt_update_fresh_machine
 
@@ -353,6 +353,199 @@ t_rust_new_no_update() (
     output=$(install_rust 2>&1) && [[ "$output" != *"rustup update"* ]]
 )
 test_case "Rust 1.82 does not trigger rustup update" t_rust_new_no_update
+
+# Test: rust-analyzer and rustfmt come from rustup components. rustup
+# installs proxies for both even without the component, and the proxy fails
+# with "Unknown binary", so a rust-analyzer on PATH doesn't mean it works.
+# FAKE_COMPONENTS is what `rustup component list --installed` prints.
+make_stub "$STUB_ROOT/rust-proxy" rustc 'echo "rustc 1.90.0 (abc 2025-01-01)"'
+make_stub "$STUB_ROOT/rust-proxy" rustup '
+if [[ "$*" == "component list --installed" ]]; then printf "%b" "$FAKE_COMPONENTS"; fi
+exit 0'
+make_stub "$STUB_ROOT/rust-proxy" rust-analyzer "echo \"error: Unknown binary 'rust-analyzer' in official toolchain\" >&2; exit 1"
+make_stub "$STUB_ROOT/rust-proxy" rustfmt "echo \"error: Unknown binary 'rustfmt' in official toolchain\" >&2; exit 1"
+
+t_rust_analyzer_proxy() (
+    source "$BOOTSTRAP"
+    export PATH="$STUB_ROOT/rust-proxy:$PATH"
+    export FAKE_COMPONENTS='cargo-aarch64-apple-darwin\nrust-src\nrustfmt-aarch64-apple-darwin\n'
+    DRY_RUN=1
+    local output
+    output=$(install_rust 2>&1) &&
+        [[ "$output" == *"Would: rustup component add rust-analyzer"* ]] &&
+        [[ "$output" != *"rustup component add rustfmt"* ]]
+)
+test_case "rust-analyzer proxy without the component triggers rustup component add" t_rust_analyzer_proxy
+
+t_rust_components_installed() (
+    source "$BOOTSTRAP"
+    export PATH="$STUB_ROOT/rust-proxy:$PATH"
+    export FAKE_COMPONENTS='rust-analyzer-x86_64-unknown-linux-gnu\nrustfmt-x86_64-unknown-linux-gnu\n'
+    DRY_RUN=1
+    local output
+    output=$(install_rust 2>&1) && [[ "$output" != *"component add"* ]]
+)
+test_case "installed rust-analyzer and rustfmt components are not added again" t_rust_components_installed
+
+t_rustfmt_proxy() (
+    source "$BOOTSTRAP"
+    export PATH="$STUB_ROOT/rust-proxy:$PATH" FAKE_COMPONENTS='rust-src\n'
+    DRY_RUN=1
+    local output
+    output=$(install_rust 2>&1) &&
+        [[ "$output" == *"Would: rustup component add rust-analyzer"* ]] &&
+        [[ "$output" == *"Would: rustup component add rustfmt"* ]]
+)
+test_case "rustfmt proxy without the component triggers rustup component add" t_rustfmt_proxy
+
+t_summary_rust_analyzer_broken() (
+    source "$BOOTSTRAP"
+    export PATH="$STUB_ROOT/rust-proxy:$STUB_ROOT/nvim:$PATH" FAKE_NVIM_VERSION=0.12.1
+    DRY_RUN=0
+    local output
+    output=$(print_summary 2>&1) &&
+        [[ "$output" == *"rust-analyzer does not run"*"rustup component add rust-analyzer"* ]] &&
+        [[ "$output" != *"via rustup"* ]]
+)
+test_case "summary warns when rust-analyzer does not run" t_summary_rust_analyzer_broken
+
+t_summary_google_java_format() (
+    source "$BOOTSTRAP"
+    local output
+    DRY_RUN=1
+    output=$(PATH="$STUB_ROOT/empty" print_summary 2>&1) &&
+        [[ "$output" == *"google-java-format not found"* ]] &&
+        make_stub "$STUB_ROOT/gjf" google-java-format 'exit 0' &&
+        output=$(PATH="$STUB_ROOT/gjf" print_summary 2>&1) &&
+        [[ "$output" != *"google-java-format"* ]]
+)
+test_case "summary warns when google-java-format is missing" t_summary_google_java_format
+
+# Test: fresh machine gets what Mason and the formatters need, and no Node.js
+t_system_deps_per_pkg_mgr() (
+    source "$BOOTSTRAP"
+    OS=linux DRY_RUN=1
+    local mgr output
+    for mgr in brew apt dnf pacman; do
+        output=$(PKG_MGR=$mgr PATH="$STUB_ROOT/uname" FAKE_ARCH=x86_64 install_system_deps 2>&1) || return 1
+        case "$mgr" in
+            brew)   [[ "$output" == *"brew install unzip"* && "$output" == *"brew install jq"* ]] ;;
+            apt)    [[ "$output" == *"apt-get install -y unzip"* && "$output" == *"apt-get install -y jq"* ]] ;;
+            dnf)    [[ "$output" == *"dnf install -y unzip"* && "$output" == *"dnf install -y jq"* ]] ;;
+            pacman) [[ "$output" == *"pacman -S --noconfirm unzip"* && "$output" == *"pacman -S --noconfirm jq"* ]] ;;
+        esac || return 1
+        [[ "$output" == *" tar"* && "$output" == *" gzip"* ]] || return 1
+        [[ "$output" != *[Nn]ode* && "$output" != *npm* ]] || return 1
+    done
+)
+test_case "fresh machine installs unzip, tar, gzip and jq but not Node.js" t_system_deps_per_pkg_mgr
+
+test_case "dry-run does not install Node.js" bash -c "
+    output=\$('$BOOTSTRAP' --dry-run 2>&1)
+    [[ \"\$output\" != *'Node'* ]] && [[ \"\$output\" != *'nodejs'* ]] && [[ \"\$output\" != *'npm'* ]]
+"
+
+# Test: JDK 21+ for jdtls and gradle_ls. Fake JDKs print `java -version`
+# like OpenJDK does, on stderr.
+make_jdk() {
+    make_stub "$STUB_ROOT/$1/bin" java "echo 'openjdk version \"$2\" 2024-01-16 LTS' >&2"
+}
+make_jdk jdk8 1.8.0_392
+make_jdk jdk17 17.0.9
+make_jdk jdk21 21.0.6
+make_jdk jdk25 25
+
+t_java_major() (
+    source "$BOOTSTRAP"
+    [[ "$(java_major "$STUB_ROOT/jdk8/bin/java")" == 8 ]] &&
+        [[ "$(java_major "$STUB_ROOT/jdk17/bin/java")" == 17 ]] &&
+        [[ "$(java_major "$STUB_ROOT/jdk21/bin/java")" == 21 ]] &&
+        [[ "$(java_major "$STUB_ROOT/jdk25/bin/java")" == 25 ]]
+)
+test_case "java_major parses java -version" t_java_major
+
+t_jdk_per_pkg_mgr() (
+    source "$BOOTSTRAP"
+    unset JAVA_HOME
+    MACOS_JAVA_HOME_CMD=/nonexistent DRY_RUN=1
+    local mgr output
+    for mgr in brew apt dnf pacman; do
+        # No java on PATH
+        output=$(PKG_MGR=$mgr PATH="$STUB_ROOT/empty" install_jdk 2>&1) || return 1
+        case "$mgr" in
+            brew)   [[ "$output" == *"brew install openjdk@21"* &&
+                       "$output" == *"keg-only"*'export JAVA_HOME="'*"/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"* ]] ;;
+            apt)    [[ "$output" == *"apt-get install -y openjdk-21-jdk"* ]] ;;
+            dnf)    [[ "$output" == *"dnf install -y java-21-openjdk-devel"* ]] ;;
+            pacman) [[ "$output" == *"pacman -S --noconfirm jdk21-openjdk"* ]] ;;
+        esac || return 1
+    done
+)
+test_case "missing JDK installs JDK 21 per package manager" t_jdk_per_pkg_mgr
+
+t_jdk_versions() (
+    source "$BOOTSTRAP"
+    unset JAVA_HOME
+    MACOS_JAVA_HOME_CMD=/nonexistent PKG_MGR=apt DRY_RUN=1
+    local old new home_old
+    old=$(PATH="$STUB_ROOT/jdk17/bin:$PATH" install_jdk 2>&1) &&
+        new=$(PATH="$STUB_ROOT/jdk21/bin:$PATH" install_jdk 2>&1) &&
+        # jdtls uses JAVA_HOME over PATH
+        home_old=$(JAVA_HOME="$STUB_ROOT/jdk17" PATH="$STUB_ROOT/jdk21/bin:$PATH" install_jdk 2>&1) &&
+        [[ "$old" == *"openjdk-21-jdk"* ]] &&
+        [[ "$new" == *"Java 21 already installed"* && "$new" != *"apt-get"* ]] &&
+        [[ "$home_old" == *"openjdk-21-jdk"* ]]
+)
+test_case "JDK older than 21 (on PATH or in JAVA_HOME) installs JDK 21" t_jdk_versions
+
+t_jdk_macos_java_home() (
+    source "$BOOTSTRAP"
+    unset JAVA_HOME
+    PKG_MGR=brew DRY_RUN=1
+    local found fallback
+    # java_home finds an installed JDK 21 that isn't the default
+    make_stub "$STUB_ROOT/java_home21" java_home "echo '$STUB_ROOT/jdk21'"
+    # java_home returns another JDK when none matches -v 21+
+    make_stub "$STUB_ROOT/java_home17" java_home "echo '$STUB_ROOT/jdk17'"
+    found=$(MACOS_JAVA_HOME_CMD="$STUB_ROOT/java_home21/java_home" PATH="$STUB_ROOT/jdk17/bin:$PATH" install_jdk 2>&1) &&
+        fallback=$(MACOS_JAVA_HOME_CMD="$STUB_ROOT/java_home17/java_home" PATH="$STUB_ROOT/jdk17/bin:$PATH" install_jdk 2>&1) &&
+        [[ "$found" == *"export JAVA_HOME=\"$STUB_ROOT/jdk21\""* && "$found" != *"brew install"* ]] &&
+        [[ "$fallback" == *"brew install openjdk@21"* ]]
+)
+test_case "macOS suggests an installed JDK 21 instead of installing one" t_jdk_macos_java_home
+
+# Test: python3 with venv for Mason's jedi-language-server
+make_stub "$STUB_ROOT/py-novenv" python3 'exit 1'
+make_stub "$STUB_ROOT/py-venv" python3 'exit 0'
+
+t_python_per_pkg_mgr() (
+    source "$BOOTSTRAP"
+    DRY_RUN=1
+    local mgr output
+    for mgr in brew apt dnf pacman; do
+        output=$(PKG_MGR=$mgr PATH="$STUB_ROOT/py-novenv" install_python 2>&1) || return 1
+        case "$mgr" in
+            brew)   [[ "$output" == *"brew install python"* ]] ;;
+            apt)    [[ "$output" == *"apt-get install -y python3 python3-venv"* ]] ;;
+            dnf)    [[ "$output" == *"dnf install -y python3"* ]] ;;
+            pacman) [[ "$output" == *"pacman -S --noconfirm python"* ]] ;;
+        esac || return 1
+    done
+    output=$(PKG_MGR=apt PATH="$STUB_ROOT/py-venv" install_python 2>&1) &&
+        [[ "$output" != *"apt-get"* ]]
+)
+test_case "python3 without venv installs python3-venv per package manager" t_python_per_pkg_mgr
+
+t_ghcup_warns() (
+    source "$BOOTSTRAP"
+    make_stub "$STUB_ROOT/ghcup" ghcup 'exit 0'
+    local missing present
+    missing=$(PATH="$STUB_ROOT/empty" check_ghcup 2>&1) &&
+        present=$(PATH="$STUB_ROOT/ghcup" check_ghcup 2>&1) &&
+        [[ "$missing" == *"ghcup not found"*"get-ghcup.haskell.org"* ]] &&
+        [[ "$present" != *"WARN"* ]]
+)
+test_case "missing ghcup warns with the install command" t_ghcup_warns
 
 # Test: plugin sync restores lazy-lock.json versions and surfaces failures
 test_case "dry-run restores plugins from lazy-lock.json" bash -c "
