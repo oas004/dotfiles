@@ -16,7 +16,9 @@ local max_filesize = 100 * 1024
 
 -- nvim-treesitter's main branch dropped Neovim 0.11 support in c82bf96f.
 -- On 0.11, pin the last main commit that still supports it. Once Neovim is
--- 0.12 or newer the pin goes away and the plugin follows main.
+-- 0.12 or newer the pin goes away and the plugin follows main. lazy-lock.json
+-- still records this commit, so after upgrading Neovim run
+-- :Lazy update nvim-treesitter to move off it.
 local nvim_011_commit = "90cd6580e720caedacb91fdd587b747a6e77d61f"
 
 return {
