@@ -147,13 +147,16 @@ test("jdtls has no hard-coded JavaSE-17 runtime", function()
 end)
 
 test("jdtls java.home follows JAVA_HOME and is never empty", function()
-  local home = vim.tbl_get(vim.lsp.config.jdtls, "settings", "java", "home")
+  local java = vim.tbl_get(vim.lsp.config.jdtls, "settings", "java") or {}
   local env = vim.env.JAVA_HOME
   if env and env ~= "" then
-    assert_eq(home, env, "java.home")
+    assert_eq(java.home, env, "java.home")
   else
-    assert_eq(home, nil, "java.home without JAVA_HOME")
+    assert_eq(java.home, nil, "java.home without JAVA_HOME")
   end
+  -- vscode-java's java.jdt.ls.java.home is a client-side setting that jdtls
+  -- itself never reads, so it must not replace java.home here
+  assert_eq(vim.tbl_get(java, "jdt", "ls", "java", "home"), nil, "java.jdt.ls.java.home")
 end)
 
 -- Same list as language-server.lua, kotlin_lsp only when its binary exists
@@ -235,6 +238,63 @@ end)
 
 print("\n=== LSP Runtime Tests ===\n")
 
+-- An in-process language server that only answers initialize and shutdown
+local function fake_server(dispatchers)
+  local closing = false
+  local id = 0
+  return {
+    request = function(method, _, callback)
+      id = id + 1
+      local result = method == "initialize" and { capabilities = {} } or nil
+      vim.schedule(function() callback(nil, result) end)
+      return true, id
+    end,
+    notify = function() return true end,
+    is_closing = function() return closing end,
+    terminate = function()
+      if not closing then
+        closing = true
+        vim.schedule(function() dispatchers.on_exit(0, 15) end)
+      end
+    end,
+  }
+end
+
+test("LSP keymaps stay until the last client detaches", function()
+  vim.cmd("enew")
+  local bufnr = vim.api.nvim_get_current_buf()
+  local function buf_map(lhs, mode)
+    local m = vim.fn.maparg(lhs, mode or "n", false, true)
+    return m.buffer == 1 and m or nil
+  end
+  local ids = {}
+  for _, name in ipairs({ "fake_a", "fake_b" }) do
+    table.insert(ids, vim.lsp.start({ name = name, cmd = fake_server, root_dir = tmp }, { bufnr = bufnr }))
+  end
+  vim.wait(2000, function() return #vim.lsp.get_clients({ bufnr = bufnr }) == 2 end, 20)
+  assert_eq(#vim.lsp.get_clients({ bufnr = bufnr }), 2, "fake clients attached")
+  assert_true(buf_map("gd"), "gd not mapped after attach")
+
+  vim.lsp.buf_detach_client(bufnr, ids[1])
+  assert_true(buf_map("gd"), "gd removed while fake_b is still attached")
+  assert_true(buf_map("<F4>", "x"), "<F4> (visual) removed while fake_b is still attached")
+
+  vim.lsp.buf_detach_client(bufnr, ids[2])
+  for _, lhs in ipairs({ "gd", "gD", "gI", "gy", "gs", "<F2>", "<F4>", "<leader>ca",
+                         "<D-b>", "<D-A-b>", "<A-F7>", "<S-F6>", "<A-CR>" }) do
+    assert_true(not buf_map(lhs), lhs .. " still mapped after the last client detached")
+  end
+  assert_true(not buf_map("<F4>", "x"), "<F4> (visual) still mapped after the last client detached")
+  -- No buffer-local gd left, so the builtin applies again
+  assert_true(vim.tbl_isempty(vim.fn.maparg("gd", "n", false, true)), "gd still mapped")
+
+  for _, id in ipairs(ids) do
+    local c = vim.lsp.get_client_by_id(id)
+    if c then c:stop(true) end
+  end
+  vim.cmd("bwipeout!")
+end)
+
 if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
   test("lua_ls attaches with globals and buffer keymaps", function()
     local client, bufnr = attach(tmp .. "/lua/t.lua", { "vim.print(1)" }, "lua_ls")
@@ -262,10 +322,13 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
     for _, lhs in ipairs({ "gi", "go", "<F3>", "gr", "gl" }) do
       assert_true(not buf_map("n", lhs), lhs .. " should not be mapped in buffer")
     end
-    -- Format-on-save is only for hls and clangd
-    local ok = pcall(vim.api.nvim_get_autocmds, { group = "user_lsp_format_" .. bufnr })
-    assert_true(not ok, "lua buffer got an LSP format-on-save autocmd")
+    -- Stopping the only client removes the maps again
     client:stop(true)
+    vim.wait(5000, function() return #vim.lsp.get_clients({ bufnr = bufnr }) == 0 end, 50)
+    assert_eq(#vim.lsp.get_clients({ bufnr = bufnr }), 0, "lua_ls still attached")
+    for _, lhs in ipairs({ "gd", "<leader>ca", "<D-b>" }) do
+      assert_true(not buf_map("n", lhs), lhs .. " still mapped in buffer after lua_ls stopped")
+    end
   end)
 else
   skip("lua_ls runtime attach", "lua-language-server not installed")

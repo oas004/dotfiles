@@ -2,8 +2,10 @@ return {
   -- nvim-cmp (completion)
   {
     "hrsh7th/nvim-cmp",
-    lazy = false,  -- Load immediately
-    priority = 30, -- Load after conform
+    -- Only insert mode completion is set up (no cmp.setup.cmdline), so the
+    -- first InsertEnter is early enough. cmp-nvim-lsp's own InsertEnter
+    -- handler requires cmp too, which would also load it.
+    event = "InsertEnter",
     dependencies = {
       { "hrsh7th/cmp-buffer" },
     },
@@ -90,8 +92,11 @@ return {
   -- LSP: native vim.lsp.config, servers installed by mason, enabled explicitly below
   {
     "neovim/nvim-lspconfig",
-    lazy = false,  -- Load immediately to avoid race conditions
-    priority = 50, -- Load after treesitter but before other plugins
+    -- Not lazy-loaded: config also runs mason.setup(), which defines :Mason
+    -- and puts Mason's bin directory on PATH for the servers and for tools
+    -- installed with :MasonInstall (e.g. google-java-format for conform).
+    -- Mason's README advises against deferring its setup.
+    lazy = false,
     dependencies = {
       { "hrsh7th/cmp-nvim-lsp" },
       { "williamboman/mason.nvim" },
@@ -174,7 +179,11 @@ return {
         },
         settings = {
           java = {
-            -- Left unset without JAVA_HOME, so jdtls picks a JDK itself
+            -- Default JDK for projects that don't name one. java.home is the
+            -- key jdtls reads; vscode-java's java.jdt.ls.java.home, which
+            -- replaced java.home there, only picks the JDK VS Code launches
+            -- jdtls with and is ignored by the server. Left unset without
+            -- JAVA_HOME, so jdtls picks a JDK itself.
             home = vim.env.JAVA_HOME ~= "" and vim.env.JAVA_HOME or nil,
             eclipse = { downloadSources = true },
             maven = { downloadSources = true },
@@ -237,50 +246,31 @@ return {
         { "n", "<A-CR>", vim.lsp.buf.code_action, "LSP: Code actions (Opt+Enter)" },
       }
 
-      -- Format on save, only for these servers and filetypes, using only that server
-      local format_on_save = {
-        hls    = { "haskell", "lhaskell" },
-        clangd = { "c", "cpp", "objc", "objcpp" },
-      }
-
+      -- Format on save, hls and clangd included, is done by conform (formatting.lua).
       local attach_group = vim.api.nvim_create_augroup("user_lsp_attach", { clear = true })
 
       vim.api.nvim_create_autocmd("LspAttach", {
         group = attach_group,
         callback = function(args)
-          local bufnr = args.buf
-          local client = vim.lsp.get_client_by_id(args.data.client_id)
-          if not client then return end
-
           for _, m in ipairs(buffer_maps) do
-            vim.keymap.set(m[1], m[2], m[3], { buffer = bufnr, desc = m[4] })
-          end
-
-          local fts = format_on_save[client.name]
-          if fts and vim.tbl_contains(fts, vim.bo[bufnr].filetype) then
-            local group = vim.api.nvim_create_augroup("user_lsp_format_" .. bufnr, { clear = true })
-            vim.api.nvim_create_autocmd("BufWritePre", {
-              group = group,
-              buffer = bufnr,
-              callback = function()
-                vim.lsp.buf.format({
-                  bufnr = bufnr,
-                  id = client.id,
-                  async = false,
-                  timeout_ms = 10000,
-                })
-              end,
-            })
+            vim.keymap.set(m[1], m[2], m[3], { buffer = args.buf, desc = m[4] })
           end
         end,
       })
 
+      -- Remove the maps again once the last client leaves the buffer, so gd
+      -- and the others go back to their builtins. The detaching client is
+      -- still listed while LspDetach runs, so it is skipped here.
       vim.api.nvim_create_autocmd("LspDetach", {
         group = attach_group,
         callback = function(args)
-          local client = vim.lsp.get_client_by_id(args.data.client_id)
-          if client and format_on_save[client.name] then
-            pcall(vim.api.nvim_del_augroup_by_name, "user_lsp_format_" .. args.buf)
+          local bufnr = args.buf
+          if not vim.api.nvim_buf_is_valid(bufnr) then return end
+          for _, client in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+            if client.id ~= args.data.client_id then return end
+          end
+          for _, m in ipairs(buffer_maps) do
+            pcall(vim.keymap.del, m[1], m[2], { buffer = bufnr })
           end
         end,
       })
