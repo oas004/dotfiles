@@ -43,18 +43,4 @@ function M.dir_exists(path)
   return stat ~= nil and stat.type == "directory"
 end
 
---- Validate that external tools exist and notify if missing
---- @return table missing List of missing tools with their paths
-function M.validate_external_tools()
-  local missing = {}
-
-  for name, path in pairs(M.external) do
-    if not M.file_exists(path) then
-      table.insert(missing, { name = name, path = path })
-    end
-  end
-
-  return missing
-end
-
 return M

@@ -24,11 +24,14 @@ To install kotlin-lsp by hand, download the standalone archive for your platform
 ## Commands
 
 ```vim
-" Check LSP status
-:LspInfo
+" Check LSP status (on Neovim 0.11, :LspInfo also works)
+:checkhealth vim.lsp
 
-" View LSP logs
-:LspLog
+" View LSP logs (on Neovim 0.11, :LspLog also works)
+:lua vim.cmd.tabnew(vim.lsp.log.get_filename())
+
+" Restart kotlin-lsp (on Neovim 0.11, use :LspRestart)
+:lsp restart
 
 " Manual format current file
 :KotlinFormat
@@ -64,9 +67,11 @@ https://github.com/Kotlin/kotlin-lsp/releases
 
 ### LSP not attaching
 ```vim
-:LspInfo                  " Check LSP status
-:LspLog                   " View detailed logs
+:checkhealth vim.lsp      " Check LSP status
+:lua vim.cmd.tabnew(vim.lsp.log.get_filename())   " View detailed logs
 ```
+
+On Neovim 0.11 you can use nvim-lspconfig's `:LspInfo` and `:LspLog` instead. On 0.12 nvim-lspconfig no longer defines them.
 
 If LSP is stuck, kill all processes and restart Neovim:
 ```bash
