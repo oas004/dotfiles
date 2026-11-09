@@ -29,7 +29,6 @@ M.logs = {
 
 -- Configuration preference files
 M.prefs = {
-  kotlin = M.config .. "/kotlin-prefs.json",
   java = M.config .. "/java-prefs.json",
 }
 
@@ -37,7 +36,7 @@ M.prefs = {
 --- @param path string The file path to check
 --- @return boolean exists Whether the file exists
 function M.file_exists(path)
-  local stat = vim.loop.fs_stat(path)
+  local stat = vim.uv.fs_stat(path)
   return stat ~= nil and stat.type == "file"
 end
 
@@ -45,7 +44,7 @@ end
 --- @param path string The directory path to check
 --- @return boolean exists Whether the directory exists
 function M.dir_exists(path)
-  local stat = vim.loop.fs_stat(path)
+  local stat = vim.uv.fs_stat(path)
   return stat ~= nil and stat.type == "directory"
 end
 
