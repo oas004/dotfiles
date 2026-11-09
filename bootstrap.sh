@@ -18,6 +18,10 @@ NC='\033[0m' # No Color
 
 DRY_RUN=0
 VERBOSE=0
+APT_UPDATED=0
+
+# The config needs Neovim 0.11+ (vim.lsp.config/vim.lsp.enable)
+MIN_NVIM_VERSION="0.11.0"
 
 usage() {
     cat <<EOF
@@ -32,6 +36,8 @@ Options:
 
 Environment variables:
     INSTALL_KOTLIN=1    Include Kotlin tooling (ktfmt, kotlin-lsp)
+    NVIM_RELEASE=tag    Neovim release tag to install on Debian/Ubuntu
+                        (default: stable, e.g. v0.12.0)
 
 Examples:
     $(basename "$0")                    # Full installation
@@ -70,6 +76,23 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; }
 dry() { echo -e "${BLUE}[DRY-RUN]${NC} Would: $1"; }
 
 command_exists() { command -v "$1" &>/dev/null; }
+
+# version_ge A B: true if dotted version A >= B (missing parts count as 0)
+version_ge() {
+    local -a a b
+    IFS=. read -r -a a <<<"$1"
+    IFS=. read -r -a b <<<"$2"
+    local i x y
+    for ((i = 0; i < 3; i++)); do
+        x="${a[i]:-0}"
+        y="${b[i]:-0}"
+        [[ "$x" =~ ^[0-9]+$ ]] || x=0
+        [[ "$y" =~ ^[0-9]+$ ]] || y=0
+        if ((10#$x > 10#$y)); then return 0; fi
+        if ((10#$x < 10#$y)); then return 1; fi
+    done
+    return 0
+}
 
 # Run a command, or just print it in dry-run mode
 run() {
@@ -144,10 +167,101 @@ install_pkg() {
 
     case "$PKG_MGR" in
         brew)   run brew install "$brew_pkg" ;;
-        apt)    run_sudo apt-get install -y "$apt_pkg" ;;
+        apt)    apt_install "$apt_pkg" ;;
         dnf)    run_sudo dnf install -y "$dnf_pkg" ;;
         pacman) run_sudo pacman -S --noconfirm "$pacman_pkg" ;;
         *)      warn "Unknown package manager, install $pkg manually" ;;
+    esac
+}
+
+# apt-get install, refreshing the package lists before the first install.
+# A fresh Debian/Ubuntu machine (or container) has empty or stale lists.
+apt_install() {
+    if [[ $APT_UPDATED -eq 0 ]]; then
+        info "Updating apt package lists..."
+        run_sudo apt-get update
+        APT_UPDATED=1
+    fi
+    run_sudo apt-get install -y "$@"
+}
+
+# Print the installed Neovim version, e.g. 0.11.4 (empty if unknown)
+nvim_version() {
+    nvim --version 2>/dev/null | sed -n '1s/^NVIM v\{0,1\}\([0-9][0-9.]*\).*/\1/p'
+}
+
+# Fail if nvim is older than MIN_NVIM_VERSION; warn if it is older than 0.12
+check_nvim_version() {
+    local ver
+    ver="$(nvim_version)"
+    if [[ -z "$ver" ]]; then
+        warn "Could not determine the Neovim version ($MIN_NVIM_VERSION+ required)"
+        return 0
+    fi
+
+    if ! version_ge "$ver" "$MIN_NVIM_VERSION"; then
+        local msg="Neovim $ver is too old: this config needs $MIN_NVIM_VERSION+ (0.12+ recommended)"
+        local hint="Upgrade Neovim (https://github.com/neovim/neovim/releases) and rerun this script"
+        if [[ "$PKG_MGR" == "apt" ]]; then
+            hint="apt's neovim package is too old. Remove it (sudo apt-get remove neovim) and rerun this script to install a release build into ~/.local/bin"
+        fi
+        if [[ $DRY_RUN -eq 1 ]]; then
+            warn "$msg (would fail in real run)"
+            return 0
+        fi
+        error "$msg"
+        error "$hint"
+        exit 1
+    fi
+
+    # nvim-treesitter main needs Neovim 0.12+; on 0.11 the config pins an older commit
+    if ! version_ge "$ver" "0.12"; then
+        warn "Neovim 0.12+ recommended (nvim-treesitter main is pinned to an older commit on 0.11)"
+    fi
+}
+
+# Install the official Neovim release build into ~/.local/opt/nvim and
+# symlink it as ~/.local/bin/nvim. Used on Debian/Ubuntu, whose neovim
+# package is older than the 0.11 this config needs.
+install_nvim_release() {
+    local arch
+    case "$(uname -m)" in
+        x86_64|amd64)  arch="x86_64" ;;
+        aarch64|arm64) arch="arm64" ;;
+        *)
+            error "No Neovim release build for $(uname -m); install Neovim $MIN_NVIM_VERSION+ manually"
+            exit 1
+            ;;
+    esac
+
+    local release="${NVIM_RELEASE:-stable}"
+    local name="nvim-linux-$arch"
+    local url="https://github.com/neovim/neovim/releases/download/$release/$name.tar.gz"
+    local dest="$HOME/.local/opt/nvim"
+    local bin_dir="$HOME/.local/bin"
+
+    info "Installing Neovim ($release) from the official release build..."
+    if [[ $DRY_RUN -eq 1 ]]; then
+        dry "Download $url, extract it to $dest and symlink $bin_dir/nvim to $dest/bin/nvim"
+        return 0
+    fi
+
+    local tmp
+    tmp="$(mktemp -d)"
+    run curl -fL "$url" -o "$tmp/nvim.tar.gz"
+    run tar xzf "$tmp/nvim.tar.gz" -C "$tmp"
+    run mkdir -p "$(dirname "$dest")" "$bin_dir"
+    run rm -rf "$dest"
+    run mv "$tmp/$name" "$dest"
+    run ln -sf "$dest/bin/nvim" "$bin_dir/nvim"
+    rm -rf "$tmp"
+
+    case ":$PATH:" in
+        *":$bin_dir:"*) ;;
+        *)
+            warn "$bin_dir is not on your PATH; add it in your shell profile"
+            export PATH="$bin_dir:$PATH"
+            ;;
     esac
 }
 
@@ -155,20 +269,27 @@ install_pkg() {
 install_system_deps() {
     info "Checking system dependencies..."
 
+    # Used for the Neovim release build, rustup and kotlin-lsp downloads
+    if ! command_exists curl; then
+        info "Installing curl..."
+        install_pkg curl
+    fi
+
     if ! command_exists nvim; then
         info "Installing Neovim..."
         case "$PKG_MGR" in
             brew)   run brew install neovim ;;
-            apt)    run_sudo apt-get install -y neovim ;;
+            apt)    install_nvim_release ;;
             dnf)    run_sudo dnf install -y neovim ;;
             pacman) run_sudo pacman -S --noconfirm neovim ;;
+            *)      warn "Unknown package manager, install Neovim $MIN_NVIM_VERSION+ manually" ;;
         esac
+        if [[ $DRY_RUN -eq 0 ]] && command_exists nvim; then
+            check_nvim_version
+        fi
     else
         info "Neovim already installed: $(nvim --version | head -1)"
-        # nvim-treesitter main needs Neovim 0.12+; on 0.11 the config pins an older commit
-        if [[ "$(nvim --clean --headless -c 'lua io.write(vim.fn.has("nvim-0.12"))' +qa 2>/dev/null)" != "1" ]]; then
-            warn "Neovim 0.12+ recommended (nvim-treesitter main is pinned to an older commit on 0.11)"
-        fi
+        check_nvim_version
     fi
 
     if ! command_exists rg; then
@@ -190,7 +311,7 @@ install_system_deps() {
         info "Installing Node.js..."
         case "$PKG_MGR" in
             brew)   run brew install node ;;
-            apt)    run_sudo apt-get install -y nodejs npm ;;
+            apt)    apt_install nodejs npm ;;
             dnf)    run_sudo dnf install -y nodejs npm ;;
             pacman) run_sudo pacman -S --noconfirm nodejs npm ;;
         esac
@@ -217,10 +338,7 @@ install_rust() {
         # wasm-tools requires Rust 1.82+ for edition2024 support
         local rust_version
         rust_version=$(rustc --version | grep -oE '[0-9]+\.[0-9]+' | head -1)
-        local major minor
-        major=$(echo "$rust_version" | cut -d. -f1)
-        minor=$(echo "$rust_version" | cut -d. -f2)
-        if [[ "$major" -eq 1 && "$minor" -lt 82 ]]; then
+        if ! version_ge "$rust_version" "1.82"; then
             warn "Rust $rust_version is too old for wasm-tools (needs 1.82+)"
             info "Updating Rust toolchain..."
             run rustup update stable
@@ -373,20 +491,77 @@ setup_directories() {
     run mkdir -p "$HOME/.local/share/nvim"
 }
 
-# Sync Neovim plugins
+# Install plugins at the versions in lazy-lock.json, then treesitter parsers.
+# Errors in +commands don't change nvim's exit code, and lazy.nvim doesn't
+# report failed git commands as errors in headless mode, so each step checks
+# its own result.
 sync_nvim() {
-    info "Syncing Neovim plugins..."
+    info "Restoring Neovim plugins to the versions in lazy-lock.json..."
     # Parser installs are async, so wait for them before quitting.
     # vim.g.treesitter_parsers is the list from lua/plugins/parser.lua.
-    local ts_install="lua require('nvim-treesitter').install(vim.g.treesitter_parsers):wait(300000)"
+    local ts_install="lua local ok, res = pcall(function()"
+    ts_install+=" assert(vim.g.treesitter_parsers, 'vim.g.treesitter_parsers is not set')"
+    ts_install+=" return require('nvim-treesitter').install(vim.g.treesitter_parsers):wait(300000)"
+    ts_install+=" end)"
+    ts_install+=" if not (ok and res) then io.stderr:write('Treesitter parser install failed: ' .. (ok and 'see messages above' or tostring(res)) .. '\n') vim.cmd.cquit() end"
+    local lazy_loaded="lua if vim.fn.exists(':Lazy') ~= 2 then io.stderr:write('lazy.nvim did not load\n') vim.cmd.cquit() end"
+
     if [[ $DRY_RUN -eq 1 ]]; then
-        dry "nvim --headless '+Lazy! sync' +qa"
-        dry "nvim --headless \"+$ts_install\" +qa"
-    else
-        nvim --headless "+Lazy! sync" +qa 2>/dev/null || true
-        info "Installing treesitter parsers..."
-        nvim --headless "+$ts_install" +qa 2>/dev/null || true
+        dry "nvim --headless +qa (lazy.nvim installs missing plugins on startup)"
+        dry "nvim --headless '+Lazy! restore' +qa"
+        dry "check every plugin is at its lazy-lock.json commit, and fail otherwise"
+        dry "nvim --headless \"+lua require('nvim-treesitter').install(vim.g.treesitter_parsers):wait(300000)\" +qa"
+        return 0
     fi
+
+    local config_dir lockfile snapshot
+    config_dir="$(nvim --clean --headless "+lua io.write(vim.fn.stdpath('config'))" +qa)" || {
+        error "Could not run nvim"
+        exit 1
+    }
+    lockfile="$config_dir/lazy-lock.json"
+    if [[ ! -f "$lockfile" ]]; then
+        error "No lazy-lock.json found at $lockfile"
+        exit 1
+    fi
+    # lazy.nvim rewrites lazy-lock.json with the commits actually checked
+    # out, so a snapshot taken first tells us whether the restore worked.
+    snapshot="$(mktemp)"
+    cp "$lockfile" "$snapshot"
+
+    # On a fresh machine lazy.nvim installs missing plugins on startup and
+    # records its own freshly cloned commit in the lockfile. Put the
+    # original lockfile back before restoring so lazy.nvim is restored too.
+    if ! nvim --headless "+$lazy_loaded" +qa; then
+        cp "$snapshot" "$lockfile"
+        rm -f "$snapshot"
+        error "Neovim plugin install failed (see output above)"
+        exit 1
+    fi
+    cp "$snapshot" "$lockfile"
+
+    local restored=1
+    nvim --headless "+$lazy_loaded" "+Lazy! restore" +qa || restored=0
+    echo ""
+    if [[ $restored -eq 1 ]] && ! cmp -s "$snapshot" "$lockfile"; then
+        restored=0
+        error "These plugins are not at their lazy-lock.json commit (- locked, + checked out):"
+        diff "$snapshot" "$lockfile" | grep '^[<>]' | sed 's/^</-/; s/^>/+/' || true
+    fi
+    # Leave lazy-lock.json as it was in the repo
+    cp "$snapshot" "$lockfile"
+    rm -f "$snapshot"
+    if [[ $restored -eq 0 ]]; then
+        error "Neovim plugin restore failed (see output above)"
+        exit 1
+    fi
+
+    info "Installing treesitter parsers..."
+    if ! nvim --headless "+$ts_install" +qa; then
+        error "Treesitter parser install failed (see output above)"
+        exit 1
+    fi
+    echo ""
 }
 
 # Summary of what's installed
