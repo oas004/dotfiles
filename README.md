@@ -128,8 +128,8 @@ The leader key is `<Space>`.
 | Keys | Action |
 |------|--------|
 | `gl` | Show line diagnostics (error popup) |
-| `<leader>e` | Next diagnostic |
-| `<leader>E` | Previous diagnostic |
+| `<leader>e` | Next diagnostic (shows it in a float) |
+| `<leader>E` | Previous diagnostic (shows it in a float) |
 
 ### Code Actions & Refactoring
 
