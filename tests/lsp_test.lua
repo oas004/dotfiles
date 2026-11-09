@@ -97,6 +97,10 @@ test("lua_ls has diagnostics.globals = { 'vim' }", function()
   assert_true(globals and vim.tbl_contains(globals, "vim"), "vim not in globals")
 end)
 
+test("lua_ls is force-stopped if it hangs on exit", function()
+  assert_eq(vim.lsp.config.lua_ls.exit_timeout, 2000, "exit_timeout")
+end)
+
 test("clangd cmd includes --fallback-style=LLVM", function()
   local cmd = vim.lsp.config.clangd.cmd
   assert_true(type(cmd) == "table" and vim.tbl_contains(cmd, "--fallback-style=LLVM"), vim.inspect(cmd))
