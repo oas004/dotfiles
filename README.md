@@ -5,8 +5,8 @@ A modern Neovim configuration written in Lua with LSP support for Kotlin/Android
 ## Features
 
 - **Plugin Management**: lazy.nvim for fast, lazy-loading plugins
-- **LSP Support**: Kotlin, Rust, Java, Clang, Haskell, and more via mason.nvim
-- **WebAssembly**: WIT syntax highlighting, wasm-tools integration
+- **LSP Support**: Kotlin (kotlin-lsp, installed separately), Rust (rust-analyzer from rustup), and Java, C/C++, Haskell, Python, Lua and Gradle via mason.nvim
+- **WebAssembly**: treesitter highlighting for WIT files; bootstrap.sh installs the wasm-tools CLI and the wasm32 Rust targets
 - **Autoformatting**: conform.nvim with ktfmt for Kotlin, rustfmt for Rust
 - **Fuzzy Finding**: Telescope.nvim with ripgrep backend
 - **Theme**: Nordic colorscheme with optimized UI
@@ -129,6 +129,8 @@ The leader key is `<Space>`.
 
 ### LSP Navigation
 
+`gd`, `gD`, `gI`, `gy` and `gs` are set only in buffers with an attached language server. `grr`, `grn`, `gra`, `gri`, `gO` and `K` are Neovim's built-in LSP defaults.
+
 | Keys | Action |
 |------|--------|
 | `gd` | Go to definition |
@@ -139,6 +141,8 @@ The leader key is `<Space>`.
 | `gra` | Code actions |
 | `gri` | Go to implementation |
 | `gy` | Go to type definition |
+| `gs` | Show function signature |
+| `gO` | Document symbols |
 | `K` | Show hover documentation |
 
 ### Diagnostics
@@ -153,9 +157,25 @@ The leader key is `<Space>`.
 
 | Keys | Action |
 |------|--------|
-| `<leader>ca` | Code actions (quick fixes) |
-| `<S-F6>` | Rename symbol |
+| `<leader>ca` / `<F4>` | Code actions (quick fixes) |
+| `<F2>` / `<S-F6>` | Rename symbol |
 | `<leader>cf` | Format buffer |
+
+### Android Studio-style keys (macOS)
+
+These need a terminal or GUI that passes Cmd (and Option as Alt) through to Neovim. The LSP ones are set only in buffers with an attached language server.
+
+| Keys | Action |
+|------|--------|
+| `<D-b>` | Go to definition |
+| `<D-A-b>` | Go to implementation |
+| `<A-F7>` | Find usages |
+| `<A-CR>` | Code actions |
+| `<D-S-o>` | Find files |
+| `<D-o>` | Document symbols |
+| `<D-A-o>` | Workspace symbols |
+| `<D-S-f>` | Find in files (grep) |
+| `<D-e>` | Recent files |
 
 ### File Navigation (Telescope)
 
@@ -167,6 +187,8 @@ The leader key is `<Space>`.
 | `<leader>s` | Document symbols (outline of current file) |
 | `<leader>S` | Workspace symbols (search across project) |
 | `<leader>r` | Recent files |
+
+In the open buffers picker, `<leader>q` in normal mode (or `<M-d>` in insert mode) closes the selected buffer.
 
 ### File Explorer
 
@@ -180,8 +202,10 @@ The leader key is `<Space>`.
 | Keys | Action |
 |------|--------|
 | `<Esc>` | Clear search highlighting |
-| `<C-s>` | Save file |
+| `<C-s>` | Save file (normal, insert and visual mode) |
 | `jj` or `jk` | Exit insert mode |
+| `;;` | Exit visual mode |
+| `<leader>ne` | New file in the current file's directory |
 | `<C-o>` | Jump back (after go to definition) |
 | `<C-i>` | Jump forward |
 
@@ -191,8 +215,23 @@ The leader key is `<Space>`.
 |------|--------|
 | `af` | Select around function |
 | `if` | Select inside function |
+| `ac` | Select around class |
+| `ic` | Select inside class |
 | `]m` / `[m` | Next/previous function start |
 | `]M` / `[M` | Next/previous function end |
+
+### Git (gitsigns)
+
+[gitsigns.nvim](https://github.com/lewis6991/gitsigns.nvim) shows added, changed and deleted lines in the sign column. These maps are only set in buffers for files in a git repository.
+
+| Keys | Action |
+|------|--------|
+| `]c` / `[c` | Next/previous hunk (in diff mode: next/previous change) |
+| `<leader>hs` | Stage hunk (visual: stage selected lines) |
+| `<leader>hr` | Reset hunk (visual: reset selected lines) |
+| `<leader>hp` | Preview hunk |
+| `<leader>hb` | Blame current line |
+| `ih` | Select hunk (text object, e.g. `dih`, `vih`) |
 
 ## AI Integration
 
@@ -223,8 +262,10 @@ Files changed on disk by an agent are reloaded automatically (`autoread` plus `:
 |---------|-------------|
 | `:Lazy` | Open plugin manager |
 | `:Mason` | Open LSP/formatter installer |
-| `:LspInfo` | Check LSP status |
-| `:LspLog` | View LSP logs |
+| `:checkhealth vim.lsp` | Check LSP status (on 0.11, `:LspInfo` also works) |
+| `:lsp restart` | Restart the language servers attached to the current buffer (`:LspRestart` on 0.11) |
+| `:lua vim.cmd.tabnew(vim.lsp.log.get_filename())` | View the LSP log (on 0.11, `:LspLog` also works) |
+| `:LspClients` | List active LSP clients and their root directories |
 | `:KotlinFormat` | Format Kotlin file with ktfmt (no LSP fallback) |
 | `:JavaFormat` | Format Java file with google-java-format (no LSP fallback) |
 | `:CleanupLSPCache` | Clean LSP caches (requires restart) |
@@ -267,9 +308,12 @@ NVIM_APPNAME=nvim-dev tests/run.sh     # run the tests against it
 ### LSP not attaching
 
 ```vim
-:LspInfo                  " Check status
-:LspLog                   " View errors
+:checkhealth vim.lsp      " Check status
+:lua vim.cmd.tabnew(vim.lsp.log.get_filename())   " View errors
+:lsp restart              " Restart the server
 ```
+
+`:lsp restart` is new in Neovim 0.12; on 0.11 use `:LspRestart`. nvim-lspconfig defines `:LspInfo`, `:LspLog` and `:LspRestart` only on 0.11, and leaves them out on 0.12 in favour of the builtin `:lsp` command. The first two commands above work on both.
 
 ### Kotlin LSP issues
 

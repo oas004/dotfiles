@@ -8,6 +8,7 @@ opt.clipboard = "unnamedplus" -- use system clipboard
 opt.termguicolors = true -- true color support
 opt.cursorline = false -- disable for performance (especially on macOS)
 opt.wrap = false -- nowrap
+opt.signcolumn = "yes" -- always show, so text does not shift when signs appear
 
 -- line numbers
 opt.number = true -- show line numbers
