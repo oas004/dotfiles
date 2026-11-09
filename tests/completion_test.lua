@@ -53,9 +53,23 @@ vim.wait(3000, function()
   return require("lazy").stats().loaded > 0
 end)
 
-local cmp = require("cmp")
-
 log("\n=== Completion Config Tests ===\n")
+
+local function cmp_loaded()
+  return require("lazy.core.config").plugins["nvim-cmp"]._.loaded ~= nil
+end
+
+test("nvim-cmp is not loaded at startup", function()
+  assert_true(not cmp_loaded(), "nvim-cmp loaded at startup")
+  assert_true(package.loaded["cmp"] == nil, "cmp module required at startup")
+end)
+
+test("InsertEnter loads nvim-cmp", function()
+  vim.api.nvim_exec_autocmds("InsertEnter", {})
+  assert_true(cmp_loaded(), "nvim-cmp not loaded on InsertEnter")
+end)
+
+local cmp = require("cmp")
 
 test("LuaSnip and cmp_luasnip are not in the plugin list", function()
   local names = vim.tbl_map(function(p) return p.name end, require("lazy").plugins())

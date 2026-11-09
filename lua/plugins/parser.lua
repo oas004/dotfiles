@@ -28,7 +28,6 @@ return {
         branch = "main",
         commit = vim.fn.has("nvim-0.12") == 0 and nvim_011_commit or nil,
         lazy = false, -- main does not support lazy-loading
-        priority = 100,
         build = ":TSUpdate",
         config = function()
             local ts = require("nvim-treesitter")
