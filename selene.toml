@@ -1,1 +1,9 @@
 std = "vim"
+
+[lints]
+# lazy.nvim plugin specs and keymap specs are mixed tables by design
+# ({ "owner/repo", opts = ... }), so this lint fires on every spec.
+mixed_table = "allow"
+# The config uses one-line `if ... then ... end` guards and inline
+# `function() ... end` callbacks throughout.
+multiple_statements = "allow"

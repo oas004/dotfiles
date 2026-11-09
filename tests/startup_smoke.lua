@@ -50,6 +50,7 @@ vim.defer_fn(function()
 
   -- Recorded by the --cmd hook in run.sh, if present. A plugin that replaces
   -- vim.notify later hides subsequent notifications from this hook.
+  -- selene: allow(global_usage)
   for _, msg in ipairs(_G.startup_smoke_errors or {}) do
     fail("vim.notify ERROR: " .. msg)
   end

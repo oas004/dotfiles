@@ -4,3 +4,7 @@ name: vim
 globals:
   vim:
     any: true
+  # lua51 declares io.stdout as a plain property, so selene rejects
+  # io.stdout:write(). Allow any method on it.
+  io.stdout:
+    any: true
