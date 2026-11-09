@@ -6,8 +6,12 @@
 # Runs, in order:
 #   1. tests/bootstrap_test.sh
 #   2. every tests/*_test.lua, each in a fresh `nvim --headless -c "luafile <file>"`
-#   3. a startup smoke test (tests/startup_smoke.lua) that opens sample files
-#      and fails on errors in :messages
+#   3. a startup smoke test (tests/startup_smoke.lua) that opens sample files,
+#      waits for their LSP clients and fails on errors in :messages
+#
+# Every nvim started for steps 2 and 3 records deprecation warnings (any
+# vim.deprecate() call that shows a warning, from this config or a plugin),
+# and the test fails if there were any.
 #
 # Environment:
 #   NVIM_APPNAME   which config nvim loads (passed through untouched). The
@@ -17,7 +21,8 @@
 #   TEST_SKIP      space or comma separated names to skip, e.g.
 #                  "bootstrap smoke config_test" (.lua/.sh suffix optional)
 #   TEST_TIMEOUT   per-test timeout in seconds (default: 180)
-#   SMOKE_WAIT_MS  how long the smoke test waits after opening files (default: 3000)
+#   SMOKE_WAIT_MS  how long the smoke test waits for LSP clients to attach
+#                  (default: 60000 on CI, 30000 otherwise)
 #   SMOKE_EXTS     file extensions the smoke test opens (default: "lua rs")
 
 set -o pipefail
@@ -87,6 +92,30 @@ run_with_timeout() {
   return "$rc"
 }
 
+# Loaded with --cmd before init.lua in every nvim the tests start. Wraps
+# vim.deprecate so each deprecation warning that is actually shown (it returns
+# the message then) gets appended to $NVIM_TEST_DEPRECATIONS with a traceback.
+# run_test fails the test if that file is not empty.
+deprecation_hook='local file = vim.env.NVIM_TEST_DEPRECATIONS
+local orig = vim.deprecate
+vim.deprecate = function(name, ...)
+  local msg = orig(name, ...)
+  if msg and file then
+    local trace = debug.traceback("", 2)
+    -- TEMPORARY: telescope.nvim at the commit in lazy-lock.json calls
+    -- vim.tbl_islist. The telescope PR fixes that; remove this entry with it.
+    if name == "vim.tbl_islist" and trace:find("lua/telescope/", 1, true) then
+      return msg
+    end
+    local f = io.open(file, "a")
+    if f then
+      f:write(msg, trace, "\n")
+      f:close()
+    end
+  end
+  return msg
+end'
+
 # run_test <name> <cmd...>
 run_test() {
   local name="$1"
@@ -98,14 +127,22 @@ run_test() {
   fi
   echo "--- RUN  $name"
   local log="$LOG_DIR/$name.log"
+  local deprecations="$LOG_DIR/$name.deprecations"
   local start=$SECONDS
-  run_with_timeout "$TEST_TIMEOUT" "$log" "$@"
+  NVIM_TEST_DEPRECATIONS="$deprecations" run_with_timeout "$TEST_TIMEOUT" "$log" "$@"
   local rc=$?
   local took=$((SECONDS - start))
   sed 's/^/    /' "$log"
   # Some test files print without a trailing newline.
   [[ -s "$log" && -n "$(tail -c 1 "$log")" ]] && echo
-  if [[ $rc -eq 0 ]]; then
+  if [[ -s "$deprecations" ]]; then
+    echo "    === deprecation warnings ==="
+    sed 's/^/    /' "$deprecations"
+  fi
+  if [[ -s "$deprecations" && $rc -ne 124 ]]; then
+    echo "--- FAIL $name (deprecation warnings, ${took}s)"
+    FAILED+=("$name")
+  elif [[ $rc -eq 0 ]]; then
     echo "--- PASS $name (${took}s)"
     PASSED+=("$name")
   elif [[ $rc -eq 124 ]]; then
@@ -131,7 +168,7 @@ run_test bootstrap bash tests/bootstrap_test.sh
 shopt -s nullglob
 for file in tests/*_test.lua; do
   name="$(basename "$file" .lua)"
-  run_test "$name" "$NVIM" --headless \
+  run_test "$name" "$NVIM" --headless --cmd "lua $deprecation_hook" \
     -c 'let v:errmsg = ""' \
     -c "luafile $file" \
     -c 'if v:errmsg != "" | echomsg "luafile error: " . v:errmsg | cquit 3 | endif'
@@ -162,7 +199,7 @@ vim.notify = function(msg, level, opts)
   end
   return orig(msg, level, opts)
 end'
-run_test smoke "$NVIM" --headless --cmd "lua $notify_hook" "${smoke_files[@]}" \
+run_test smoke "$NVIM" --headless --cmd "lua $deprecation_hook" --cmd "lua $notify_hook" "${smoke_files[@]}" \
   -c "luafile tests/startup_smoke.lua"
 
 echo

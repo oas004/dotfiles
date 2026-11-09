@@ -18,6 +18,7 @@ env:
   KOTLIN_LSP_VERSION: 263.7084.0
   TREE_SITTER_VERSION: v0.27.2
   SELENE_VERSION: 0.32.0
+  LUALS_VERSION: 3.19.2
 
 jobs:
   lint:
@@ -36,6 +37,22 @@ jobs:
           chmod +x ~/.local/bin/selene
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           ~/.local/bin/selene --version
+
+      - name: Install lua-language-server
+        run: |
+          mkdir -p ~/.local/opt/lua-language-server
+          curl -fsSL "https://github.com/LuaLS/lua-language-server/releases/download/${LUALS_VERSION}/lua-language-server-${LUALS_VERSION}-linux-x64.tar.gz" \
+            | tar xz -C ~/.local/opt/lua-language-server
+          echo "$HOME/.local/opt/lua-language-server/bin" >> "$GITHUB_PATH"
+          ~/.local/opt/lua-language-server/bin/lua-language-server --version
+
+      # Only for its runtime: `make lint` points lua-language-server at
+      # $VIMRUNTIME so vim.* is type-checked against the 0.12 API.
+      - name: Install Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: v0.12.6
 
       - name: Lint
         run: make lint
@@ -115,6 +132,25 @@ jobs:
           nvim --headless "+Lazy! restore"
           "+lua require('nvim-treesitter').install(vim.g.treesitter_parsers):wait(300000)"
           +qa
+
+      # On 0.12 lua/plugins/parser.lua drops the commit pin, so nvim-treesitter
+      # is meant to follow main. lazy-lock.json still records the 0.11 pin,
+      # though, so the restore above checks that out and the 0.12 job would
+      # never run current main. Move it to main HEAD here and update the
+      # parsers to the revisions that HEAD expects (update() joins the
+      # installs the :TSUpdate build hook starts). The tradeoff: this job now
+      # tests whatever main is today, so an upstream change can turn it red
+      # without a change in this repo, and the run is not reproducible from
+      # lazy-lock.json. The 0.11 job keeps testing the pinned commit. The
+      # resulting lockfile change only lives in this runner and is never
+      # committed.
+      - name: Move nvim-treesitter to main HEAD (0.12 only)
+        if: matrix.name == 'test-nvim-0.12'
+        run: >-
+          nvim --headless "+Lazy! update nvim-treesitter"
+          "+lua require('nvim-treesitter').update():wait(300000)"
+          +qa
+          && git -C ~/.local/share/nvim/lazy/nvim-treesitter log --oneline -1
 
       # Let Mason and nvim-treesitter finish their background installs once,
       # so each test's fresh nvim doesn't restart and abandon them.

@@ -111,12 +111,14 @@ test("<leader>cf formats the buffer with conform", function()
   assert_eq(map.desc, "Format buffer", "<leader>cf desc")
   assert_true(map.callback ~= nil, "<leader>cf has no Lua callback")
   local conform = require("conform")
-  local orig, got = conform.format, nil
+  local orig = conform.format
+  local got ---@type table?
   conform.format = function(opts) got = opts end
   local ok, err = pcall(map.callback)
   conform.format = orig
   assert_true(ok, tostring(err))
   assert_true(got ~= nil, "<leader>cf did not call conform.format")
+  ---@cast got -nil
   assert_eq(got.lsp_format, "fallback", "lsp_format")
 end)
 

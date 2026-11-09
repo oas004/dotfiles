@@ -105,24 +105,25 @@ local function main()
     end)
   end
 
-  -- Deprecated API usage from this repo's files
-  test("checkhealth vim.deprecated reports nothing from this config", function()
+  -- Deprecated API usage from any source: this config or a plugin. Each
+  -- deprecated function is reported as a WARNING followed by its tracebacks.
+  -- tests/run.sh also fails any test whose nvim shows a deprecation warning.
+  test("checkhealth vim.deprecated reports nothing", function()
     vim.cmd("checkhealth vim.deprecated")
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
     local offending = {}
-    for i, line in ipairs(lines) do
-      if line:find(config_dir, 1, true) then
+    local in_warning = false
+    for _, line in ipairs(lines) do
+      if line:find("WARNING", 1, true) then
+        in_warning = true
+      elseif line:match("^%s*$") or line:match("^=+$") then
+        in_warning = false
+      end
+      if in_warning then
         table.insert(offending, vim.trim(line))
-        -- Include the warning that owns this traceback for context
-        for j = i, 1, -1 do
-          if lines[j]:find("WARNING", 1, true) then
-            table.insert(offending, "  " .. vim.trim(lines[j]))
-            break
-          end
-        end
       end
     end
-    assert_true(#offending == 0, "deprecated calls from config:\n" .. table.concat(offending, "\n"))
+    assert_true(#offending == 0, "deprecated calls:\n" .. table.concat(offending, "\n"))
   end)
 
   -- Summary

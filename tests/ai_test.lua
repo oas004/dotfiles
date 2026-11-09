@@ -105,6 +105,7 @@ vim.cmd("edit sub/file.lua")
 -- Capture notifications instead of printing them
 local notifications = {}
 local real_notify = vim.notify
+---@diagnostic disable-next-line: duplicate-set-field
 vim.notify = function(msg) table.insert(notifications, msg) end
 
 test("clipboard (+ register) is available", function()
@@ -212,8 +213,9 @@ end)
 
 -- Stop the websocket server started by setup so no stale lock file is left
 local notify = vim.notify
+---@diagnostic disable-next-line: duplicate-set-field
 vim.notify = function() end
-pcall(vim.cmd, "ClaudeCodeStop")
+pcall(vim.api.nvim_command, "ClaudeCodeStop")
 vim.notify = notify
 
 -- Summary

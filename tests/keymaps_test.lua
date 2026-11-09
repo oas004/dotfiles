@@ -38,6 +38,7 @@ local config_dir = vim.fn.resolve(vim.fn.stdpath("config"))
 local function captured_maps()
   local maps = {}
   local orig = vim.keymap.set
+  ---@diagnostic disable-next-line: duplicate-set-field
   vim.keymap.set = function(mode, lhs, rhs, opts)
     table.insert(maps, { mode = mode, lhs = lhs, rhs = rhs, opts = opts or {} })
   end

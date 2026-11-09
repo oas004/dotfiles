@@ -39,6 +39,7 @@ local function resolve_cmd(cmd, root_dir)
   if type(cmd) == "table" then return cmd end
   local captured
   local orig = vim.lsp.rpc.start
+  ---@diagnostic disable-next-line: duplicate-set-field
   vim.lsp.rpc.start = function(argv) captured = argv; return {} end
   local ok, err = pcall(cmd, {}, { root_dir = root_dir })
   vim.lsp.rpc.start = orig
@@ -85,6 +86,7 @@ end)
 test("cmp capabilities applied to all servers", function()
   local caps = vim.lsp.config["*"].capabilities
   assert_not_nil(caps, "no global capabilities")
+  ---@cast caps -nil
   local expected = require("cmp_nvim_lsp").default_capabilities().textDocument.completion
   assert_true(vim.deep_equal(caps.textDocument.completion, expected),
     "completion capabilities differ from cmp_nvim_lsp: " .. vim.inspect(caps.textDocument.completion))
@@ -166,7 +168,15 @@ test("servers outside the list are not enabled", function()
     assert_true(not vim.lsp.is_enabled(name), name .. " is enabled")
   end
   local allowed = vim.list_extend({ "kotlin_lsp" }, listed)
-  for name in pairs(vim.lsp._enabled_configs) do
+  local enabled
+  if vim.lsp.get_configs then
+    enabled = vim.tbl_map(function(c) return c.name end, vim.lsp.get_configs({ enabled = true }))
+  else
+    -- Neovim 0.11 has no public way to list enabled configs
+    -- (vim.lsp.get_configs is 0.12+), so read the private table there.
+    enabled = vim.tbl_keys(vim.lsp._enabled_configs)
+  end
+  for _, name in ipairs(enabled) do
     assert_true(vim.tbl_contains(allowed, name), "unexpected server enabled: " .. name)
   end
 end)
@@ -184,6 +194,7 @@ end)
 test("kotlin_lsp config exists with kotlin filetype", function()
   local cfg = vim.lsp.config.kotlin_lsp
   assert_not_nil(cfg, "kotlin_lsp not configured")
+  ---@cast cfg -nil
   assert_true(vim.tbl_contains(cfg.filetypes or {}, "kotlin"), "kotlin not in filetypes")
   assert_true(vim.tbl_contains(cfg.root_markers or {}, "settings.gradle.kts"), "settings.gradle.kts not a root marker")
 end)
@@ -262,25 +273,30 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
     -- Format-on-save is only for hls and clangd
     local ok = pcall(vim.api.nvim_get_autocmds, { group = "user_lsp_format_" .. bufnr })
     assert_true(not ok, "lua buffer got an LSP format-on-save autocmd")
-    vim.lsp.stop_client(client.id, true)
+    client:stop(true)
   end)
 else
   skip("lua_ls runtime attach", "lua-language-server not installed")
 end
 
-if vim.fn.executable(mason_bin .. "clangd") == 1 or vim.fn.executable("clangd") == 1 then
+-- The clangd config runs plain "clangd", which resolves to Mason's copy
+-- because mason.setup() puts mason/bin first on PATH. Only test that one, not
+-- whatever else is on PATH (e.g. Apple's /usr/bin/clangd on macOS).
+if vim.fn.executable(mason_bin .. "clangd") == 1 then
   test("clangd attaches with fallback style and formats on save", function()
     local path = tmp .. "/c/m.c"
     local client = attach(path, { "int main(){return 0;}" }, "clangd")
     assert_not_nil(client, "clangd did not attach")
-    assert_true(vim.tbl_contains(client.config.cmd, "--fallback-style=LLVM"), vim.inspect(client.config.cmd))
+    local cmd = client.config.cmd
+    assert_true(type(cmd) == "table" and vim.tbl_contains(cmd, "--fallback-style=LLVM"), vim.inspect(cmd))
+    assert_eq(vim.fn.exepath("clangd"), mason_bin .. "clangd", "clangd on PATH")
     vim.wait(1000)
     vim.cmd("silent write")
     assert_eq(vim.fn.readfile(path)[1], "int main() { return 0; }", "file not formatted on save")
-    vim.lsp.stop_client(client.id, true)
+    client:stop(true)
   end)
 else
-  skip("clangd runtime attach", "clangd not installed")
+  skip("clangd runtime attach", "Mason clangd not installed")
 end
 
 -- Summary
