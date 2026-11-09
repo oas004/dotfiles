@@ -1,0 +1,66 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NVIM_VERSION: v0.11.4
+  KOTLIN_LSP_VERSION: 263.7084.0
+
+jobs:
+  # Branch protection requires the check named "test"; keep this job id
+  # and name stable.
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ env.NVIM_VERSION }}
+
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Use this checkout as the Neovim config
+        run: |
+          mkdir -p ~/.config
+          ln -s "$GITHUB_WORKSPACE" ~/.config/nvim
+
+      # kotlin-lsp is not in Mason. The config only registers it when the
+      # launcher exists at ~/.local/opt/kotlin-lsp/kotlin-lsp.sh.
+      - name: Install kotlin-lsp
+        run: |
+          mkdir -p ~/.local/opt/kotlin-lsp
+          curl -fsSL "https://download.jetbrains.com/language-server/kotlin-server/${KOTLIN_LSP_VERSION}/kotlin-server-${KOTLIN_LSP_VERSION}.tar.gz" \
+            | tar xz --strip-components=1 -C ~/.local/opt/kotlin-lsp
+          chmod +x ~/.local/opt/kotlin-lsp/kotlin-lsp.sh
+
+      - name: Restore plugins from lazy-lock.json
+        run: nvim --headless "+Lazy! restore" +qa
+
+      # Let Mason and nvim-treesitter finish their background installs once,
+      # so each test's fresh nvim doesn't restart and abandon them.
+      - name: Warm up (Mason servers, treesitter parsers)
+        timeout-minutes: 20
+        run: nvim --headless -c "luafile .github/scripts/ci_warmup.lua"
+
+      - name: Run tests
+        env:
+          SMOKE_EXTS: lua rs kt
+        run: tests/run.sh
