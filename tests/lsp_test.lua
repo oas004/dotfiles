@@ -140,6 +140,47 @@ test("jdtls has no hard-coded JavaSE-17 runtime", function()
     "runtimes still configured")
 end)
 
+test("jdtls java.home follows JAVA_HOME and is never empty", function()
+  local home = vim.tbl_get(vim.lsp.config.jdtls, "settings", "java", "home")
+  local env = vim.env.JAVA_HOME
+  if env and env ~= "" then
+    assert_eq(home, env, "java.home")
+  else
+    assert_eq(home, nil, "java.home without JAVA_HOME")
+  end
+end)
+
+-- Same list as language-server.lua, kotlin_lsp only when its binary exists
+local listed = { "gradle_ls", "jedi_language_server", "lua_ls", "hls", "clangd", "jdtls", "rust_analyzer" }
+
+test("listed servers are enabled", function()
+  for _, name in ipairs(listed) do
+    assert_true(vim.lsp.is_enabled(name), name .. " not enabled")
+  end
+  local kotlin = require("core.paths").file_exists(require("core.paths").external.kotlin_lsp)
+  assert_eq(vim.lsp.is_enabled("kotlin_lsp"), kotlin, "kotlin_lsp enabled")
+end)
+
+test("servers outside the list are not enabled", function()
+  for _, name in ipairs({ "yamlls", "jsonls", "html", "ts_ls", "terraformls", "dockerls" }) do
+    assert_true(not vim.lsp.is_enabled(name), name .. " is enabled")
+  end
+  local allowed = vim.list_extend({ "kotlin_lsp" }, listed)
+  for name in pairs(vim.lsp._enabled_configs) do
+    assert_true(vim.tbl_contains(allowed, name), "unexpected server enabled: " .. name)
+  end
+end)
+
+test("mason-lspconfig does not auto-enable installed servers", function()
+  local settings = require("mason-lspconfig.settings").current
+  assert_eq(settings.automatic_enable, false, "automatic_enable")
+end)
+
+test("rust_analyzer comes from rustup, not Mason", function()
+  local ensure = require("mason-lspconfig.settings").current.ensure_installed
+  assert_true(not vim.tbl_contains(ensure, "rust_analyzer"), "rust_analyzer in ensure_installed")
+end)
+
 test("kotlin_lsp config exists with kotlin filetype", function()
   local cfg = vim.lsp.config.kotlin_lsp
   assert_not_nil(cfg, "kotlin_lsp not configured")

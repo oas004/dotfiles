@@ -77,7 +77,7 @@ return {
     end,
   },
 
-  -- LSP: native vim.lsp.config, servers installed by mason and enabled by mason-lspconfig
+  -- LSP: native vim.lsp.config, servers installed by mason, enabled explicitly below
   {
     "neovim/nvim-lspconfig",
     lazy = false,  -- Load immediately to avoid race conditions
@@ -159,7 +159,8 @@ return {
         },
         settings = {
           java = {
-            home = vim.env.JAVA_HOME or "",
+            -- Left unset without JAVA_HOME, so jdtls picks a JDK itself
+            home = vim.env.JAVA_HOME ~= "" and vim.env.JAVA_HOME or nil,
             eclipse = { downloadSources = true },
             maven = { downloadSources = true },
             implementationsCodeLens = { enabled = true },
@@ -275,17 +276,20 @@ return {
         end,
       })
 
-      local servers = {
+      -- Installed by Mason. kotlin_lsp is not in Mason and is enabled above.
+      local mason_servers = {
         "gradle_ls",
         "jedi_language_server",
         "lua_ls",
         "hls",
         "clangd",
         "jdtls",
-        "rust_analyzer",
       }
 
-      -- kotlin-lsp is NOT in Mason, so we don't add it here
+      -- Only these servers are enabled, whatever else Mason has installed.
+      -- rust-analyzer comes from rustup (bootstrap.sh) so it matches the toolchain.
+      local servers = vim.list_extend({ "rust_analyzer" }, mason_servers)
+      vim.lsp.enable(servers)
 
       local mason = utils.safe_require("mason", "mason failed to load")
       if not mason then return end
@@ -295,10 +299,11 @@ return {
       local mason_lsp = utils.safe_require("mason-lspconfig", "mason-lspconfig failed to load")
       if not mason_lsp then return end
 
-      -- mason-lspconfig v2 calls vim.lsp.enable() for each installed server,
-      -- which picks up the vim.lsp.config() overrides above
+      -- automatic_enable defaults to true in mason-lspconfig v2, which would
+      -- vim.lsp.enable() every Mason-installed server, not just the list above
       mason_lsp.setup({
-        ensure_installed = servers,
+        ensure_installed = mason_servers,
+        automatic_enable = false,
       })
     end,
   },
