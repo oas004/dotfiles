@@ -27,11 +27,6 @@ M.logs = {
   conform = M.state .. "/conform.log",
 }
 
--- Configuration preference files
-M.prefs = {
-  java = M.config .. "/java-prefs.json",
-}
-
 --- Check if a file exists at the given path
 --- @param path string The file path to check
 --- @return boolean exists Whether the file exists

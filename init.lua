@@ -24,16 +24,22 @@ vim.api.nvim_create_user_command('CleanupLSPCache', function()
     paths.lsp_cache.kotlin_lsp,
     paths.lsp_cache.jdtls,
   }
+  local failed = false
   for _, dir in ipairs(cache_dirs) do
     if vim.fn.isdirectory(dir) == 1 then
       if vim.fn.delete(dir, "rf") == 0 then
         vim.notify("Cleaned: " .. dir, vim.log.levels.INFO)
       else
+        failed = true
         vim.notify("Failed to clean: " .. dir, vim.log.levels.ERROR)
       end
     end
   end
-  vim.notify("LSP cache cleanup complete. Restart Neovim.", vim.log.levels.INFO)
+  if failed then
+    vim.notify("LSP cache cleanup finished with errors", vim.log.levels.WARN)
+  else
+    vim.notify("LSP cache cleanup complete. Restart Neovim.", vim.log.levels.INFO)
+  end
 end, { desc = "Clean LSP caches (Kotlin & Java)" })
 
 -- Manual log cleanup command
