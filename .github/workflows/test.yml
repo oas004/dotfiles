@@ -15,15 +15,46 @@ permissions:
   contents: read
 
 env:
-  NVIM_VERSION: v0.11.4
   KOTLIN_LSP_VERSION: 263.7084.0
   TREE_SITTER_VERSION: v0.27.2
+  SELENE_VERSION: 0.32.0
 
 jobs:
-  # Branch protection requires the check named "test"; keep this job id
-  # and name stable.
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install selene
+        run: |
+          mkdir -p ~/.local/bin
+          curl -fsSL -o "$RUNNER_TEMP/selene.zip" \
+            "https://github.com/Kampfkarren/selene/releases/download/${SELENE_VERSION}/selene-light-${SELENE_VERSION}-linux.zip"
+          unzip -o "$RUNNER_TEMP/selene.zip" -d ~/.local/bin
+          chmod +x ~/.local/bin/selene
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          ~/.local/bin/selene --version
+
+      - name: Lint
+        run: make lint
+
+  # Branch protection requires the check named "test"; keep this job id and
+  # the name of the 0.11 entry stable. The 0.12 entry reports as
+  # "test-nvim-0.12" and is not a required check.
   test:
-    name: test
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: test
+            nvim: v0.11.4
+          - name: test-nvim-0.12
+            nvim: v0.12.6
+    env:
+      NVIM_VERSION: ${{ matrix.nvim }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
