@@ -142,6 +142,102 @@ test("<C-s> in normal and visual mode saves", function()
   vim.fn.delete(path)
 end)
 
+-- In-process LSP server that answers signature help requests. Every request
+-- method is appended to log.
+local function fake_signature_server(log)
+  return function(dispatchers)
+    local closing = false
+    local id = 0
+    return {
+      request = function(method, _, callback)
+        id = id + 1
+        table.insert(log, method)
+        local result = vim.NIL
+        if method == "initialize" then
+          result = { capabilities = { signatureHelpProvider = { triggerCharacters = { "(" } } } }
+        elseif method == "textDocument/signatureHelp" then
+          result = { signatures = { { label = "add(a, b)" } } }
+        end
+        vim.schedule(function() callback(nil, result) end)
+        return true, id
+      end,
+      notify = function(method)
+        if method == "exit" then
+          closing = true
+          vim.schedule(function() dispatchers.on_exit(0, 0) end)
+        end
+        return true
+      end,
+      is_closing = function() return closing end,
+      terminate = function()
+        if not closing then
+          closing = true
+          vim.schedule(function() dispatchers.on_exit(0, 15) end)
+        end
+      end,
+    }
+  end
+end
+
+local function insert_buf_map(bufnr, lhs)
+  for _, m in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "i")) do
+    if m.lhs == lhs then return m end
+  end
+end
+
+test("<C-k> in insert mode shows signature help in LSP buffers only, <C-s> still saves", function()
+  local path = vim.fn.tempname() .. ".txt"
+  vim.fn.writefile({ "" }, path)
+  vim.cmd("silent edit " .. vim.fn.fnameescape(path))
+  local buf = vim.api.nvim_get_current_buf()
+  assert_eq(insert_buf_map(buf, "<C-K>"), nil, "<C-k> mapped before an LSP attached")
+
+  local log = {}
+  local client_id = vim.lsp.start({
+    name = "keymaps_test_signature",
+    cmd = fake_signature_server(log),
+    root_dir = vim.fn.fnamemodify(path, ":h"),
+  }, { bufnr = buf })
+  assert_true(client_id ~= nil, "fake LSP client did not start")
+  ---@cast client_id -nil
+  vim.wait(2000, function()
+    local client = vim.lsp.get_client_by_id(client_id)
+    return client ~= nil and client.initialized == true
+  end)
+
+  local m = insert_buf_map(buf, "<C-K>")
+  assert_true(m ~= nil, "<C-k> has no buffer-local insert map after LspAttach")
+  ---@cast m -nil
+  assert_eq(m.callback, vim.lsp.buf.signature_help, "<C-k> callback")
+  assert_eq(m.desc, "LSP: Show function signature", "<C-k> desc")
+
+  vim.api.nvim_feedkeys(vim.keycode("i<C-k><Esc>"), "mx", false)
+  vim.wait(2000, function() return vim.tbl_contains(log, "textDocument/signatureHelp") end)
+  assert_true(vim.tbl_contains(log, "textDocument/signatureHelp"), "no signatureHelp request: " .. vim.inspect(log))
+
+  -- The save map, not Neovim's signature help default, still owns insert <C-s>
+  assert_eq(insert_buf_map(buf, "<C-S>"), nil, "<C-s> has a buffer-local insert map")
+  assert_eq(vim.fn.maparg("<C-s>", "i", false, true).desc, "Save file", "insert <C-s> desc")
+  vim.api.nvim_feedkeys(vim.keycode("ihello<C-s>"), "mx", false)
+  assert_eq(vim.fn.mode(), "n", "mode after <C-s>")
+  assert_true(not vim.bo.modified, "buffer still modified")
+  assert_eq(vim.fn.readfile(path)[1], "hello", "file contents")
+
+  vim.lsp.buf_detach_client(buf, client_id)
+  vim.wait(2000, function() return insert_buf_map(buf, "<C-K>") == nil end)
+  assert_eq(insert_buf_map(buf, "<C-K>"), nil, "<C-k> still mapped after the client detached")
+  assert_eq(vim.fn.maparg("<C-k>", "i"), "", "<C-k> has an insert map after detach")
+  -- With the map gone, <C-k> enters digraphs again
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "" })
+  vim.api.nvim_feedkeys(vim.keycode("cc<C-k>e:<Esc>"), "mx", false)
+  assert_eq(vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1], "ë", "digraph after detach")
+
+  local client = vim.lsp.get_client_by_id(client_id)
+  if client then client:stop(true) end
+  vim.cmd("bwipeout!")
+  vim.fn.delete(path)
+end)
+
 -- Summary
 out("\n=== Results ===")
 out(string.format("Passed: %d, Failed: %d", passed, failed))

@@ -144,7 +144,9 @@ The leader key is `<Space>`.
 
 ### LSP Navigation
 
-`gd`, `gD`, `gI`, `gy` and `gs` are set only in buffers with an attached language server. `grr`, `grn`, `gra`, `gri`, `gO` and `K` are Neovim's built-in LSP defaults.
+`gd`, `gD`, `gI`, `gy`, `gs` and insert-mode `<C-k>` are set only in buffers with an attached language server. `grr`, `grn`, `gra`, `gri`, `gO` and `K` are Neovim's built-in LSP defaults.
+
+Neovim's own insert-mode `<C-s>` for signature help is replaced by save, so it is on `<C-k>` instead. In those buffers `<C-k>` no longer starts a digraph. It still does elsewhere, and in LSP buffers `:digraphs` lists each digraph with its code point, which `<C-v>u` followed by the hex value inserts.
 
 | Keys | Action |
 |------|--------|
@@ -157,6 +159,7 @@ The leader key is `<Space>`.
 | `gri` | Go to implementation |
 | `gy` | Go to type definition |
 | `gs` | Show function signature |
+| `<C-k>` | Show function signature (insert mode) |
 | `gO` | Document symbols |
 | `K` | Show hover documentation |
 
