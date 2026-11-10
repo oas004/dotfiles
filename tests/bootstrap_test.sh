@@ -171,14 +171,20 @@ make_stub() {
 #                      $FAKE_NVIM_EXIT. Like lazy.nvim, it rewrites
 #                      lazy-lock.json: a startup run (one that checks
 #                      :Lazy exists) appends $FAKE_STARTUP_LOCK_LINE, a
-#                      "Lazy! restore" run appends $FAKE_RESTORE_LOCK_LINE.
+#                      "Lazy! restore" run appends $FAKE_RESTORE_LOCK_LINE
+#                      (only in the first $FAKE_RESTORE_DRIFT_RUNS restore
+#                      runs, if set).
 make_stub "$STUB_ROOT/nvim" nvim '
 if [[ "$1" == "--version" ]]; then echo "NVIM v$FAKE_NVIM_VERSION"; exit 0; fi
 if [[ "$1" == "--clean" ]]; then printf "%s" "$FAKE_NVIM_CONFIG"; exit 0; fi
 printf "%s\n" "$*" >>"${FAKE_NVIM_LOG:-/dev/null}"
 lock="$FAKE_NVIM_CONFIG/lazy-lock.json"
 if [[ "$*" == *"Lazy! restore"* ]]; then
-    [[ -n "${FAKE_RESTORE_LOCK_LINE:-}" ]] && echo "$FAKE_RESTORE_LOCK_LINE" >>"$lock"
+    echo x >>"$FAKE_NVIM_CONFIG/restore-runs"
+    runs=$(wc -l <"$FAKE_NVIM_CONFIG/restore-runs")
+    if [[ -n "${FAKE_RESTORE_LOCK_LINE:-}" && $runs -le ${FAKE_RESTORE_DRIFT_RUNS:-$runs} ]]; then
+        echo "$FAKE_RESTORE_LOCK_LINE" >>"$lock"
+    fi
 elif [[ "$*" == *"exists('"'"':Lazy'"'"')"* ]]; then
     [[ -n "${FAKE_STARTUP_LOCK_LINE:-}" ]] && echo "$FAKE_STARTUP_LOCK_LINE" >>"$lock"
 fi
@@ -564,9 +570,10 @@ sync_test_setup() {
 t_sync_runs_restore() (
     source "$BOOTSTRAP"
     sync_test_setup ok
-    # Startup rewrites the lockfile (as lazy.nvim does for itself on a fresh
-    # machine); sync_nvim must put it back before Lazy! restore
-    export FAKE_STARTUP_LOCK_LINE="lazy.nvim fresh clone"
+    # Startup rewrites the lockfile (as lazy.nvim does for plugins that were
+    # installed on other commits); sync_nvim must put it back before Lazy!
+    # restore
+    export FAKE_STARTUP_LOCK_LINE="drifted plugin"
     sync_nvim >/dev/null 2>&1 || return 1
     local -a runs=()
     local line
@@ -611,20 +618,47 @@ t_sync_fails_on_nvim_error() (
 )
 test_case "sync_nvim fails when nvim exits non-zero" t_sync_fails_on_nvim_error
 
+# Every restore "checks out" a commit that differs from the lockfile: fail
+# after restoring twice
 t_sync_fails_on_lock_mismatch() (
     source "$BOOTSTRAP"
     sync_test_setup drift
-    # Restore "checks out" a commit that differs from the lockfile
     export FAKE_RESTORE_LOCK_LINE='  "b.nvim": { "branch": "main", "commit": "bbb" }'
     local output rc=0
     output=$(sync_nvim 2>&1) || rc=$?
     [[ $rc -ne 0 ]] &&
-        [[ "$output" == *"not at their lazy-lock.json commit"* ]] &&
+        [[ "$output" == *"restoring again"*"ERROR"*"not at their lazy-lock.json commit"* ]] &&
         [[ "$output" == *'+   "b.nvim"'* ]] &&
-        [[ $(wc -l <"$FAKE_NVIM_LOG") -eq 2 ]] &&
+        [[ "$output" == *"plugin restore failed"* ]] &&
+        [[ $(grep -c 'Lazy! restore' "$FAKE_NVIM_LOG") -eq 2 ]] &&
+        [[ $(wc -l <"$FAKE_NVIM_LOG") -eq 3 ]] &&
         cmp -s "$FAKE_NVIM_CONFIG/original.json" "$FAKE_NVIM_CONFIG/lazy-lock.json"
 )
 test_case "sync_nvim fails when a plugin is not at its locked commit" t_sync_fails_on_lock_mismatch
+
+# Only the first restore leaves a plugin behind: the second one, run with the
+# original lockfile put back, fixes it
+t_sync_retries_restore() (
+    source "$BOOTSTRAP"
+    sync_test_setup retry
+    export FAKE_RESTORE_LOCK_LINE='  "b.nvim": { "branch": "main", "commit": "bbb" }'
+    export FAKE_RESTORE_DRIFT_RUNS=1
+    local output
+    output=$(sync_nvim 2>&1) || return 1
+    local -a runs=()
+    local line
+    while IFS= read -r line; do runs+=("$line"); done <"$FAKE_NVIM_LOG"
+    # startup, restore, restore, parser install
+    [[ ${#runs[@]} -eq 4 ]] &&
+        [[ "${runs[1]}" == *"+Lazy! restore"* ]] &&
+        [[ "${runs[2]}" == *"+Lazy! restore"* ]] &&
+        [[ "${runs[3]}" == *"nvim-treesitter').install"* ]] &&
+        [[ "$output" == *"restoring again"* ]] &&
+        [[ "$output" == *'+   "b.nvim"'* ]] &&
+        [[ "$output" != *"ERROR"* ]] &&
+        cmp -s "$FAKE_NVIM_CONFIG/original.json" "$FAKE_NVIM_CONFIG/lazy-lock.json"
+)
+test_case "sync_nvim restores once more when a plugin is left behind" t_sync_retries_restore
 
 # Summary
 echo ""
