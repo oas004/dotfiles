@@ -6,7 +6,8 @@ keymap.set("v", ";;", "<Esc>", { desc = "Exit visual mode" })
 
 keymap.set("n", "<Esc>", "<Cmd>nohlsearch<CR><Esc>", { desc = "Clear search highlight" })
 keymap.set("n", "<C-s>", "<Cmd>update<CR>", { desc = "Save file" })
--- <Esc> rather than <C-C> so InsertLeave autocmds still fire
+-- <Esc> rather than <C-C> so InsertLeave autocmds still fire. This hides
+-- Neovim's insert/select <C-s> signature help; LSP buffers get it on <C-k>.
 keymap.set({ "i", "v" }, "<C-s>", "<Esc><Cmd>update<CR>", { desc = "Save file" })
 
 -- Diagnostics (LSP keymaps are buffer-local, see plugins/language-server.lua)

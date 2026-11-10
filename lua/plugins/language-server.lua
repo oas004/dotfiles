@@ -221,6 +221,9 @@ return {
         { "n", "gI", vim.lsp.buf.implementation, "LSP: Go to implementation" },
         { "n", "gy", vim.lsp.buf.type_definition, "LSP: Go to type definition" },
         { "n", "gs", vim.lsp.buf.signature_help, "LSP: Show function signature" },
+        -- Neovim's own insert <C-s> for this is taken by save (core/keymaps.lua).
+        -- Shadows digraph entry (<C-k>{char1}{char2}) in LSP buffers only.
+        { "i", "<C-k>", vim.lsp.buf.signature_help, "LSP: Show function signature" },
         { "n", "<F2>", vim.lsp.buf.rename, "LSP: Rename symbol" },
         { { "n", "x" }, "<F4>", vim.lsp.buf.code_action, "LSP: Code actions" },
         { "n", "<leader>ca", vim.lsp.buf.code_action, "LSP: Code actions" },
