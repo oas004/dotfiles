@@ -31,7 +31,7 @@ jdtls needs Java 21+ and uses `JAVA_HOME` if it is set, otherwise `java` on PATH
 
 The script does not install ghcup, which Mason uses to install haskell-language-server. It warns if ghcup is missing; to use Haskell, install ghcup and GHC with `curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh`.
 
-The language servers (kotlin-lsp included) and the ktfmt and google-java-format formatters are installed by Mason, not by the script. Mason starts installing whatever is missing the first time you open Neovim; `:Mason` shows the progress. Mason's bin directory (`~/.local/share/nvim/mason/bin`) is put on PATH inside Neovim only, so these tools are not on your shell's PATH.
+The language servers (kotlin-lsp included) and the ktfmt and google-java-format formatters are installed by Mason, not by the script. Mason starts installing whatever is missing the first time you open Neovim; `:Mason` shows the progress. Mason's bin directory (`~/.local/share/nvim/mason/bin`) is put on PATH inside Neovim only, so these tools are not on your shell's PATH. ktfmt is a jar that Mason runs with `java -jar`, so it needs Java 17+ as `java` on PATH.
 
 ### Manual Setup
 
@@ -96,6 +96,16 @@ sudo dnf install neovim ripgrep tree-sitter-cli gcc unzip jq java-21-openjdk-dev
    ```
    :Mason
    ```
+
+### Neovim 0.12 and nvim-treesitter
+
+On Neovim 0.11, `lua/plugins/parser.lua` pins nvim-treesitter to the last main commit that supports 0.11, and on 0.12+ it follows main. `lazy-lock.json` can only record one commit, so it records the 0.11 one, and a first install or `:Lazy restore` (which bootstrap.sh runs) checks out that commit on 0.12 too. On Neovim 0.12+, run this after a restore:
+
+```vim
+:Lazy update nvim-treesitter
+```
+
+That moves nvim-treesitter to current main, so you get the parser and query fixes made since the pin. It also changes nvim-treesitter's entry in `lazy-lock.json`. Don't commit that change: a restore on 0.11 would then check out a commit that no longer supports 0.11.
 
 ### Rust / WebAssembly Development
 
