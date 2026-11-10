@@ -2,10 +2,14 @@
 # Tests for bootstrap.sh
 # Run with: ./tests/bootstrap_test.sh
 #
-# SC1090: the tests source "$BOOTSTRAP". SC2016: stub bodies are single
-# quoted on purpose, they expand when the stub runs. SC2034: variables like
-# DRY_RUN and PKG_MGR are read by the sourced bootstrap.sh functions.
-# shellcheck disable=SC1090,SC2016,SC2034
+# The source directive points shellcheck at bootstrap.sh for every
+# `source "$BOOTSTRAP"`, so it sees where DRY_RUN, PKG_MGR etc. are read.
+# shellcheck source-path=SCRIPTDIR source=../bootstrap.sh
+#
+# SC2016: stub bodies are single quoted on purpose, they expand when the stub
+# runs. SC2030/SC2031: each test is a ( ) subshell function precisely so its
+# PATH and FAKE_* exports stay local to that test.
+# shellcheck disable=SC2016,SC2030,SC2031
 
 set -euo pipefail
 

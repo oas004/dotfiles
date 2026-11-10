@@ -1,0 +1,4 @@
+# Follow `source` into files that are not named on the command line, so
+# checking tests/bootstrap_test.sh alone (or from an editor) also reads the
+# bootstrap.sh it sources, as `make lint` does.
+external-sources=true

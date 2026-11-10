@@ -18,6 +18,7 @@ env:
   TREE_SITTER_VERSION: v0.27.2
   SELENE_VERSION: 0.32.0
   LUALS_VERSION: 3.19.2
+  SHELLCHECK_VERSION: 0.11.0
 
 jobs:
   lint:
@@ -44,6 +45,17 @@ jobs:
             | tar xz -C ~/.local/opt/lua-language-server
           echo "$HOME/.local/opt/lua-language-server/bin" >> "$GITHUB_PATH"
           ~/.local/opt/lua-language-server/bin/lua-language-server --version
+
+      # The runner's apt shellcheck is older and changes with the image, so
+      # pin a release. ~/.local/bin comes first on PATH, ahead of /usr/bin.
+      - name: Install shellcheck
+        run: |
+          mkdir -p ~/.local/bin
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar xJ -C "$RUNNER_TEMP"
+          install -m 755 "$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" ~/.local/bin/shellcheck
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          ~/.local/bin/shellcheck --version
 
       # Only for its runtime: `make lint` points lua-language-server at
       # $VIMRUNTIME so vim.* is type-checked against the 0.12 API.
