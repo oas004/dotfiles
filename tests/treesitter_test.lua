@@ -128,7 +128,7 @@ end)
 -- are installed. Quitting while kotlin_lsp is still initializing force-stops
 -- it and logs "Client kotlin_lsp quit with exit code 143".
 test("LSP clients stop cleanly", function()
-  h.stop_clients()
+  assert_eq(h.stop_clients(), {}, "clients not stopped gracefully")
   ---@diagnostic disable-next-line: invisible
   assert_eq(#vim.lsp.get_clients({ _uninitialized = true }), 0, "clients still running")
   h.assert_no_message_errors()
