@@ -115,10 +115,15 @@ test("<leader>L opens nvim-tree on the current file", function()
   assert_not_nil(L and L.callback, "<leader>L has no callback after nvim-tree loaded")
   ---@cast L -nil
   L.callback()
-  vim.wait(500, function() return vim.bo.filetype == "NvimTree" end)
+  vim.wait(500, function()
+    return vim.bo.filetype == "NvimTree"
+  end)
   assert_true(vim.bo.filetype == "NvimTree", "nvim-tree did not open and focus")
   local node = require("nvim-tree.api").tree.get_node_under_cursor()
-  assert_true(node and node.absolute_path == file, "cursor not on current file: " .. tostring(node and node.absolute_path))
+  assert_true(
+    node and node.absolute_path == file,
+    "cursor not on current file: " .. tostring(node and node.absolute_path)
+  )
   -- Buffer-local maps in the tree (e.g. lazy ft keys) must not collide either
   assert_no_leader_prefix_collisions(vim.api.nvim_get_current_buf())
   require("nvim-tree.api").tree.close()
@@ -169,7 +174,9 @@ test("telescope ignore patterns keep .github and .gitignore", function()
   assert_not_nil(patterns, "file_ignore_patterns not set")
   local function ignored(path)
     for _, p in ipairs(patterns) do
-      if path:find(p) then return true end
+      if path:find(p) then
+        return true
+      end
     end
     return false
   end
@@ -247,7 +254,9 @@ test("telescope pickers open without warnings, errors or deprecations", function
       table.insert(problems, lhs .. " has no callback")
     else
       m.callback()
-      local opened = vim.wait(3000, function() return vim.bo.filetype == "TelescopePrompt" end)
+      local opened = vim.wait(3000, function()
+        return vim.bo.filetype == "TelescopePrompt"
+      end)
       -- Let the finder and previewer run
       vim.wait(300)
       if not opened then
@@ -288,15 +297,20 @@ test("plugins pinned by tag or commit are locked at that pin", function()
           table.insert(problems, ("%s: spec commit %s, lazy-lock.json %s"):format(name, plugin.commit, entry.commit))
         end
       else
-        local res = vim.system(
-          { "git", "rev-parse", "--verify", "--quiet", "refs/tags/" .. plugin.tag .. "^{commit}" },
-          { cwd = plugin.dir, text = true }
-        ):wait()
+        local res = vim
+          .system(
+            { "git", "rev-parse", "--verify", "--quiet", "refs/tags/" .. plugin.tag .. "^{commit}" },
+            { cwd = plugin.dir, text = true }
+          )
+          :wait()
         local tag_commit = vim.trim(res.stdout or "")
         if res.code ~= 0 or tag_commit == "" then
           table.insert(problems, ("%s: tag %s not found in %s"):format(name, plugin.tag, plugin.dir))
         elseif tag_commit ~= entry.commit then
-          table.insert(problems, ("%s: tag %s is %s, lazy-lock.json %s"):format(name, plugin.tag, tag_commit, entry.commit))
+          table.insert(
+            problems,
+            ("%s: tag %s is %s, lazy-lock.json %s"):format(name, plugin.tag, tag_commit, entry.commit)
+          )
         end
       end
     end

@@ -9,20 +9,29 @@ local assert_true, assert_not_nil, assert_eq = h.assert_true, h.assert_not_nil, 
 -- Call a config's cmd function with vim.lsp.rpc.start stubbed out, and return
 -- the argv it would have spawned
 local function resolve_cmd(cmd, root_dir)
-  if type(cmd) == "table" then return cmd end
+  if type(cmd) == "table" then
+    return cmd
+  end
   local captured
   local orig = vim.lsp.rpc.start
   ---@diagnostic disable-next-line: duplicate-set-field
-  vim.lsp.rpc.start = function(argv) captured = argv; return {} end
+  vim.lsp.rpc.start = function(argv)
+    captured = argv
+    return {}
+  end
   local ok, err = pcall(cmd, {}, { root_dir = root_dir })
   vim.lsp.rpc.start = orig
-  if not ok then error(err) end
+  if not ok then
+    error(err)
+  end
   return captured
 end
 
 local function has_arg(argv, pattern)
   for _, a in ipairs(argv or {}) do
-    if a:find(pattern) then return true end
+    if a:find(pattern) then
+      return true
+    end
   end
   return false
 end
@@ -58,8 +67,10 @@ test("cmp capabilities applied to all servers", function()
   assert_not_nil(caps, "no global capabilities")
   ---@cast caps -nil
   local expected = require("cmp_nvim_lsp").default_capabilities().textDocument.completion
-  assert_true(vim.deep_equal(caps.textDocument.completion, expected),
-    "completion capabilities differ from cmp_nvim_lsp: " .. vim.inspect(caps.textDocument.completion))
+  assert_true(
+    vim.deep_equal(caps.textDocument.completion, expected),
+    "completion capabilities differ from cmp_nvim_lsp: " .. vim.inspect(caps.textDocument.completion)
+  )
 end)
 
 test("lua_ls has diagnostics.globals = { 'vim' }", function()
@@ -112,8 +123,10 @@ test("jdtls workspaces differ for same-named projects in different places", func
 end)
 
 test("jdtls has no hard-coded JavaSE-17 runtime", function()
-  assert_true(vim.tbl_get(vim.lsp.config.jdtls, "settings", "java", "configuration", "runtimes") == nil,
-    "runtimes still configured")
+  assert_true(
+    vim.tbl_get(vim.lsp.config.jdtls, "settings", "java", "configuration", "runtimes") == nil,
+    "runtimes still configured"
+  )
 end)
 
 test("jdtls java.home follows JAVA_HOME and is never empty", function()
@@ -130,7 +143,8 @@ test("jdtls java.home follows JAVA_HOME and is never empty", function()
 end)
 
 -- Same list as language-server.lua
-local listed = { "gradle_ls", "jedi_language_server", "lua_ls", "hls", "clangd", "jdtls", "kotlin_lsp", "rust_analyzer" }
+local listed =
+  { "gradle_ls", "jedi_language_server", "lua_ls", "hls", "clangd", "jdtls", "kotlin_lsp", "rust_analyzer" }
 
 test("listed servers are enabled", function()
   for _, name in ipairs(listed) do
@@ -144,7 +158,9 @@ test("servers outside the list are not enabled", function()
   end
   local enabled
   if vim.lsp.get_configs then
-    enabled = vim.tbl_map(function(c) return c.name end, vim.lsp.get_configs({ enabled = true }))
+    enabled = vim.tbl_map(function(c)
+      return c.name
+    end, vim.lsp.get_configs({ enabled = true }))
   else
     -- Neovim 0.11 has no public way to list enabled configs
     -- (vim.lsp.get_configs is 0.12+), so read the private table there.
@@ -204,7 +220,9 @@ end)
 h.out("\n=== Completion Tests ===\n")
 
 test("cmp has nvim_lsp and buffer sources", function()
-  local names = vim.tbl_map(function(s) return s.name end, require("cmp").get_config().sources)
+  local names = vim.tbl_map(function(s)
+    return s.name
+  end, require("cmp").get_config().sources)
   for _, want in ipairs({ "nvim_lsp", "buffer" }) do
     assert_true(vim.tbl_contains(names, want), want .. " not in " .. vim.inspect(names))
   end
@@ -234,7 +252,9 @@ test("LSP keymaps stay until the last client detaches", function()
   for _, name in ipairs({ "fake_a", "fake_b" }) do
     table.insert(ids, vim.lsp.start({ name = name, cmd = h.fake_lsp_server(), root_dir = tmp }, { bufnr = bufnr }))
   end
-  vim.wait(2000, function() return #vim.lsp.get_clients({ bufnr = bufnr }) == 2 end, 20)
+  vim.wait(2000, function()
+    return #vim.lsp.get_clients({ bufnr = bufnr }) == 2
+  end, 20)
   assert_eq(#vim.lsp.get_clients({ bufnr = bufnr }), 2, "fake clients attached")
   assert_true(buf_map("gd"), "gd not mapped after attach")
 
@@ -243,8 +263,21 @@ test("LSP keymaps stay until the last client detaches", function()
   assert_true(buf_map("<F4>", "x"), "<F4> (visual) removed while fake_b is still attached")
 
   vim.lsp.buf_detach_client(bufnr, ids[2])
-  for _, lhs in ipairs({ "gd", "gD", "gI", "gy", "gs", "<F2>", "<F4>", "<leader>ca",
-                         "<D-b>", "<D-A-b>", "<A-F7>", "<S-F6>", "<A-CR>" }) do
+  for _, lhs in ipairs({
+    "gd",
+    "gD",
+    "gI",
+    "gy",
+    "gs",
+    "<F2>",
+    "<F4>",
+    "<leader>ca",
+    "<D-b>",
+    "<D-A-b>",
+    "<A-F7>",
+    "<S-F6>",
+    "<A-CR>",
+  }) do
     assert_true(not buf_map(lhs), lhs .. " still mapped after the last client detached")
   end
   assert_true(not buf_map("<F4>", "x"), "<F4> (visual) still mapped after the last client detached")
@@ -261,8 +294,10 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
     assert_not_nil(client, "lua_ls did not attach")
     local globals = vim.tbl_get(client.config.settings, "Lua", "diagnostics", "globals")
     assert_true(globals and vim.tbl_contains(globals, "vim"), "running client lacks globals")
-    assert_not_nil(vim.tbl_get(client.config.capabilities, "textDocument", "completion", "completionItem", "resolveSupport"),
-      "running client lacks cmp capabilities")
+    assert_not_nil(
+      vim.tbl_get(client.config.capabilities, "textDocument", "completion", "completionItem", "resolveSupport"),
+      "running client lacks cmp capabilities"
+    )
 
     -- maparg() on the current buffer prefers buffer-local maps and normalizes
     -- keys like <D-A-b>, so .buffer == 1 means the map is buffer-local
@@ -271,8 +306,21 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
       local m = vim.fn.maparg(lhs, mode, false, true)
       return m.buffer == 1 and m or nil
     end
-    for _, lhs in ipairs({ "<leader>ca", "gs", "<F2>", "<F4>", "gd", "gD", "gI", "gy",
-                           "<D-b>", "<D-A-b>", "<A-F7>", "<S-F6>", "<A-CR>" }) do
+    for _, lhs in ipairs({
+      "<leader>ca",
+      "gs",
+      "<F2>",
+      "<F4>",
+      "gd",
+      "gD",
+      "gI",
+      "gy",
+      "<D-b>",
+      "<D-A-b>",
+      "<A-F7>",
+      "<S-F6>",
+      "<A-CR>",
+    }) do
       assert_true(buf_map("n", lhs), lhs .. " not mapped in buffer")
     end
     assert_true(buf_map("x", "<F4>"), "<F4> not mapped in visual mode")

@@ -6,7 +6,7 @@ require("core.commands")
 
 -- Delete the LSP log on startup if it exceeds 50MB
 do
-  local paths = require('core.paths')
+  local paths = require("core.paths")
   local max_size = 50 * 1024 * 1024 -- 50MB in bytes
 
   local stat = vim.uv.fs_stat(paths.logs.lsp)

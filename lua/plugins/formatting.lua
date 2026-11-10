@@ -68,8 +68,10 @@ local function format_buffer_strict(filetype, label)
     { async = false, lsp_format = "never", timeout_ms = 5000, quiet = true },
     function(err, did_edit)
       if err then
-        vim.notify("Failed to format " .. label .. " file (see :ConformInfo): "
-          .. vim.trim(tostring(err)), vim.log.levels.ERROR)
+        vim.notify(
+          "Failed to format " .. label .. " file (see :ConformInfo): " .. vim.trim(tostring(err)),
+          vim.log.levels.ERROR
+        )
       elseif did_edit then
         vim.notify("Formatted " .. label .. " file", vim.log.levels.INFO)
       else

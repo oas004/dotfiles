@@ -56,7 +56,9 @@ local function main()
   else
     test(":" .. restart_cmd .. " works on a modified buffer", function()
       local old_ids = {}
-      for _, c in ipairs(clients) do old_ids[c.id] = true end
+      for _, c in ipairs(clients) do
+        old_ids[c.id] = true
+      end
 
       vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "-- modified by core_test" })
       assert_true(vim.bo[buf].modified, "buffer should be modified")
@@ -68,13 +70,25 @@ local function main()
       -- hangs on exit; see exit_timeout for lua_ls in language-server.lua.
       local restarted = vim.wait(30000, function()
         for _, c in ipairs(vim.lsp.get_clients({ bufnr = buf })) do
-          if not old_ids[c.id] then return true end
+          if not old_ids[c.id] then
+            return true
+          end
         end
         return false
       end, 100)
-      local exited = #vim.tbl_filter(function(c) return vim.lsp.get_client_by_id(c.id) == nil end, clients)
-      assert_true(restarted, string.format("no new LSP client attached %d ms after :%s (%d of %d old clients exited)",
-        vim.uv.now() - start, restart_cmd, exited, #clients))
+      local exited = #vim.tbl_filter(function(c)
+        return vim.lsp.get_client_by_id(c.id) == nil
+      end, clients)
+      assert_true(
+        restarted,
+        string.format(
+          "no new LSP client attached %d ms after :%s (%d of %d old clients exited)",
+          vim.uv.now() - start,
+          restart_cmd,
+          exited,
+          #clients
+        )
+      )
       assert_true(vim.bo[buf].modified, "buffer modifications were lost")
     end)
   end

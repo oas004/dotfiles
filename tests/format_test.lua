@@ -123,12 +123,19 @@ vim.cmd("qa!")
 test(":KotlinFormat loads conform and formats", function()
   local script = vim.fn.tempname() .. ".lua"
   vim.fn.writefile(vim.split(kotlin_format_child, "\n"), script)
-  local proc = vim.system({ vim.v.progpath, "--headless", "-c", "luafile " .. vim.fn.fnameescape(script) },
-    { text = true }):wait(30000)
+  local proc = vim
+    .system({ vim.v.progpath, "--headless", "-c", "luafile " .. vim.fn.fnameescape(script) }, { text = true })
+    :wait(30000)
   vim.fn.delete(script)
   local ok, res = pcall(vim.json.decode, proc.stdout or "")
-  assert_true(ok and type(res) == "table", "child nvim printed no result (exit " .. tostring(proc.code) .. "): "
-    .. tostring(proc.stdout) .. tostring(proc.stderr))
+  assert_true(
+    ok and type(res) == "table",
+    "child nvim printed no result (exit "
+      .. tostring(proc.code)
+      .. "): "
+      .. tostring(proc.stdout)
+      .. tostring(proc.stderr)
+  )
   assert_true(not res.loaded_before, "conform.nvim already loaded in the child")
   assert_true(res.ok, res.err)
   assert_true(res.loaded_after, "conform.nvim not loaded by :KotlinFormat")
@@ -138,8 +145,10 @@ test(":KotlinFormat loads conform and formats", function()
 end)
 
 test("conform.setup ran with format_on_save", function()
-  assert_true(#vim.api.nvim_get_autocmds({ group = "Conform", event = "BufWritePre" }) == 1,
-    "no Conform BufWritePre autocmd")
+  assert_true(
+    #vim.api.nvim_get_autocmds({ group = "Conform", event = "BufWritePre" }) == 1,
+    "no Conform BufWritePre autocmd"
+  )
 end)
 
 test("formatters_by_ft: kotlin uses ktfmt", function()
@@ -156,8 +165,7 @@ end)
 
 test("formatters_by_ft: json uses jq/prettierd/prettier", function()
   local json = require("conform").formatters_by_ft.json
-  assert_eq({ json[1], json[2], json[3], json.stop_after_first },
-    { "jq", "prettierd", "prettier", true }, "json")
+  assert_eq({ json[1], json[2], json[3], json.stop_after_first }, { "jq", "prettierd", "prettier", true }, "json")
 end)
 
 test("ktfmt runs with --kotlinlang-style", function()
@@ -175,8 +183,12 @@ end)
 
 -- Filetypes formatted by their language server only, and the server
 local lsp_only = {
-  haskell = "hls", lhaskell = "hls",
-  c = "clangd", cpp = "clangd", objc = "clangd", objcpp = "clangd",
+  haskell = "hls",
+  lhaskell = "hls",
+  c = "clangd",
+  cpp = "clangd",
+  objc = "clangd",
+  objcpp = "clangd",
 }
 
 for ft, server in vim.spairs(lsp_only) do
@@ -222,7 +234,9 @@ for ft, timeout in vim.spairs({ c = 10000, rust = 5000, kotlin = 5000 }) do
     local conform = require("conform")
     local orig = conform.format
     local got ---@type table?
-    conform.format = function(opts) got = opts end
+    conform.format = function(opts)
+      got = opts
+    end
     local ok, err = pcall(map.callback)
     conform.format = orig
     vim.api.nvim_buf_delete(buf, { force = true })
@@ -235,8 +249,10 @@ for ft, timeout in vim.spairs({ c = 10000, rust = 5000, kotlin = 5000 }) do
 end
 
 test("<leader>fm is no longer mapped", function()
-  assert_true(vim.tbl_isempty(vim.fn.maparg("<leader>fm", "n", false, true)),
-    "<leader>fm still mapped (collides with <leader>f)")
+  assert_true(
+    vim.tbl_isempty(vim.fn.maparg("<leader>fm", "n", false, true)),
+    "<leader>fm still mapped (collides with <leader>f)"
+  )
 end)
 
 test("none-ls is not configured", function()
@@ -250,10 +266,18 @@ end)
 -- installed them.
 local mason_bin = vim.fn.stdpath("data") .. "/mason/bin/"
 local samples = {
-  { tool = "ktfmt", ft = "kotlin", input = { "fun  main( ) { println( 1 ) }" },
-    want = { "fun main() {", "    println(1)", "}" } },
-  { tool = "google-java-format", ft = "java", input = { "class A {  void f( ) { } }" },
-    want = { "class A {", "  void f() {}", "}" } },
+  {
+    tool = "ktfmt",
+    ft = "kotlin",
+    input = { "fun  main( ) { println( 1 ) }" },
+    want = { "fun main() {", "    println(1)", "}" },
+  },
+  {
+    tool = "google-java-format",
+    ft = "java",
+    input = { "class A {  void f( ) { } }" },
+    want = { "class A {", "  void f() {}", "}" },
+  },
 }
 for _, s in ipairs(samples) do
   if vim.fn.executable(mason_bin .. s.tool) == 1 or vim.env.CI then
@@ -262,8 +286,9 @@ for _, s in ipairs(samples) do
       local buf = scratch(s.ft)
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, s.input)
       local err ---@type string?
-      require("conform").format({ bufnr = buf, formatters = { s.tool }, async = false, timeout_ms = 30000 },
-        function(e) err = e end)
+      require("conform").format({ bufnr = buf, formatters = { s.tool }, async = false, timeout_ms = 30000 }, function(e)
+        err = e
+      end)
       local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
       vim.api.nvim_buf_delete(buf, { force = true })
       assert_true(err == nil, tostring(err))

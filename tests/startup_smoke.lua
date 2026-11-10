@@ -28,10 +28,25 @@ local settle_ms = tonumber(vim.env.SMOKE_SETTLE_MS) or 2000
 -- installed. Expectations for missing servers are skipped locally, but on CI
 -- (where every server is installed) a missing server is a failure.
 local expected = {
-  lua = { client = "lua_ls", available = function() return vim.fn.executable("lua-language-server") == 1 end },
-  rs = { client = "rust_analyzer", available = function() return vim.fn.executable("rust-analyzer") == 1 end },
+  lua = {
+    client = "lua_ls",
+    available = function()
+      return vim.fn.executable("lua-language-server") == 1
+    end,
+  },
+  rs = {
+    client = "rust_analyzer",
+    available = function()
+      return vim.fn.executable("rust-analyzer") == 1
+    end,
+  },
   -- Mason's kotlin-lsp package links its launcher as intellij-server
-  kt = { client = "kotlin_lsp", available = function() return vim.fn.executable("intellij-server") == 1 end },
+  kt = {
+    client = "kotlin_lsp",
+    available = function()
+      return vim.fn.executable("intellij-server") == 1
+    end,
+  },
 }
 
 local failures = {}
@@ -95,8 +110,14 @@ local function main()
       fail("buffer not found for " .. f)
     else
       local names = client_names(buf)
-      out(string.format("%s: filetype=%s lsp=[%s]", vim.fn.fnamemodify(f, ":t"), vim.bo[buf].filetype,
-        table.concat(names, ",")))
+      out(
+        string.format(
+          "%s: filetype=%s lsp=[%s]",
+          vim.fn.fnamemodify(f, ":t"),
+          vim.bo[buf].filetype,
+          table.concat(names, ",")
+        )
+      )
       if vim.bo[buf].filetype == "" then
         fail("no filetype detected for " .. f)
       end

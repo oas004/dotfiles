@@ -107,31 +107,35 @@ local function report(reason)
 end
 
 local timer = assert(vim.uv.new_timer())
-timer:start(1000, 1000, vim.schedule_wrap(function()
-  local now = vim.uv.now()
-  local children = vim.api.nvim_get_proc_children(vim.fn.getpid())
+timer:start(
+  1000,
+  1000,
+  vim.schedule_wrap(function()
+    local now = vim.uv.now()
+    local children = vim.api.nvim_get_proc_children(vim.fn.getpid())
 
-  local busy = #children > 0 or mason_busy()
-  if busy then
-    quiet_since = nil
-  else
-    quiet_since = quiet_since or now
-  end
+    local busy = #children > 0 or mason_busy()
+    if busy then
+      quiet_since = nil
+    else
+      quiet_since = quiet_since or now
+    end
 
-  if now - last_progress >= 30000 then
-    last_progress = now
-    out(string.format("waiting: %ds elapsed, %d child processes", (now - start) / 1000, #children))
-  end
+    if now - last_progress >= 30000 then
+      last_progress = now
+      out(string.format("waiting: %ds elapsed, %d child processes", (now - start) / 1000, #children))
+    end
 
-  local reason
-  if quiet_since and now - quiet_since >= quiet_ms then
-    reason = string.format("no child processes for %ds", quiet_ms / 1000)
-  elseif now - start >= max_ms then
-    reason = string.format("gave up after %ds (%d child processes still running)", max_ms / 1000, #children)
-  end
-  if reason then
-    timer:stop()
-    report(reason)
-    vim.cmd("qall!")
-  end
-end))
+    local reason
+    if quiet_since and now - quiet_since >= quiet_ms then
+      reason = string.format("no child processes for %ds", quiet_ms / 1000)
+    elseif now - start >= max_ms then
+      reason = string.format("gave up after %ds (%d child processes still running)", max_ms / 1000, #children)
+    end
+    if reason then
+      timer:stop()
+      report(reason)
+      vim.cmd("qall!")
+    end
+  end)
+)

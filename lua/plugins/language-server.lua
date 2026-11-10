@@ -10,10 +10,12 @@ return {
       { "hrsh7th/cmp-buffer" },
     },
     config = function()
-      local utils = require('core.utils')
+      local utils = require("core.utils")
 
       local cmp = utils.safe_require("cmp", "nvim-cmp failed to load")
-      if not cmp then return end
+      if not cmp then
+        return
+      end
 
       local select = { behavior = cmp.SelectBehavior.Select }
 
@@ -68,18 +70,18 @@ return {
         },
         mapping = cmp.mapping.preset.insert({
           ["<C-Space>"] = cmp.mapping.complete(),
-          ["<Tab>"]     = select_or_jump(1),
-          ["<S-Tab>"]   = select_or_jump(-1),
-          ["<CR>"]      = cmp.mapping.confirm({ select = true }),
-          ["<C-u>"]     = cmp.mapping.scroll_docs(-4),
-          ["<C-d>"]     = cmp.mapping.scroll_docs(4),
+          ["<Tab>"] = select_or_jump(1),
+          ["<S-Tab>"] = select_or_jump(-1),
+          ["<CR>"] = cmp.mapping.confirm({ select = true }),
+          ["<C-u>"] = cmp.mapping.scroll_docs(-4),
+          ["<C-d>"] = cmp.mapping.scroll_docs(4),
           -- Previously added by lsp-zero's extend_cmp()
-          ["<C-y>"]     = cmp.mapping.confirm({ select = false }),
-          ["<C-e>"]     = cmp.mapping.abort(),
-          ["<Up>"]      = cmp.mapping.select_prev_item(select),
-          ["<Down>"]    = cmp.mapping.select_next_item(select),
-          ["<C-p>"]     = select_or_complete("prev"),
-          ["<C-n>"]     = select_or_complete("next"),
+          ["<C-y>"] = cmp.mapping.confirm({ select = false }),
+          ["<C-e>"] = cmp.mapping.abort(),
+          ["<Up>"] = cmp.mapping.select_prev_item(select),
+          ["<Down>"] = cmp.mapping.select_next_item(select),
+          ["<C-p>"] = select_or_complete("prev"),
+          ["<C-n>"] = select_or_complete("next"),
         }),
         sources = cmp.config.sources({
           { name = "nvim_lsp" },
@@ -105,8 +107,8 @@ return {
       { "williamboman/mason-lspconfig.nvim" },
     },
     config = function()
-      local utils = require('core.utils')
-      local paths = require('core.paths')
+      local utils = require("core.utils")
+      local paths = require("core.paths")
 
       -- Detect platform
       local is_mac = vim.fn.has("mac") == 1 or vim.fn.has("macunix") == 1
@@ -171,7 +173,8 @@ return {
         cmd = function(dispatchers, config)
           return start_rpc({
             "jdtls",
-            "-data", project_dir(paths.lsp_cache.jdtls, config.root_dir),
+            "-data",
+            project_dir(paths.lsp_cache.jdtls, config.root_dir),
             "--jvm-arg=-Xmx" .. jvm_mem,
             "--jvm-arg=-XX:MaxMetaspaceSize=" .. metaspace,
           }, dispatchers, config)
@@ -204,7 +207,8 @@ return {
           return start_rpc({
             "intellij-server",
             "--stdio",
-            "--system-path", project_dir(paths.lsp_cache.kotlin_lsp, config.root_dir),
+            "--system-path",
+            project_dir(paths.lsp_cache.kotlin_lsp, config.root_dir),
           }, dispatchers, config)
         end,
       })
@@ -254,9 +258,13 @@ return {
         group = attach_group,
         callback = function(args)
           local bufnr = args.buf
-          if not vim.api.nvim_buf_is_valid(bufnr) then return end
+          if not vim.api.nvim_buf_is_valid(bufnr) then
+            return
+          end
           for _, client in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
-            if client.id ~= args.data.client_id then return end
+            if client.id ~= args.data.client_id then
+              return
+            end
           end
           for _, m in ipairs(buffer_maps) do
             pcall(vim.keymap.del, m[1], m[2], { buffer = bufnr })
@@ -285,12 +293,16 @@ return {
       vim.lsp.enable(servers)
 
       local mason = utils.safe_require("mason", "mason failed to load")
-      if not mason then return end
+      if not mason then
+        return
+      end
 
       mason.setup({})
 
       local mason_lsp = utils.safe_require("mason-lspconfig", "mason-lspconfig failed to load")
-      if not mason_lsp then return end
+      if not mason_lsp then
+        return
+      end
 
       -- automatic_enable defaults to true in mason-lspconfig v2, which would
       -- vim.lsp.enable() every Mason-installed server, not just the list above
@@ -309,11 +321,14 @@ return {
           for _, name in ipairs(vim.g.mason_tools) do
             local ok, pkg = pcall(registry.get_package, name)
             if ok and not pkg:is_installed() and not pkg:is_installing() then
-              pkg:install({}, vim.schedule_wrap(function(success)
-                if not success then
-                  vim.notify("Mason failed to install " .. name .. ", see :Mason and :MasonLog", vim.log.levels.ERROR)
-                end
-              end))
+              pkg:install(
+                {},
+                vim.schedule_wrap(function(success)
+                  if not success then
+                    vim.notify("Mason failed to install " .. name .. ", see :Mason and :MasonLog", vim.log.levels.ERROR)
+                  end
+                end)
+              )
             end
           end
         end))

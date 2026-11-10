@@ -165,7 +165,8 @@ end)
 h.test("$LAZY is used instead of cloning", function()
   local lazy = tmp .. "/lazy-checkout"
   local stdout = start_with_lockfile("env", lock_with(OLD_COMMIT), { LAZY = lazy }, {
-    "-c", "lua io.stdout:write(vim.o.rtp .. '\\n')",
+    "-c",
+    "lua io.stdout:write(vim.o.rtp .. '\\n')",
   })
   local rtp, data = unpack(vim.split(stdout, "\n"))
   assert_true(vim.uv.fs_stat(data .. "/lazy/lazy.nvim") == nil, "lazy.nvim was cloned although $LAZY is set")

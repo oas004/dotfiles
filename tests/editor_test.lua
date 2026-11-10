@@ -28,11 +28,13 @@ local function open_in_child(path, wait_ms)
   local script = tmp .. ".lua"
   local result_file = tmp .. ".json"
   vim.fn.writefile(vim.split(child_script, "\n"), script)
-  local proc = vim.system(
-    { vim.v.progpath, "--headless", path, "-c", "luafile " .. vim.fn.fnameescape(script) },
-    ---@diagnostic disable-next-line: assign-type-mismatch
-    { env = { EDITOR_TEST_OUT = result_file, EDITOR_TEST_WAIT = tostring(wait_ms) }, stdin = false }
-  ):wait(60000)
+  local proc = vim
+    .system(
+      { vim.v.progpath, "--headless", path, "-c", "luafile " .. vim.fn.fnameescape(script) },
+      ---@diagnostic disable-next-line: assign-type-mismatch
+      { env = { EDITOR_TEST_OUT = result_file, EDITOR_TEST_WAIT = tostring(wait_ms) }, stdin = false }
+    )
+    :wait(60000)
   vim.fn.delete(script)
   if vim.fn.filereadable(result_file) == 0 then
     error("child nvim wrote no result (exit " .. tostring(proc.code) .. "): " .. (proc.stderr or ""))

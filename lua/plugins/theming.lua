@@ -40,16 +40,16 @@ local function nordic()
 end
 
 return {
-    nordic(),
-    {
-        "nvim-lualine/lualine.nvim",
-        event = { "BufReadPre", "BufNewFile" },
-        dependencies = { "nvim-tree/nvim-web-devicons" },
-        opts = {
-            options = {
-                -- nordic.nvim ships a lualine theme at lua/lualine/themes/nordic.lua
-                theme = "nordic",
-            },
-        },
+  nordic(),
+  {
+    "nvim-lualine/lualine.nvim",
+    event = { "BufReadPre", "BufNewFile" },
+    dependencies = { "nvim-tree/nvim-web-devicons" },
+    opts = {
+      options = {
+        -- nordic.nvim ships a lualine theme at lua/lualine/themes/nordic.lua
+        theme = "nordic",
+      },
     },
+  },
 }

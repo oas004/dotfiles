@@ -65,11 +65,15 @@ function M.counts()
 end
 
 function M.assert_true(val, msg)
-  if not val then error(msg or "expected true", 2) end
+  if not val then
+    error(msg or "expected true", 2)
+  end
 end
 
 function M.assert_not_nil(val, msg)
-  if val == nil then error(msg or "expected non-nil", 2) end
+  if val == nil then
+    error(msg or "expected non-nil", 2)
+  end
 end
 
 --- Tables are compared by value (vim.deep_equal), everything else with ==.
@@ -139,7 +143,9 @@ function M.assert_no_leader_prefix_collisions(buf)
     end
   end
   table.sort(collisions)
-  if #collisions > 0 then error(table.concat(collisions, ", "), 2) end
+  if #collisions > 0 then
+    error(table.concat(collisions, ", "), 2)
+  end
 end
 
 -- Lowercased :messages lines containing any of these count as errors, as do
@@ -208,7 +214,9 @@ function M.stop_clients(clients, timeout)
   end
   vim.wait(timeout, function()
     for _, c in ipairs(running()) do
-      if not c.initialized then return false end
+      if not c.initialized then
+        return false
+      end
     end
     return true
   end, 50)
@@ -218,12 +226,16 @@ function M.stop_clients(clients, timeout)
     end
     c:stop()
   end
-  if not vim.wait(timeout, function() return #running() == 0 end, 50) then
+  if not vim.wait(timeout, function()
+    return #running() == 0
+  end, 50) then
     for _, c in ipairs(running()) do
       table.insert(forced, string.format("%s (still running %d ms after stop)", c.name, timeout))
       c.rpc.terminate()
     end
-    vim.wait(2000, function() return #running() == 0 end, 50)
+    vim.wait(2000, function()
+      return #running() == 0
+    end, 50)
   end
   return forced
 end
@@ -256,7 +268,9 @@ function M.fake_lsp_server(opts)
     local function exit(signal)
       if not closing then
         closing = true
-        vim.schedule(function() dispatchers.on_exit(0, signal) end)
+        vim.schedule(function()
+          dispatchers.on_exit(0, signal)
+        end)
       end
     end
     return {
@@ -271,15 +285,23 @@ function M.fake_lsp_server(opts)
         elseif results[method] ~= nil then
           result = results[method]
         end
-        vim.schedule(function() callback(nil, result) end)
+        vim.schedule(function()
+          callback(nil, result)
+        end)
         return true, id
       end,
       notify = function(method)
-        if method == "exit" then exit(0) end
+        if method == "exit" then
+          exit(0)
+        end
         return true
       end,
-      is_closing = function() return closing end,
-      terminate = function() exit(15) end,
+      is_closing = function()
+        return closing
+      end,
+      terminate = function()
+        exit(15)
+      end,
     }
   end
 end
