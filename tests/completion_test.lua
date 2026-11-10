@@ -6,57 +6,20 @@
 -- keys (and the ones vim.snippet and cmp feed while handling them) have been
 -- processed.
 
-local failed = 0
-local passed = 0
-
--- print() from the async steps below runs inside mappings, where headless
--- nvim drops the newline, so write to stdout directly
-local function log(msg)
-  io.stdout:write(msg .. "\n")
-end
-
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    log("✓ " .. name)
-    passed = passed + 1
-  else
-    log("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
-
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true", 2) end
-end
-
-local function assert_eq(a, b, msg)
-  if a ~= b then error((msg or "values differ") .. ": " .. vim.inspect(a) .. " ~= " .. vim.inspect(b), 2) end
-end
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local log, test, assert_true, assert_eq = h.out, h.test, h.assert_true, h.assert_eq
 
 local function t(keys)
   return vim.api.nvim_replace_termcodes(keys, true, false, true)
 end
 
-local function finish()
-  log("\n=== Results ===")
-  log(string.format("Passed: %d, Failed: %d", passed, failed))
-  if failed > 0 then
-    vim.cmd("cq 1")
-  else
-    vim.cmd("qa!")
-  end
-end
-
--- Wait for lazy to finish loading
-vim.wait(3000, function()
-  return require("lazy").stats().loaded > 0
-end)
+h.wait_for_lazy()
 
 log("\n=== Completion Config Tests ===\n")
 
 local function cmp_loaded()
-  return require("lazy.core.config").plugins["nvim-cmp"]._.loaded ~= nil
+  return h.plugin_loaded("nvim-cmp")
 end
 
 test("nvim-cmp is not loaded at startup", function()
@@ -260,11 +223,10 @@ local function feed(keys)
 end
 
 local function fail(name, err)
-  log("✗ " .. name .. ": " .. tostring(err))
-  failed = failed + 1
+  h.fail(name, err)
   -- Later steps depend on this one
   feed("<Esc>")
-  vim.schedule(finish)
+  vim.schedule(h.finish)
 end
 
 local function next_step()
@@ -272,7 +234,7 @@ local function next_step()
   local s = steps[i]
   if not s then
     feed("<Esc>")
-    vim.schedule(finish)
+    vim.schedule(h.finish)
     return
   end
   local ok, keys = pcall(s.fn)
@@ -293,8 +255,7 @@ local function check()
   end
   retries = 0
   if not ok then return fail(s.name, res) end
-  log("✓ " .. s.name)
-  passed = passed + 1
+  h.pass(s.name)
   next_step()
 end
 
@@ -303,9 +264,8 @@ vim.keymap.set({ "i", "s" }, CHECK, check)
 
 -- Safety net so a stuck key sequence fails instead of hanging
 vim.defer_fn(function()
-  log("✗ keypress tests timed out at step " .. i .. (steps[i] and (" (" .. steps[i].name .. ")") or ""))
-  failed = failed + 1
-  finish()
+  h.fail("keypress tests", "timed out at step " .. i .. (steps[i] and (" (" .. steps[i].name .. ")") or ""))
+  h.finish()
 end, 20000)
 
 vim.o.showmode = false

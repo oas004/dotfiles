@@ -1,55 +1,12 @@
 -- Tests for which-key.nvim: lazy-loading, leader group names, :checkhealth
 -- Run with: NVIM_APPNAME=<appname> nvim --headless -c "luafile tests/which_key_test.lua"
 
-local failed = 0
-local passed = 0
-
-local function out(line)
-  io.stdout:write(line .. "\n")
-end
-
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    out("✓ " .. name)
-    passed = passed + 1
-  else
-    out("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
-
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true", 2) end
-end
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local out, test, assert_true = h.out, h.test, h.assert_true
 
 local function plugin()
   return require("lazy.core.config").plugins["which-key.nvim"]
-end
-
-local leader = vim.keycode(vim.g.mapleader or "\\")
-
---- Fail if any normal mode <leader> map is a strict prefix of another one,
---- same check as tests/ui_test.lua.
-local function assert_no_leader_prefix_collisions(buf)
-  local lhss = {}
-  local maps = vim.list_extend(vim.api.nvim_get_keymap("n"), vim.api.nvim_buf_get_keymap(buf, "n"))
-  for _, m in ipairs(maps) do
-    local raw = vim.keycode(m.lhs)
-    if raw ~= leader and raw:sub(1, #leader) == leader then
-      lhss[raw] = true
-    end
-  end
-  local collisions = {}
-  for a in pairs(lhss) do
-    for b in pairs(lhss) do
-      if a ~= b and b:sub(1, #a) == a then
-        table.insert(collisions, vim.fn.keytrans(a) .. " is a prefix of " .. vim.fn.keytrans(b))
-      end
-    end
-  end
-  table.sort(collisions)
-  assert_true(#collisions == 0, table.concat(collisions, ", "))
 end
 
 --- which-key's tree node for lhs in mode (default normal) for the current
@@ -148,12 +105,11 @@ local function main()
   end)
 
   test("no <leader> map is a prefix of another with which-key loaded", function()
-    assert_no_leader_prefix_collisions(vim.api.nvim_get_current_buf())
+    h.assert_no_leader_prefix_collisions(vim.api.nvim_get_current_buf())
   end)
 
   test("no errors in :messages after loading which-key", function()
-    local msgs = vim.api.nvim_exec2("messages", { output = true }).output
-    assert_true(not msgs:find("Error") and not msgs:find("E%d+:"), msgs)
+    h.assert_no_message_errors()
   end)
 
   -- which-key's health check warns about overlapping keymaps (a map that is
@@ -183,21 +139,11 @@ local function main()
   pcall(vim.api.nvim_command, "ClaudeCodeStop")
   vim.notify = notify
 
-  out("\n=== Results ===")
-  out(string.format("Passed: %d, Failed: %d", passed, failed))
-  if failed > 0 then
-    vim.cmd("cq 1")
-  else
-    vim.cmd("qa!")
-  end
+  h.finish()
 end
 
 local function run()
-  local ok, err = pcall(main)
-  if not ok then
-    out("✗ test run aborted: " .. tostring(err))
-    vim.cmd("cq 1")
-  end
+  h.run(main)
 end
 
 if vim.v.vim_did_enter == 1 then

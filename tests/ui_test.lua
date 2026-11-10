@@ -3,76 +3,15 @@
 -- lazy-lock.json
 -- Run with: nvim --headless -c "luafile tests/ui_test.lua"
 
-local failed = 0
-local passed = 0
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local test, assert_true, assert_not_nil = h.test, h.assert_true, h.assert_not_nil
+local find_keymap, plugin_loaded = h.find_keymap, h.plugin_loaded
+local assert_no_leader_prefix_collisions = h.assert_no_leader_prefix_collisions
 
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    print("✓ " .. name)
-    passed = passed + 1
-  else
-    print("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
+h.wait_for_lazy()
 
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true") end
-end
-
-local function assert_not_nil(val, msg)
-  if val == nil then error(msg or "expected non-nil") end
-end
-
-local function find_keymap(mode, lhs)
-  local want = vim.api.nvim_replace_termcodes(lhs, true, true, true)
-  for _, m in ipairs(vim.api.nvim_get_keymap(mode)) do
-    if vim.api.nvim_replace_termcodes(m.lhs, true, true, true) == want then
-      return m
-    end
-  end
-  return nil
-end
-
-local leader = vim.api.nvim_replace_termcodes(vim.g.mapleader or "\\", true, true, true)
-
---- Fail if any normal mode <leader> map is a strict prefix of another one.
---- Such a pair makes the shorter map wait for timeoutlen before it fires.
---- Covers global maps (including lazy's key handler stubs for plugins that
---- are not loaded yet) and the buffer-local maps of buf.
-local function assert_no_leader_prefix_collisions(buf)
-  local lhss = {}
-  local maps = vim.list_extend(vim.api.nvim_get_keymap("n"), vim.api.nvim_buf_get_keymap(buf, "n"))
-  for _, m in ipairs(maps) do
-    local raw = vim.api.nvim_replace_termcodes(m.lhs, true, true, true)
-    if raw ~= leader and raw:sub(1, #leader) == leader then
-      lhss[raw] = true
-    end
-  end
-  local collisions = {}
-  for a in pairs(lhss) do
-    for b in pairs(lhss) do
-      if a ~= b and b:sub(1, #a) == a then
-        table.insert(collisions, vim.fn.keytrans(a) .. " is a prefix of " .. vim.fn.keytrans(b))
-      end
-    end
-  end
-  table.sort(collisions)
-  assert_true(#collisions == 0, table.concat(collisions, ", "))
-end
-
-local function plugin_loaded(name)
-  local plugin = require("lazy.core.config").plugins[name]
-  return plugin ~= nil and plugin._.loaded ~= nil
-end
-
--- Wait for lazy to finish loading
-vim.wait(3000, function()
-  return require("lazy").stats().loaded > 0
-end)
-
-print("\n=== UI Tests ===\n")
+h.out("\n=== UI Tests ===\n")
 
 -- Checked before anything below loads telescope
 test("telescope-fzf-native is not loaded at startup", function()
@@ -263,31 +202,13 @@ end)
 -- requests, so the LSP pickers have something to show without a real server.
 local function fake_symbol_server(uri)
   local range = { start = { line = 0, character = 0 }, ["end"] = { line = 0, character = 5 } }
-  return function(dispatchers)
-    local closing = false
-    local next_id = 0
-    return {
-      request = function(method, _, callback)
-        next_id = next_id + 1
-        local result = vim.NIL
-        if method == "initialize" then
-          result = { capabilities = { documentSymbolProvider = true, workspaceSymbolProvider = true } }
-        elseif method == "textDocument/documentSymbol" then
-          result = { { name = "alpha", kind = 12, range = range, selectionRange = range } }
-        elseif method == "workspace/symbol" then
-          result = { { name = "alpha", kind = 12, location = { uri = uri, range = range } } }
-        end
-        vim.schedule(function() callback(nil, result) end)
-        return true, next_id
-      end,
-      notify = function(method)
-        if method == "exit" then dispatchers.on_exit(0, 15) end
-        return true
-      end,
-      is_closing = function() return closing end,
-      terminate = function() closing = true end,
-    }
-  end
+  return h.fake_lsp_server({
+    capabilities = { documentSymbolProvider = true, workspaceSymbolProvider = true },
+    results = {
+      ["textDocument/documentSymbol"] = { { name = "alpha", kind = 12, range = range, selectionRange = range } },
+      ["workspace/symbol"] = { { name = "alpha", kind = 12, location = { uri = uri, range = range } } },
+    },
+  })
 end
 
 test("telescope pickers open without warnings, errors or deprecations", function()
@@ -337,15 +258,12 @@ test("telescope pickers open without warnings, errors or deprecations", function
     end
   end
 
-  vim.lsp.get_client_by_id(client_id):stop(true)
-  vim.wait(200)
+  h.stop_client(assert(vim.lsp.get_client_by_id(client_id)))
   for msg in pairs(warnings) do
     table.insert(problems, "warning: " .. msg)
   end
-  for line in vim.fn.execute("messages"):gmatch("[^\n]+") do
-    if line:find("Error", 1, true) or line:find("%f[%w]E%d+:") or line:find("deprecated", 1, true) then
-      table.insert(problems, "message: " .. line)
-    end
+  for _, line in ipairs(h.message_errors()) do
+    table.insert(problems, "message: " .. line)
   end
   if vim.v.errmsg ~= "" then
     table.insert(problems, "v:errmsg: " .. vim.v.errmsg)
@@ -387,12 +305,4 @@ test("plugins pinned by tag or commit are locked at that pin", function()
   assert_true(#problems == 0, table.concat(problems, "\n  "))
 end)
 
--- Summary
-print("\n=== Results ===")
-print(string.format("Passed: %d, Failed: %d", passed, failed))
-
-if failed > 0 then
-  vim.cmd("cq 1")  -- Exit with error code
-else
-  vim.cmd("qa!")
-end
+h.finish()

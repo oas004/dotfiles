@@ -1,37 +1,13 @@
 -- Formatting config tests (conform.nvim)
 -- Run with: NVIM_APPNAME=<appname> nvim --headless -c "luafile tests/format_test.lua"
 
-local failed = 0
-local passed = 0
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local test, assert_true, assert_eq = h.test, h.assert_true, h.assert_eq
 
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    print("✓ " .. name)
-    passed = passed + 1
-  else
-    print("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
+h.wait_for_lazy()
 
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true", 2) end
-end
-
-local function assert_eq(actual, expected, msg)
-  if not vim.deep_equal(actual, expected) then
-    error(string.format("%s: expected %s, got %s", msg or "mismatch",
-      vim.inspect(expected), vim.inspect(actual)), 2)
-  end
-end
-
--- Wait for lazy to finish loading
-vim.wait(3000, function()
-  return require("lazy").stats().loaded > 0
-end)
-
-print("\n=== Format Tests ===\n")
+h.out("\n=== Format Tests ===\n")
 
 --- Create a scratch buffer with the given filetype (no FileType autocmds, so no LSP starts).
 local function scratch(ft)
@@ -52,7 +28,7 @@ local function format_on_save_fn()
 end
 
 local function conform_loaded()
-  return require("lazy.core.config").plugins["conform.nvim"]._.loaded ~= nil
+  return h.plugin_loaded("conform.nvim")
 end
 
 -- These run first, before anything below requires conform and loads it.
@@ -75,39 +51,15 @@ end)
 --- An in-process language server that can format: it inserts "// <name>" at
 --- the top of the buffer. Every request method is appended to log as "<name>:<method>".
 local function fake_server(name, log)
-  return function(dispatchers)
-    local closing = false
-    local id = 0
-    return {
-      request = function(method, _, callback)
-        id = id + 1
-        table.insert(log, name .. ":" .. method)
-        local result = nil
-        if method == "initialize" then
-          result = { capabilities = { documentFormattingProvider = true } }
-        elseif method == "textDocument/formatting" then
-          local pos = { line = 0, character = 0 }
-          result = { { range = { start = pos, ["end"] = pos }, newText = "// " .. name .. "\n" } }
-        end
-        vim.schedule(function() callback(nil, result) end)
-        return true, id
-      end,
-      notify = function(method)
-        if method == "exit" then
-          closing = true
-          vim.schedule(function() dispatchers.on_exit(0, 0) end)
-        end
-        return true
-      end,
-      is_closing = function() return closing end,
-      terminate = function()
-        if not closing then
-          closing = true
-          vim.schedule(function() dispatchers.on_exit(0, 15) end)
-        end
-      end,
-    }
-  end
+  local pos = { line = 0, character = 0 }
+  return h.fake_lsp_server({
+    name = name,
+    log = log,
+    capabilities = { documentFormattingProvider = true },
+    results = {
+      ["textDocument/formatting"] = { { range = { start = pos, ["end"] = pos }, newText = "// " .. name .. "\n" } },
+    },
+  })
 end
 
 test("first save of a C file loads conform and formats with clangd only", function()
@@ -123,9 +75,8 @@ test("first save of a C file loads conform and formats with clangd only", functi
   assert_eq(vim.bo[buf].filetype, "c", "filetype")
 
   local log = {}
-  local ids = {}
   for _, name in ipairs({ "other", "clangd" }) do
-    ids[name] = vim.lsp.start({ name = name, cmd = fake_server(name, log), root_dir = dir }, { bufnr = buf })
+    vim.lsp.start({ name = name, cmd = fake_server(name, log), root_dir = dir }, { bufnr = buf })
   end
   vim.wait(2000, function()
     return #vim.lsp.get_clients({ bufnr = buf }) == 2
@@ -135,10 +86,7 @@ test("first save of a C file loads conform and formats with clangd only", functi
 
   vim.cmd("silent write")
   local lines = vim.fn.readfile(path)
-  for _, id in pairs(ids) do
-    local c = vim.lsp.get_client_by_id(id)
-    if c then c:stop(true) end
-  end
+  h.stop_clients(vim.lsp.get_clients({ bufnr = buf }))
   vim.cmd("bwipeout!")
   vim.fn.delete(dir, "rf")
 
@@ -322,17 +270,8 @@ for _, s in ipairs(samples) do
       assert_eq(lines, s.want, s.tool .. " output")
     end)
   else
-    print("- conform formats " .. s.ft .. " with Mason's " .. s.tool .. " (skipped: not installed)")
+    h.skip("conform formats " .. s.ft .. " with Mason's " .. s.tool, "not installed")
   end
 end
 
-
--- Summary
-print("\n=== Results ===")
-print(string.format("Passed: %d, Failed: %d", passed, failed))
-
-if failed > 0 then
-  vim.cmd("cq 1")  -- Exit with error code
-else
-  vim.cmd("qa!")
-end
+h.finish()

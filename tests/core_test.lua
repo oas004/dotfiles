@@ -1,29 +1,9 @@
 -- Core config tests: user commands, core modules, deprecated API usage
 -- Run with: nvim --headless -c "luafile tests/core_test.lua"
 
-local failed = 0
-local passed = 0
-
--- print() output is not newline-terminated in headless mode once startup
--- has finished, so write lines to stdout directly.
-local function out(msg)
-  io.stdout:write(msg .. "\n")
-end
-
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    out("✓ " .. name)
-    passed = passed + 1
-  else
-    out("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
-
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true") end
-end
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local out, test, assert_true = h.out, h.test, h.assert_true
 
 local config_dir = vim.fn.resolve(vim.fn.stdpath("config"))
 local test_file = config_dir .. "/init.lua"
@@ -33,10 +13,7 @@ local function command_exists(name)
 end
 
 local function main()
-  -- Wait for lazy to finish loading
-  vim.wait(3000, function()
-    return require("lazy").stats().loaded > 0
-  end)
+  h.wait_for_lazy()
 
   out("\n=== Core Tests ===\n")
 
@@ -75,7 +52,7 @@ local function main()
 
   local clients = vim.lsp.get_clients({ bufnr = buf })
   if #clients == 0 then
-    out("- skipped :" .. restart_cmd .. " test (no LSP client attached to init.lua)")
+    h.skip(":" .. restart_cmd .. " works on a modified buffer", "no LSP client attached to init.lua")
   else
     test(":" .. restart_cmd .. " works on a modified buffer", function()
       local old_ids = {}
@@ -123,26 +100,14 @@ local function main()
     assert_true(#offending == 0, "deprecated calls:\n" .. table.concat(offending, "\n"))
   end)
 
-  -- Summary
-  out("\n=== Results ===")
-  out(string.format("Passed: %d, Failed: %d", passed, failed))
-
-  if failed > 0 then
-    vim.cmd("cq 1") -- Exit with error code
-  else
-    vim.cmd("qa!")
-  end
+  h.finish()
 end
 
 -- vim.lsp.enable only re-attaches existing buffers after VimEnter, and
 -- `-c` commands run before it, so defer the tests until startup is done.
 -- nested = true lets :edit fire FileType so LSP clients can attach.
 local function run()
-  local ok, err = pcall(main)
-  if not ok then
-    out("✗ test run aborted: " .. tostring(err))
-    vim.cmd("cq 1")
-  end
+  h.run(main)
 end
 
 if vim.v.vim_did_enter == 1 then

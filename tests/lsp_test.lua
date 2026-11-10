@@ -1,37 +1,10 @@
 -- LSP and completion tests
 -- Run with: nvim --headless -c "luafile tests/lsp_test.lua"
 
-local failed = 0
-local passed = 0
-local skipped = 0
-
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    print("✓ " .. name)
-    passed = passed + 1
-  else
-    print("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
-
-local function skip(name, reason)
-  print("- " .. name .. " (skipped: " .. reason .. ")")
-  skipped = skipped + 1
-end
-
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true", 2) end
-end
-
-local function assert_not_nil(val, msg)
-  if val == nil then error(msg or "expected non-nil", 2) end
-end
-
-local function assert_eq(a, b, msg)
-  if a ~= b then error((msg or "values differ") .. ": " .. vim.inspect(a) .. " ~= " .. vim.inspect(b), 2) end
-end
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local test, skip = h.test, h.skip
+local assert_true, assert_not_nil, assert_eq = h.assert_true, h.assert_not_nil, h.assert_eq
 
 -- Call a config's cmd function with vim.lsp.rpc.start stubbed out, and return
 -- the argv it would have spawned
@@ -66,37 +39,7 @@ local function attach(path, lines, name, timeout)
   return vim.lsp.get_clients({ bufnr = bufnr, name = name })[1], bufnr
 end
 
--- Stop a client the way :lsp stop does (shutdown, then exit) and wait until
--- it is gone. A forced stop sends SIGTERM, and clangd then exits with code 1,
--- which logs "Client clangd quit with exit code 1". Only if the server hasn't
--- exited after timeout ms is it terminated. That uses rpc.terminate(), since
--- on 0.11 client:stop(true) does nothing once a stop is already in progress.
-local function stop_client(client, timeout)
-  local id = client.id
-  local function gone() return vim.lsp.get_client_by_id(id) == nil end
-  client:stop()
-  if not vim.wait(timeout or 5000, gone, 50) then
-    client.rpc.terminate()
-    vim.wait(2000, gone, 50)
-  end
-end
-
--- :messages lines about a server that exited abnormally
-local function exit_messages()
-  local found = {}
-  for _, line in ipairs(vim.split(vim.fn.execute("messages"), "\n")) do
-    local l = line:lower()
-    if l:find("quit with exit code", 1, true) or l:find("exited with code", 1, true) then
-      table.insert(found, line)
-    end
-  end
-  return found
-end
-
--- Wait for lazy to finish loading
-vim.wait(3000, function()
-  return require("lazy").stats().loaded > 0
-end)
+h.wait_for_lazy()
 
 local tmp = vim.fn.tempname()
 -- Unique project names, so the per-root cache dirs created below can be removed again
@@ -104,7 +47,7 @@ local proj = "lsp-test-" .. vim.fn.getpid()
 local created_dirs = {}
 local mason_bin = vim.fn.stdpath("data") .. "/mason/bin/"
 
-print("\n=== LSP Config Tests ===\n")
+h.out("\n=== LSP Config Tests ===\n")
 
 test("lsp-zero is not installed as a plugin", function()
   assert_true(require("lazy.core.config").plugins["lsp-zero.nvim"] == nil, "lsp-zero.nvim still in spec")
@@ -258,7 +201,7 @@ test("kotlin_lsp cmd runs Mason's intellij-server with per-root --system-path", 
   assert_eq(argv[vim.fn.index(argv, "--system-path") + 2], cache_dir(paths.lsp_cache.kotlin_lsp, root), "--system-path")
 end)
 
-print("\n=== Completion Tests ===\n")
+h.out("\n=== Completion Tests ===\n")
 
 test("cmp has nvim_lsp and buffer sources", function()
   local names = vim.tbl_map(function(s) return s.name end, require("cmp").get_config().sources)
@@ -278,29 +221,7 @@ test("cmp keeps existing mappings", function()
   end
 end)
 
-print("\n=== LSP Runtime Tests ===\n")
-
--- An in-process language server that only answers initialize and shutdown
-local function fake_server(dispatchers)
-  local closing = false
-  local id = 0
-  return {
-    request = function(method, _, callback)
-      id = id + 1
-      local result = method == "initialize" and { capabilities = {} } or nil
-      vim.schedule(function() callback(nil, result) end)
-      return true, id
-    end,
-    notify = function() return true end,
-    is_closing = function() return closing end,
-    terminate = function()
-      if not closing then
-        closing = true
-        vim.schedule(function() dispatchers.on_exit(0, 15) end)
-      end
-    end,
-  }
-end
+h.out("\n=== LSP Runtime Tests ===\n")
 
 test("LSP keymaps stay until the last client detaches", function()
   vim.cmd("enew")
@@ -311,7 +232,7 @@ test("LSP keymaps stay until the last client detaches", function()
   end
   local ids = {}
   for _, name in ipairs({ "fake_a", "fake_b" }) do
-    table.insert(ids, vim.lsp.start({ name = name, cmd = fake_server, root_dir = tmp }, { bufnr = bufnr }))
+    table.insert(ids, vim.lsp.start({ name = name, cmd = h.fake_lsp_server(), root_dir = tmp }, { bufnr = bufnr }))
   end
   vim.wait(2000, function() return #vim.lsp.get_clients({ bufnr = bufnr }) == 2 end, 20)
   assert_eq(#vim.lsp.get_clients({ bufnr = bufnr }), 2, "fake clients attached")
@@ -330,10 +251,7 @@ test("LSP keymaps stay until the last client detaches", function()
   -- No buffer-local gd left, so the builtin applies again
   assert_true(vim.tbl_isempty(vim.fn.maparg("gd", "n", false, true)), "gd still mapped")
 
-  for _, id in ipairs(ids) do
-    local c = vim.lsp.get_client_by_id(id)
-    if c then c:stop(true) end
-  end
+  h.stop_clients(vim.tbl_map(vim.lsp.get_client_by_id, ids))
   vim.cmd("bwipeout!")
 end)
 
@@ -365,9 +283,9 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
       assert_true(not buf_map("n", lhs), lhs .. " should not be mapped in buffer")
     end
     -- Stopping the only client removes the maps again
-    stop_client(client)
+    h.stop_client(client)
     assert_eq(#vim.lsp.get_clients({ bufnr = bufnr }), 0, "lua_ls still attached")
-    assert_eq(exit_messages()[1], nil, "lua_ls exit logged")
+    h.assert_no_message_errors("after lua_ls stopped")
     for _, lhs in ipairs({ "gd", "<leader>ca", "<D-b>" }) do
       assert_true(not buf_map("n", lhs), lhs .. " still mapped in buffer after lua_ls stopped")
     end
@@ -390,9 +308,9 @@ if vim.fn.executable(mason_bin .. "clangd") == 1 then
     vim.wait(1000)
     vim.cmd("silent write")
     assert_eq(vim.fn.readfile(path)[1], "int main() { return 0; }", "file not formatted on save")
-    stop_client(client)
+    h.stop_client(client)
     assert_eq(vim.lsp.get_client_by_id(client.id), nil, "clangd still running")
-    assert_eq(exit_messages()[1], nil, "clangd exit logged")
+    h.assert_no_message_errors("after clangd stopped")
   end)
 else
   skip("clangd runtime attach", "Mason clangd not installed")
@@ -408,20 +326,9 @@ else
   skip("kotlin-lsp on PATH", "Mason kotlin-lsp not installed")
 end
 
--- Summary
-print("\n=== Results ===")
-print(string.format("Passed: %d, Failed: %d, Skipped: %d", passed, failed, skipped))
-
-for _, c in ipairs(vim.lsp.get_clients()) do
-  c:stop(true)
-end
 vim.fn.delete(tmp, "rf")
 for _, dir in ipairs(created_dirs) do
   vim.fn.delete(dir, "rf")
 end
 
-if failed > 0 then
-  vim.cmd("cq 1")  -- Exit with error code
-else
-  vim.cmd("qa!")
-end
+h.finish()
