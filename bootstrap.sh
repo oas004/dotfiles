@@ -576,7 +576,7 @@ sync_nvim() {
         dry "nvim --headless +qa (lazy.nvim installs missing plugins on startup)"
         dry "nvim --headless '+Lazy! restore' +qa"
         dry "wait for nvim-treesitter's background parser installs before each +qa above"
-        dry "check every plugin is at its lazy-lock.json commit, and fail otherwise"
+        dry "check every plugin is at its lazy-lock.json commit, restore once more if not, and fail if still not"
         dry "nvim --headless \"+lua require('nvim-treesitter').install(vim.g.treesitter_parsers):wait(300000)\" +qa"
         return 0
     fi
@@ -596,9 +596,13 @@ sync_nvim() {
     snapshot="$(mktemp)"
     cp "$lockfile" "$snapshot"
 
-    # On a fresh machine lazy.nvim installs missing plugins on startup and
-    # records its own freshly cloned commit in the lockfile. Put the
-    # original lockfile back before restoring so lazy.nvim is restored too.
+    # lazy.nvim installs missing plugins on startup at their lockfile commits
+    # (lua/core/package-manager.lua clones lazy.nvim itself at its locked
+    # commit), then rewrites the lockfile with the commit every installed
+    # plugin is on. On a fresh machine that leaves it unchanged, but plugins
+    # that were already installed on other commits end up in it, and a
+    # restore in the same nvim would keep them there. So install in a run of
+    # its own and put the original lockfile back before restoring.
     if ! nvim --headless "+$lazy_loaded" "+$ts_settle" +qa; then
         cp "$snapshot" "$lockfile"
         rm -f "$snapshot"
@@ -607,14 +611,27 @@ sync_nvim() {
     fi
     cp "$snapshot" "$lockfile"
 
-    local restored=1
-    nvim --headless "+$lazy_loaded" "+Lazy! restore" "+$ts_settle" +qa || restored=0
-    echo ""
-    if [[ $restored -eq 1 ]] && ! cmp -s "$snapshot" "$lockfile"; then
-        restored=0
-        error "These plugins are not at their lazy-lock.json commit (- locked, + checked out):"
+    # In headless mode Lazy! restore does not report plugins it left on
+    # other commits, so compare the lockfile it writes with the snapshot. A
+    # second restore has fixed such plugins before, so retry once.
+    local restored=0 attempt
+    for attempt in 1 2; do
+        local rc=0
+        nvim --headless "+$lazy_loaded" "+Lazy! restore" "+$ts_settle" +qa || rc=$?
+        echo ""
+        [[ $rc -eq 0 ]] || break
+        if cmp -s "$snapshot" "$lockfile"; then
+            restored=1
+            break
+        fi
+        if [[ $attempt -eq 1 ]]; then
+            info "These plugins are not at their lazy-lock.json commit, restoring again (- locked, + checked out):"
+        else
+            error "These plugins are not at their lazy-lock.json commit (- locked, + checked out):"
+        fi
         diff "$snapshot" "$lockfile" | grep '^[<>]' | sed 's/^</-/; s/^>/+/' || true
-    fi
+        cp "$snapshot" "$lockfile"
+    done
     # Leave lazy-lock.json as it was in the repo
     cp "$snapshot" "$lockfile"
     rm -f "$snapshot"
