@@ -14,7 +14,12 @@
 -- opened buffer has no filetype.
 --
 -- This file is not named *_test.lua on purpose: it needs files passed on the
--- command line, so run.sh invokes it separately.
+-- command line, so run.sh invokes it separately. The :messages patterns are
+-- in tests/helpers.lua (message_errors), shared with the *_test.lua files.
+
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local out = h.out
 
 local wait_ms = tonumber(vim.env.SMOKE_WAIT_MS) or (vim.env.CI and 60000 or 30000)
 local settle_ms = tonumber(vim.env.SMOKE_SETTLE_MS) or 2000
@@ -29,22 +34,10 @@ local expected = {
   kt = { client = "kotlin_lsp", available = function() return vim.fn.executable("intellij-server") == 1 end },
 }
 
--- Lowercased :messages lines containing any of these fail the test.
-local bad_patterns = {
-  "error", -- E5108: Error executing lua ..., Check log for errors, ...
-  "quit with exit code", -- Client rust_analyzer quit with exit code 1 and signal 0
-  "exited with code", -- LSP[name]: ... exited with code
-  "deprecated", -- vim.deprecate() and plugin deprecation notices
-}
-
 local failures = {}
 
 local function fail(msg)
   table.insert(failures, msg)
-end
-
-local function out(msg)
-  io.stdout:write(msg .. "\n")
 end
 
 local files = vim.fn.argv() --[[@as string[] ]]
@@ -122,15 +115,8 @@ local function main()
   end
 
   local messages = vim.fn.execute("messages")
-  for line in messages:gmatch("[^\n]+") do
-    local lower = line:lower()
-    local bad = line:find("%f[%w]E%d+:") ~= nil
-    for _, pat in ipairs(bad_patterns) do
-      bad = bad or lower:find(pat, 1, true) ~= nil
-    end
-    if bad then
-      fail("message: " .. line)
-    end
+  for _, line in ipairs(h.message_errors(messages)) do
+    fail("message: " .. line)
   end
 
   out("=== :messages ===\n" .. messages)

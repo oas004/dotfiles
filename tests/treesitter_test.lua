@@ -2,34 +2,11 @@
 -- Run with: nvim --headless -c "luafile tests/treesitter_test.lua"
 -- Needs the lua and kotlin parsers installed (see lua/plugins/parser.lua).
 
-local failed = 0
-local passed = 0
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local test, assert_true, assert_eq = h.test, h.assert_true, h.assert_eq
 
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    print("✓ " .. name)
-    passed = passed + 1
-  else
-    print("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
-
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true", 2) end
-end
-
-local function assert_eq(expected, actual, msg)
-  if expected ~= actual then
-    error(string.format("%s: expected %s, got %s", msg or "mismatch", vim.inspect(expected), vim.inspect(actual)), 2)
-  end
-end
-
--- Wait for lazy to finish loading
-vim.wait(3000, function()
-  return require("lazy").stats().loaded > 0
-end)
+h.wait_for_lazy()
 
 local tmpdir = vim.fn.tempname()
 vim.fn.mkdir(tmpdir, "p")
@@ -76,7 +53,7 @@ local lua_src = {
   "return M",                   -- 12
 }
 
-print("\n=== Treesitter Tests ===\n")
+h.out("\n=== Treesitter Tests ===\n")
 
 test("lua and kotlin parsers are installed", function()
   for _, lang in ipairs({ "lua", "kotlin" }) do
@@ -95,13 +72,13 @@ local kt_path = write_file("Sample.kt", {
 
 test("highlighting active in lua buffer", function()
   local buf = open(lua_path)
-  assert_eq("lua", vim.bo[buf].filetype, "filetype")
+  assert_eq(vim.bo[buf].filetype, "lua", "filetype")
   assert_true(highlighting(buf), "treesitter highlighter not active for lua")
 end)
 
 test("highlighting active in kotlin buffer", function()
   local buf = open(kt_path)
-  assert_eq("kotlin", vim.bo[buf].filetype, "filetype")
+  assert_eq(vim.bo[buf].filetype, "kotlin", "filetype")
   assert_true(highlighting(buf), "treesitter highlighter not active for kotlin")
 end)
 
@@ -109,25 +86,25 @@ test("af selects around function", function()
   open(lua_path)
   vim.api.nvim_win_set_cursor(0, { 4, 2 })
   local range = select_lines("af")
-  assert_eq(3, range[1], "start line")
-  assert_eq(6, range[2], "end line")
+  assert_eq(range[1], 3, "start line")
+  assert_eq(range[2], 6, "end line")
 end)
 
 test("if selects inside function", function()
   open(lua_path)
   vim.api.nvim_win_set_cursor(0, { 4, 2 })
   local range = select_lines("if")
-  assert_eq(4, range[1], "start line")
-  assert_eq(5, range[2], "end line")
+  assert_eq(range[1], 4, "start line")
+  assert_eq(range[2], 5, "end line")
 end)
 
 test("]m moves to next function start", function()
   open(lua_path)
   vim.api.nvim_win_set_cursor(0, { 1, 0 })
   feed("]m")
-  assert_eq(3, vim.fn.line("."), "first ]m")
+  assert_eq(vim.fn.line("."), 3, "first ]m")
   feed("]m")
-  assert_eq(8, vim.fn.line("."), "second ]m")
+  assert_eq(vim.fn.line("."), 8, "second ]m")
 end)
 
 test("large-file guard skips highlighting over 100KB", function()
@@ -143,18 +120,20 @@ test("large-file guard skips highlighting over 100KB", function()
   assert_true(vim.fn.getfsize(path) > 100 * 1024, "fixture is not over 100KB")
 
   local buf = open(path)
-  assert_eq("kotlin", vim.bo[buf].filetype, "filetype")
+  assert_eq(vim.bo[buf].filetype, "kotlin", "filetype")
   assert_true(not highlighting(buf), "treesitter highlighter active for large file")
+end)
+
+-- The kotlin and lua buffers above start kotlin_lsp and lua_ls where they
+-- are installed. Quitting while kotlin_lsp is still initializing force-stops
+-- it and logs "Client kotlin_lsp quit with exit code 143".
+test("LSP clients stop cleanly", function()
+  h.stop_clients()
+  ---@diagnostic disable-next-line: invisible
+  assert_eq(#vim.lsp.get_clients({ _uninitialized = true }), 0, "clients still running")
+  h.assert_no_message_errors()
 end)
 
 vim.fn.delete(tmpdir, "rf")
 
--- Summary
-print("\n=== Results ===")
-print(string.format("Passed: %d, Failed: %d", passed, failed))
-
-if failed > 0 then
-  vim.cmd("cq 1")  -- Exit with error code
-else
-  vim.cmd("qa!")
-end
+h.finish()

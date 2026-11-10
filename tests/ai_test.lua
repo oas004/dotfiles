@@ -1,40 +1,11 @@
 -- Tests for AI agent integration (auto-reload, code reference keymap, claudecode.nvim)
 -- Run with: NVIM_APPNAME=<appname> nvim --headless -c "luafile tests/ai_test.lua"
 
-local failed = 0
-local passed = 0
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local out, test, assert_true, assert_eq = h.out, h.test, h.assert_true, h.assert_eq
 
--- print() output gets joined onto one line after keys are fed in headless
--- mode, so write test output to stdout directly.
-local function out(line)
-  io.stdout:write(line .. "\n")
-end
-
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    out("✓ " .. name)
-    passed = passed + 1
-  else
-    out("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
-
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true", 2) end
-end
-
-local function assert_eq(actual, expected, msg)
-  if actual ~= expected then
-    error(string.format("%s: expected %q, got %q", msg or "mismatch", tostring(expected), tostring(actual)), 2)
-  end
-end
-
--- Wait for lazy to finish loading
-vim.wait(3000, function()
-  return require("lazy").stats().loaded > 0
-end)
+h.wait_for_lazy()
 
 out("\n=== AI Integration Tests ===\n")
 
@@ -218,12 +189,4 @@ vim.notify = function() end
 pcall(vim.api.nvim_command, "ClaudeCodeStop")
 vim.notify = notify
 
--- Summary
-out("\n=== Results ===")
-out(string.format("Passed: %d, Failed: %d", passed, failed))
-
-if failed > 0 then
-  vim.cmd("cq 1")
-else
-  vim.cmd("qa!")
-end
+h.finish()

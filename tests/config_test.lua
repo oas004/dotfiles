@@ -1,34 +1,13 @@
 -- Neovim config tests
 -- Run with: nvim --headless -c "luafile tests/config_test.lua"
 
-local failed = 0
-local passed = 0
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local test, assert_true, assert_not_nil = h.test, h.assert_true, h.assert_not_nil
 
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    print("✓ " .. name)
-    passed = passed + 1
-  else
-    print("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
+h.wait_for_lazy()
 
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true") end
-end
-
-local function assert_not_nil(val, msg)
-  if val == nil then error(msg or "expected non-nil") end
-end
-
--- Wait for lazy to finish loading
-vim.wait(3000, function()
-  return require("lazy").stats().loaded > 0
-end)
-
-print("\n=== Config Tests ===\n")
+h.out("\n=== Config Tests ===\n")
 
 -- Treesitter tests
 test("treesitter loads", function()
@@ -55,30 +34,15 @@ end)
 
 -- Keymap tests
 test("af keymap exists (operator-pending)", function()
-  local maps = vim.api.nvim_get_keymap("o")
-  local found = false
-  for _, m in ipairs(maps) do
-    if m.lhs == "af" then found = true end
-  end
-  assert_true(found, "af keymap not found")
+  assert_true(h.find_keymap("o", "af") ~= nil, "af keymap not found")
 end)
 
 test("if keymap exists (operator-pending)", function()
-  local maps = vim.api.nvim_get_keymap("o")
-  local found = false
-  for _, m in ipairs(maps) do
-    if m.lhs == "if" then found = true end
-  end
-  assert_true(found, "if keymap not found")
+  assert_true(h.find_keymap("o", "if") ~= nil, "if keymap not found")
 end)
 
 test("]m keymap exists (normal)", function()
-  local maps = vim.api.nvim_get_keymap("n")
-  local found = false
-  for _, m in ipairs(maps) do
-    if m.lhs == "]m" then found = true end
-  end
-  assert_true(found, "]m keymap not found")
+  assert_true(h.find_keymap("n", "]m") ~= nil, "]m keymap not found")
 end)
 
 -- LSP config tests
@@ -119,12 +83,4 @@ test("core.utils loads", function()
   assert_not_nil(require("core.utils"))
 end)
 
--- Summary
-print("\n=== Results ===")
-print(string.format("Passed: %d, Failed: %d", passed, failed))
-
-if failed > 0 then
-  vim.cmd("cq 1")  -- Exit with error code
-else
-  vim.cmd("qa!")
-end
+h.finish()

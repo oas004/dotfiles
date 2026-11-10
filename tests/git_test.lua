@@ -2,63 +2,9 @@
 -- buffer-local keymaps and <leader> prefix collisions
 -- Run with: NVIM_APPNAME=<appname> nvim --headless -c "luafile tests/git_test.lua"
 
-local failed = 0
-local passed = 0
-
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    print("✓ " .. name)
-    passed = passed + 1
-  else
-    print("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
-
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true", 2) end
-end
-
-local leader = vim.api.nvim_replace_termcodes(vim.g.mapleader or "\\", true, true, true)
-
-local function find_buf_keymap(buf, mode, lhs)
-  local want = vim.api.nvim_replace_termcodes(lhs, true, true, true)
-  for _, m in ipairs(vim.api.nvim_buf_get_keymap(buf, mode)) do
-    if vim.api.nvim_replace_termcodes(m.lhs, true, true, true) == want then
-      return m
-    end
-  end
-  return nil
-end
-
---- Same check as in ui_test.lua: fail if any normal mode <leader> map
---- (global or buffer-local in buf) is a strict prefix of another one.
-local function assert_no_leader_prefix_collisions(buf)
-  local lhss = {}
-  local maps = vim.list_extend(vim.api.nvim_get_keymap("n"), vim.api.nvim_buf_get_keymap(buf, "n"))
-  for _, m in ipairs(maps) do
-    local raw = vim.api.nvim_replace_termcodes(m.lhs, true, true, true)
-    if raw ~= leader and raw:sub(1, #leader) == leader then
-      lhss[raw] = true
-    end
-  end
-  local collisions = {}
-  for a in pairs(lhss) do
-    for b in pairs(lhss) do
-      if a ~= b and b:sub(1, #a) == a then
-        table.insert(collisions, vim.fn.keytrans(a) .. " is a prefix of " .. vim.fn.keytrans(b))
-      end
-    end
-  end
-  table.sort(collisions)
-  assert_true(#collisions == 0, table.concat(collisions, ", "))
-end
-
-local function plugin_loaded(name)
-  local plugin = require("lazy.core.config").plugins[name]
-  return plugin ~= nil and plugin._.loaded ~= nil
-end
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local test, assert_true, plugin_loaded = h.test, h.assert_true, h.plugin_loaded
 
 local function git(args, cwd)
   -- Ignore the user's global git config (signing, hooks, templates)
@@ -70,12 +16,9 @@ local function git(args, cwd)
   assert_true(res.code == 0, table.concat(args, " ") .. " failed: " .. (res.stderr or ""))
 end
 
--- Wait for lazy to finish loading
-vim.wait(3000, function()
-  return require("lazy").stats().loaded > 0
-end)
+h.wait_for_lazy()
 
-print("\n=== Git Tests ===\n")
+h.out("\n=== Git Tests ===\n")
 
 test("gitsigns is not loaded at startup without a file", function()
   assert_true(not plugin_loaded("gitsigns.nvim"), "gitsigns.nvim loaded at startup")
@@ -128,7 +71,7 @@ test("buffer-local git keymaps exist with descs", function()
   }
   local missing = {}
   for _, e in ipairs(expected) do
-    local m = find_buf_keymap(buf, e[1], e[2])
+    local m = h.find_keymap(e[1], e[2], buf)
     if not m then
       table.insert(missing, e[1] .. " " .. e[2] .. " (not mapped)")
     elseif not m.desc or m.desc == "" then
@@ -140,8 +83,8 @@ end)
 
 test("git keymaps are not set in buffers outside git", function()
   local scratch = vim.api.nvim_create_buf(false, true)
-  assert_true(find_buf_keymap(scratch, "n", "]c") == nil, "]c mapped in a scratch buffer")
-  assert_true(find_buf_keymap(scratch, "n", "<leader>hs") == nil, "<leader>hs mapped in a scratch buffer")
+  assert_true(h.find_keymap("n", "]c", scratch) == nil, "]c mapped in a scratch buffer")
+  assert_true(h.find_keymap("n", "<leader>hs", scratch) == nil, "<leader>hs mapped in a scratch buffer")
 end)
 
 test("]c jumps to the next hunk", function()
@@ -179,17 +122,9 @@ test("]c and [c fall back to the built-in maps in diff mode", function()
 end)
 
 test("no <leader> map is a prefix of another (git buffer)", function()
-  assert_no_leader_prefix_collisions(buf)
+  h.assert_no_leader_prefix_collisions(buf)
 end)
 
 vim.fn.delete(repo, "rf")
 
--- Summary
-print("\n=== Results ===")
-print(string.format("Passed: %d, Failed: %d", passed, failed))
-
-if failed > 0 then
-  vim.cmd("cq 1")  -- Exit with error code
-else
-  vim.cmd("qa!")
-end
+h.finish()

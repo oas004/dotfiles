@@ -1,36 +1,11 @@
 -- Core keymap tests: lua/core/keymaps.lua and the LSP keymaps in non-LSP buffers
 -- Run with: nvim --headless -c "luafile tests/keymaps_test.lua"
 
-local failed = 0
-local passed = 0
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local out, test, assert_true, assert_eq = h.out, h.test, h.assert_true, h.assert_eq
 
-local function out(msg)
-  io.stdout:write(msg .. "\n")
-end
-
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    out("✓ " .. name)
-    passed = passed + 1
-  else
-    out("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
-
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true", 2) end
-end
-
-local function assert_eq(a, b, msg)
-  if a ~= b then error((msg or "values differ") .. ": " .. vim.inspect(a) .. " ~= " .. vim.inspect(b), 2) end
-end
-
--- Wait for lazy to finish loading
-vim.wait(3000, function()
-  return require("lazy").stats().loaded > 0
-end)
+h.wait_for_lazy()
 
 local config_dir = vim.fn.resolve(vim.fn.stdpath("config"))
 
@@ -145,44 +120,11 @@ end)
 -- In-process LSP server that answers signature help requests. Every request
 -- method is appended to log.
 local function fake_signature_server(log)
-  return function(dispatchers)
-    local closing = false
-    local id = 0
-    return {
-      request = function(method, _, callback)
-        id = id + 1
-        table.insert(log, method)
-        local result = vim.NIL
-        if method == "initialize" then
-          result = { capabilities = { signatureHelpProvider = { triggerCharacters = { "(" } } } }
-        elseif method == "textDocument/signatureHelp" then
-          result = { signatures = { { label = "add(a, b)" } } }
-        end
-        vim.schedule(function() callback(nil, result) end)
-        return true, id
-      end,
-      notify = function(method)
-        if method == "exit" then
-          closing = true
-          vim.schedule(function() dispatchers.on_exit(0, 0) end)
-        end
-        return true
-      end,
-      is_closing = function() return closing end,
-      terminate = function()
-        if not closing then
-          closing = true
-          vim.schedule(function() dispatchers.on_exit(0, 15) end)
-        end
-      end,
-    }
-  end
-end
-
-local function insert_buf_map(bufnr, lhs)
-  for _, m in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "i")) do
-    if m.lhs == lhs then return m end
-  end
+  return h.fake_lsp_server({
+    log = log,
+    capabilities = { signatureHelpProvider = { triggerCharacters = { "(" } } },
+    results = { ["textDocument/signatureHelp"] = { signatures = { { label = "add(a, b)" } } } },
+  })
 end
 
 test("<C-k> in insert mode shows signature help in LSP buffers only, <C-s> still saves", function()
@@ -190,7 +132,7 @@ test("<C-k> in insert mode shows signature help in LSP buffers only, <C-s> still
   vim.fn.writefile({ "" }, path)
   vim.cmd("silent edit " .. vim.fn.fnameescape(path))
   local buf = vim.api.nvim_get_current_buf()
-  assert_eq(insert_buf_map(buf, "<C-K>"), nil, "<C-k> mapped before an LSP attached")
+  assert_eq(h.find_keymap("i", "<C-K>", buf), nil, "<C-k> mapped before an LSP attached")
 
   local log = {}
   local client_id = vim.lsp.start({
@@ -205,7 +147,7 @@ test("<C-k> in insert mode shows signature help in LSP buffers only, <C-s> still
     return client ~= nil and client.initialized == true
   end)
 
-  local m = insert_buf_map(buf, "<C-K>")
+  local m = h.find_keymap("i", "<C-K>", buf)
   assert_true(m ~= nil, "<C-k> has no buffer-local insert map after LspAttach")
   ---@cast m -nil
   assert_eq(m.callback, vim.lsp.buf.signature_help, "<C-k> callback")
@@ -216,7 +158,7 @@ test("<C-k> in insert mode shows signature help in LSP buffers only, <C-s> still
   assert_true(vim.tbl_contains(log, "textDocument/signatureHelp"), "no signatureHelp request: " .. vim.inspect(log))
 
   -- The save map, not Neovim's signature help default, still owns insert <C-s>
-  assert_eq(insert_buf_map(buf, "<C-S>"), nil, "<C-s> has a buffer-local insert map")
+  assert_eq(h.find_keymap("i", "<C-S>", buf), nil, "<C-s> has a buffer-local insert map")
   assert_eq(vim.fn.maparg("<C-s>", "i", false, true).desc, "Save file", "insert <C-s> desc")
   vim.api.nvim_feedkeys(vim.keycode("ihello<C-s>"), "mx", false)
   assert_eq(vim.fn.mode(), "n", "mode after <C-s>")
@@ -224,8 +166,8 @@ test("<C-k> in insert mode shows signature help in LSP buffers only, <C-s> still
   assert_eq(vim.fn.readfile(path)[1], "hello", "file contents")
 
   vim.lsp.buf_detach_client(buf, client_id)
-  vim.wait(2000, function() return insert_buf_map(buf, "<C-K>") == nil end)
-  assert_eq(insert_buf_map(buf, "<C-K>"), nil, "<C-k> still mapped after the client detached")
+  vim.wait(2000, function() return h.find_keymap("i", "<C-K>", buf) == nil end)
+  assert_eq(h.find_keymap("i", "<C-K>", buf), nil, "<C-k> still mapped after the client detached")
   assert_eq(vim.fn.maparg("<C-k>", "i"), "", "<C-k> has an insert map after detach")
   -- With the map gone, <C-k> enters digraphs again
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "" })
@@ -233,17 +175,9 @@ test("<C-k> in insert mode shows signature help in LSP buffers only, <C-s> still
   assert_eq(vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1], "ë", "digraph after detach")
 
   local client = vim.lsp.get_client_by_id(client_id)
-  if client then client:stop(true) end
+  if client then h.stop_client(client) end
   vim.cmd("bwipeout!")
   vim.fn.delete(path)
 end)
 
--- Summary
-out("\n=== Results ===")
-out(string.format("Passed: %d, Failed: %d", passed, failed))
-
-if failed > 0 then
-  vim.cmd("cq 1")
-else
-  vim.cmd("qa!")
-end
+h.finish()

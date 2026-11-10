@@ -1,31 +1,15 @@
 -- Tests for lua/core/package-manager.lua: lazy.nvim is bootstrapped at the
 -- commit in lazy-lock.json. Each case starts a child nvim with an empty temp
--- data dir, so it clones lazy.nvim from GitHub.
+-- data dir, so the bootstrap clones lazy.nvim. lazy.nvim is cloned from
+-- GitHub only once, into a local mirror, and git in the child nvims is
+-- pointed at that with url.<mirror>.insteadOf (set via GIT_CONFIG_COUNT), so
+-- package-manager.lua still clones its real GitHub URL. Locally the cases
+-- that clone are skipped if GitHub can't be reached; on CI they fail.
 -- Run with: NVIM_APPNAME=<appname> nvim --headless -c "luafile tests/package_manager_test.lua"
 
-local failed = 0
-local passed = 0
-
-local function out(line)
-  io.stdout:write(line .. "\n")
-end
-
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    out("✓ " .. name)
-    passed = passed + 1
-  else
-    out("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
-
-local function assert_eq(expected, actual, msg)
-  if expected ~= actual then
-    error(string.format("%s: expected %s, got %s", msg or "mismatch", vim.inspect(expected), vim.inspect(actual)), 2)
-  end
-end
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local out, assert_true, assert_eq = h.out, h.assert_true, h.assert_eq
 
 local config_dir = vim.fn.stdpath("config")
 local package_manager = config_dir .. "/lua/core/package-manager.lua"
@@ -41,11 +25,38 @@ local stub = "lua package.preload.lazy = function() return { setup = function() 
 local OLD_COMMIT = "e6a8824858757ca9cd4f5ae1a72d845fa5c46a39"
 local PR_COMMIT = "177cef104c823ec5453ca3d58a25e1c37490f2e3"
 
+-- The URL package-manager.lua clones
+local LAZY_REPO = "https://github.com/folke/lazy.nvim.git"
+
 local function git(dir, ...)
   local res = vim.system({ "git", "-C", dir, ... }, { text = true }):wait()
-  assert(res.code == 0, "git " .. table.concat({ ... }, " ") .. " failed: " .. (res.stderr or ""))
+  assert_true(res.code == 0, "git " .. table.concat({ ... }, " ") .. " failed: " .. (res.stderr or ""))
   return vim.trim(res.stdout)
 end
+
+--- Clone lazy.nvim into a bare repo under tmp. PR_COMMIT is stored under
+--- refs/pull/, which clones of the mirror don't fetch, so it is still "on no
+--- branch" for them. Returns the mirror's path, or nil and the error.
+---@return string?, string?
+local function make_mirror()
+  local mirror = tmp .. "/lazy.nvim.git"
+  local res = vim.system({ "git", "clone", "--quiet", "--bare", LAZY_REPO, mirror }, { text = true }):wait(120000)
+  if res.code ~= 0 then
+    return nil, "git clone " .. LAZY_REPO .. " failed: " .. vim.trim(res.stderr or "")
+  end
+  local ok, err = pcall(function()
+    git(mirror, "fetch", "--quiet", LAZY_REPO, PR_COMMIT .. ":refs/pull/1/head")
+    -- Serve blobless clones and fetches by commit id, like GitHub
+    git(mirror, "config", "uploadpack.allowFilter", "true")
+    git(mirror, "config", "uploadpack.allowAnySHA1InWant", "true")
+  end)
+  if not ok then
+    return nil, tostring(err)
+  end
+  return mirror
+end
+
+local mirror, mirror_err = make_mirror()
 
 --- Start a child nvim with empty data/state/cache dirs under tmp/<name> and
 --- return its stdpath("data") and stderr. env is added to the child's
@@ -58,12 +69,16 @@ local function start(name, env, args)
     XDG_DATA_HOME = base .. "/data",
     XDG_STATE_HOME = base .. "/state",
     XDG_CACHE_HOME = base .. "/cache",
+    -- Clone and fetch LAZY_REPO from the mirror instead
+    GIT_CONFIG_COUNT = "1",
+    GIT_CONFIG_KEY_0 = "url.file://" .. (mirror or "") .. ".insteadOf",
+    GIT_CONFIG_VALUE_0 = LAZY_REPO,
   }, env or {})
   local cmd = { vim.v.progpath, "--headless", "--cmd", stub }
   vim.list_extend(cmd, args or {})
   vim.list_extend(cmd, { "-c", "lua io.stdout:write(vim.fn.stdpath('data'))", "+qa!" })
   local res = vim.system(cmd, { env = child_env, clear_env = true, text = true }):wait(120000)
-  assert_eq(0, res.code, "child nvim exit code (stderr: " .. (res.stderr or "") .. ")")
+  assert_eq(res.code, 0, "child nvim exit code (stderr: " .. (res.stderr or "") .. ")")
   return res.stdout, res.stderr
 end
 
@@ -94,59 +109,69 @@ end
 
 out("\n=== Package Manager Tests ===\n")
 
+if not mirror then
+  out("Could not set up the lazy.nvim mirror: " .. tostring(mirror_err))
+end
+
+--- A test whose child nvim clones lazy.nvim, so it needs the mirror.
+local function test(name, fn)
+  if mirror then
+    h.test(name, fn)
+  elseif vim.env.CI then
+    h.fail(name, "no lazy.nvim mirror")
+  else
+    h.skip(name, "no lazy.nvim mirror, is GitHub reachable?")
+  end
+end
+
 test("starting this config clones lazy.nvim at its lazy-lock.json commit", function()
   local lock = vim.json.decode(table.concat(vim.fn.readfile(config_dir .. "/lazy-lock.json"), "\n"))
   local data = start("config")
-  assert_eq(lock["lazy.nvim"].commit, lazy_head(data), "lazy.nvim HEAD")
+  assert_eq(lazy_head(data), lock["lazy.nvim"].commit, "lazy.nvim HEAD")
 end)
 
 test("a locked commit older than stable is checked out", function()
   local data = start_with_lockfile("old", lock_with(OLD_COMMIT))
-  assert_eq(OLD_COMMIT, lazy_head(data), "lazy.nvim HEAD")
+  assert_eq(lazy_head(data), OLD_COMMIT, "lazy.nvim HEAD")
 end)
 
 test("a locked commit that is on no branch is fetched", function()
   local data = start_with_lockfile("pr", lock_with(PR_COMMIT))
-  assert_eq(PR_COMMIT, lazy_head(data), "lazy.nvim HEAD")
+  assert_eq(lazy_head(data), PR_COMMIT, "lazy.nvim HEAD")
 end)
 
 test("no lockfile stays on stable", function()
   local data = start_with_lockfile("missing", nil)
-  assert_eq(stable(data), lazy_head(data), "lazy.nvim HEAD")
+  assert_eq(lazy_head(data), stable(data), "lazy.nvim HEAD")
 end)
 
 test("an invalid lockfile stays on stable", function()
   local data = start_with_lockfile("invalid", "{ not json")
-  assert_eq(stable(data), lazy_head(data), "lazy.nvim HEAD")
+  assert_eq(lazy_head(data), stable(data), "lazy.nvim HEAD")
 end)
 
 test("a lockfile without lazy.nvim stays on stable", function()
   local data = start_with_lockfile("no-entry", vim.json.encode({ ["other.nvim"] = { commit = OLD_COMMIT } }))
-  assert_eq(stable(data), lazy_head(data), "lazy.nvim HEAD")
+  assert_eq(lazy_head(data), stable(data), "lazy.nvim HEAD")
 end)
 
 test("a locked commit that doesn't exist warns and stays on stable", function()
   local data, stderr = start_with_lockfile("bogus", lock_with(string.rep("0", 39) .. "1"))
-  assert_eq(stable(data), lazy_head(data), "lazy.nvim HEAD")
-  assert(stderr:find("Failed to check out lazy.nvim", 1, true), "no warning in stderr: " .. stderr)
+  assert_eq(lazy_head(data), stable(data), "lazy.nvim HEAD")
+  assert_true(stderr:find("Failed to check out lazy.nvim", 1, true), "no warning in stderr: " .. stderr)
 end)
 
-test("$LAZY is used instead of cloning", function()
+-- Doesn't clone, so this one runs without the mirror too
+h.test("$LAZY is used instead of cloning", function()
   local lazy = tmp .. "/lazy-checkout"
   local stdout = start_with_lockfile("env", lock_with(OLD_COMMIT), { LAZY = lazy }, {
     "-c", "lua io.stdout:write(vim.o.rtp .. '\\n')",
   })
   local rtp, data = unpack(vim.split(stdout, "\n"))
-  assert(vim.uv.fs_stat(data .. "/lazy/lazy.nvim") == nil, "lazy.nvim was cloned although $LAZY is set")
-  assert_eq(lazy, vim.split(rtp, ",")[1], "first runtimepath entry")
+  assert_true(vim.uv.fs_stat(data .. "/lazy/lazy.nvim") == nil, "lazy.nvim was cloned although $LAZY is set")
+  assert_eq(vim.split(rtp, ",")[1], lazy, "first runtimepath entry")
 end)
 
 vim.fn.delete(tmp, "rf")
 
-out("\n=== Results ===")
-out(string.format("Passed: %d, Failed: %d", passed, failed))
-if failed > 0 then
-  vim.cmd("cq 1")
-else
-  vim.cmd("qa!")
-end
+h.finish()

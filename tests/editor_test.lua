@@ -2,35 +2,9 @@
 -- opening a directory with nvim-tree.
 -- Run with: nvim --headless -c "luafile tests/editor_test.lua"
 
-local failed = 0
-local passed = 0
-
--- print() output is not newline-terminated in headless mode once startup
--- has finished, so write lines to stdout directly.
-local function out(msg)
-  io.stdout:write(msg .. "\n")
-end
-
-local function test(name, fn)
-  local ok, err = pcall(fn)
-  if ok then
-    out("✓ " .. name)
-    passed = passed + 1
-  else
-    out("✗ " .. name .. ": " .. tostring(err))
-    failed = failed + 1
-  end
-end
-
-local function assert_eq(actual, expected, msg)
-  if actual ~= expected then
-    error((msg or "mismatch") .. ": expected " .. vim.inspect(expected) .. ", got " .. vim.inspect(actual))
-  end
-end
-
-local function assert_true(val, msg)
-  if not val then error(msg or "expected true") end
-end
+---@module "tests.helpers"
+local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
+local out, test, assert_true, assert_eq = h.out, h.test, h.assert_true, h.assert_eq
 
 -- Script run inside a child nvim. It waits up to EDITOR_TEST_WAIT ms for an
 -- nvim-tree window, then writes what it sees to EDITOR_TEST_OUT.
@@ -163,16 +137,7 @@ local function main()
 
   vim.fn.delete(dir, "rf")
 
-  out(string.format("\nPassed: %d, Failed: %d", passed, failed))
-  if failed > 0 then
-    vim.cmd("cq")
-  else
-    vim.cmd("qa!")
-  end
+  h.finish()
 end
 
-local ok, err = pcall(main)
-if not ok then
-  out("Test runner error: " .. tostring(err))
-  vim.cmd("cq")
-end
+h.run(main)
