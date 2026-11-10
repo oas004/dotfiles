@@ -66,6 +66,33 @@ local function attach(path, lines, name, timeout)
   return vim.lsp.get_clients({ bufnr = bufnr, name = name })[1], bufnr
 end
 
+-- Stop a client the way :lsp stop does (shutdown, then exit) and wait until
+-- it is gone. A forced stop sends SIGTERM, and clangd then exits with code 1,
+-- which logs "Client clangd quit with exit code 1". Only if the server hasn't
+-- exited after timeout ms is it terminated. That uses rpc.terminate(), since
+-- on 0.11 client:stop(true) does nothing once a stop is already in progress.
+local function stop_client(client, timeout)
+  local id = client.id
+  local function gone() return vim.lsp.get_client_by_id(id) == nil end
+  client:stop()
+  if not vim.wait(timeout or 5000, gone, 50) then
+    client.rpc.terminate()
+    vim.wait(2000, gone, 50)
+  end
+end
+
+-- :messages lines about a server that exited abnormally
+local function exit_messages()
+  local found = {}
+  for _, line in ipairs(vim.split(vim.fn.execute("messages"), "\n")) do
+    local l = line:lower()
+    if l:find("quit with exit code", 1, true) or l:find("exited with code", 1, true) then
+      table.insert(found, line)
+    end
+  end
+  return found
+end
+
 -- Wait for lazy to finish loading
 vim.wait(3000, function()
   return require("lazy").stats().loaded > 0
@@ -338,9 +365,9 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
       assert_true(not buf_map("n", lhs), lhs .. " should not be mapped in buffer")
     end
     -- Stopping the only client removes the maps again
-    client:stop(true)
-    vim.wait(5000, function() return #vim.lsp.get_clients({ bufnr = bufnr }) == 0 end, 50)
+    stop_client(client)
     assert_eq(#vim.lsp.get_clients({ bufnr = bufnr }), 0, "lua_ls still attached")
+    assert_eq(exit_messages()[1], nil, "lua_ls exit logged")
     for _, lhs in ipairs({ "gd", "<leader>ca", "<D-b>" }) do
       assert_true(not buf_map("n", lhs), lhs .. " still mapped in buffer after lua_ls stopped")
     end
@@ -363,7 +390,9 @@ if vim.fn.executable(mason_bin .. "clangd") == 1 then
     vim.wait(1000)
     vim.cmd("silent write")
     assert_eq(vim.fn.readfile(path)[1], "int main() { return 0; }", "file not formatted on save")
-    client:stop(true)
+    stop_client(client)
+    assert_eq(vim.lsp.get_client_by_id(client.id), nil, "clangd still running")
+    assert_eq(exit_messages()[1], nil, "clangd exit logged")
   end)
 else
   skip("clangd runtime attach", "Mason clangd not installed")
