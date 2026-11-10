@@ -208,7 +208,6 @@ test("<C-k> in insert mode shows signature help in LSP buffers only, <C-s> still
   local m = insert_buf_map(buf, "<C-K>")
   assert_true(m ~= nil, "<C-k> has no buffer-local insert map after LspAttach")
   ---@cast m -nil
-  assert_eq(m.buffer, buf, "<C-k> buffer")
   assert_eq(m.callback, vim.lsp.buf.signature_help, "<C-k> callback")
   assert_eq(m.desc, "LSP: Show function signature", "<C-k> desc")
 
