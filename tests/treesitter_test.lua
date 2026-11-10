@@ -8,6 +8,13 @@ local test, assert_true, assert_eq = h.test, h.assert_true, h.assert_eq
 
 h.wait_for_lazy()
 
+-- Only treesitter is under test here, so don't start language servers for
+-- the files below. A kotlin_lsp started by the Kotlin buffers is still busy
+-- (initializing, or indexing on a cold start on CI) when the test quits, so
+-- it gets force-stopped and logs "Client kotlin_lsp quit with exit code 143",
+-- and on CI it doesn't exit within 10 s of a graceful stop either.
+vim.lsp.enable({ "kotlin_lsp", "lua_ls" }, false)
+
 local tmpdir = vim.fn.tempname()
 vim.fn.mkdir(tmpdir, "p")
 
@@ -124,13 +131,10 @@ test("large-file guard skips highlighting over 100KB", function()
   assert_true(not highlighting(buf), "treesitter highlighter active for large file")
 end)
 
--- The kotlin and lua buffers above start kotlin_lsp and lua_ls where they
--- are installed. Quitting while kotlin_lsp is still initializing force-stops
--- it and logs "Client kotlin_lsp quit with exit code 143".
-test("LSP clients stop cleanly", function()
-  assert_eq(h.stop_clients(), {}, "clients not stopped gracefully")
+test("no LSP client started, no errors in :messages", function()
   ---@diagnostic disable-next-line: invisible
-  assert_eq(#vim.lsp.get_clients({ _uninitialized = true }), 0, "clients still running")
+  local names = vim.tbl_map(function(c) return c.name end, vim.lsp.get_clients({ _uninitialized = true }))
+  assert_eq(names, {}, "LSP clients")
   h.assert_no_message_errors()
 end)
 

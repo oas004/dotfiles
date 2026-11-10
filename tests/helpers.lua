@@ -185,16 +185,14 @@ end
 --- exit non-zero and Neovim logs "Client <name> quit with exit code ..."
 --- (clangd exits with 1, the JVM behind kotlin_lsp with 143). Neovim 0.11
 --- also force-stops a client that hasn't finished initializing, so this
---- first waits up to init_timeout ms for that (a cold kotlin_lsp start on CI
---- takes over 10 s). Clients still running timeout ms after the stop are
---- terminated with rpc.terminate(), since on 0.11 client:stop(true) does
---- nothing once a stop is already in progress.
+--- first waits up to timeout ms for that. Clients still running timeout ms
+--- after the stop are terminated with rpc.terminate(), since on 0.11
+--- client:stop(true) does nothing once a stop is already in progress.
 --- Returns a description of each client that was not stopped gracefully.
 ---@param clients? vim.lsp.Client[] default: all clients, initialized or not
 ---@param timeout? integer default: 10000 on CI, 5000 otherwise
----@param init_timeout? integer default: 60000 on CI, 30000 otherwise
 ---@return string[]
-function M.stop_clients(clients, timeout, init_timeout)
+function M.stop_clients(clients, timeout)
   -- get_clients() leaves out clients that are still initializing (kotlin_lsp
   -- takes seconds), which are the ones that get force-stopped. There is no
   -- public way to list them; the private _uninitialized filter exists on
@@ -202,14 +200,13 @@ function M.stop_clients(clients, timeout, init_timeout)
   ---@diagnostic disable-next-line: invisible
   clients = clients or vim.lsp.get_clients({ _uninitialized = true })
   timeout = timeout or (vim.env.CI and 10000 or 5000)
-  init_timeout = init_timeout or (vim.env.CI and 60000 or 30000)
   local forced = {}
   local function running()
     return vim.tbl_filter(function(c)
       return vim.lsp.get_client_by_id(c.id) ~= nil
     end, clients)
   end
-  vim.wait(init_timeout, function()
+  vim.wait(timeout, function()
     for _, c in ipairs(running()) do
       if not c.initialized then return false end
     end
@@ -217,7 +214,7 @@ function M.stop_clients(clients, timeout, init_timeout)
   end, 50)
   for _, c in ipairs(running()) do
     if not c.initialized then
-      table.insert(forced, string.format("%s (not initialized after %d ms)", c.name, init_timeout))
+      table.insert(forced, string.format("%s (not initialized after %d ms)", c.name, timeout))
     end
     c:stop()
   end
