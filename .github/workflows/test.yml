@@ -19,6 +19,7 @@ env:
   SELENE_VERSION: 0.32.0
   LUALS_VERSION: 3.19.2
   SHELLCHECK_VERSION: 0.11.0
+  RIPGREP_VERSION: 15.2.0
 
 jobs:
   lint:
@@ -94,8 +95,16 @@ jobs:
           neovim: true
           version: ${{ env.NVIM_VERSION }}
 
+      # From the GitHub release rather than apt, like the other tools here,
+      # so an Ubuntu mirror outage can't fail the job before any test runs.
       - name: Install ripgrep
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
+        run: |
+          mkdir -p ~/.local/bin
+          curl -fsSL "https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz -C "$RUNNER_TEMP"
+          install -m 755 "$RUNNER_TEMP/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg" ~/.local/bin/rg
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          ~/.local/bin/rg --version
 
       # rust-analyzer comes from rustup, not Mason, as in bootstrap.sh
       - name: Install rust-analyzer
