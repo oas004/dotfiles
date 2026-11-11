@@ -41,10 +41,14 @@ local function main()
     -- lazy fires VeryLazy after UIEnter, which headless Neovim never gets,
     -- so pretend a UI attached.
     vim.api.nvim_exec_autocmds("UIEnter", {})
-    vim.wait(5000, function() return plugin()._.loaded ~= nil end)
+    vim.wait(5000, function()
+      return plugin()._.loaded ~= nil
+    end)
     assert_true(plugin()._.loaded ~= nil, "which-key.nvim not loaded after VeryLazy")
     -- setup itself is scheduled by which-key
-    vim.wait(2000, function() return require("which-key.config").loaded end)
+    vim.wait(2000, function()
+      return require("which-key.config").loaded
+    end)
     assert_true(require("which-key.config").loaded, "which-key setup did not finish")
   end)
 
@@ -83,7 +87,9 @@ local function main()
 
   -- README.md is tracked in this repo, so gitsigns attaches to it
   test("<leader>h is the git hunks group where gitsigns is attached", function()
-    vim.wait(5000, function() return vim.fn.maparg("<leader>hs", "n") ~= "" end)
+    vim.wait(5000, function()
+      return vim.fn.maparg("<leader>hs", "n") ~= ""
+    end)
     assert_true(vim.fn.maparg("<leader>hs", "n") ~= "", "gitsigns did not attach to README.md")
     for _, mode in ipairs({ "n", "x" }) do
       local node = wk_node("<leader>h", mode)

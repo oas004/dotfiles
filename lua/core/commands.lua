@@ -1,8 +1,8 @@
 -- User commands for LSP maintenance and inspection
 
 -- LSP cache cleanup command
-vim.api.nvim_create_user_command('CleanupLSPCache', function()
-  local paths = require('core.paths')
+vim.api.nvim_create_user_command("CleanupLSPCache", function()
+  local paths = require("core.paths")
   local cache_dirs = {
     paths.lsp_cache.kotlin_lsp,
     paths.lsp_cache.jdtls,
@@ -26,8 +26,8 @@ vim.api.nvim_create_user_command('CleanupLSPCache', function()
 end, { desc = "Clean LSP caches (Kotlin & Java)" })
 
 -- Manual log cleanup command
-vim.api.nvim_create_user_command('CleanupLSPLogs', function()
-  local paths = require('core.paths')
+vim.api.nvim_create_user_command("CleanupLSPLogs", function()
+  local paths = require("core.paths")
   local log_files = {
     paths.logs.lsp,
     paths.logs.mason,
@@ -49,19 +49,19 @@ vim.api.nvim_create_user_command('CleanupLSPLogs', function()
 end, { desc = "Clean all LSP and plugin logs" })
 
 -- Show active LSP clients command
-vim.api.nvim_create_user_command('LspClients', function()
+vim.api.nvim_create_user_command("LspClients", function()
   local clients = vim.lsp.get_clients()
   if #clients == 0 then
     vim.notify("No active LSP clients", vim.log.levels.INFO)
     return
   end
 
-  local lines = {"Active LSP Clients:", ""}
+  local lines = { "Active LSP Clients:", "" }
   for _, client in ipairs(clients) do
-    table.insert(lines, string.format("• %s (id: %d, root: %s)",
-      client.name,
-      client.id,
-      client.config.root_dir or "N/A"))
+    table.insert(
+      lines,
+      string.format("• %s (id: %d, root: %s)", client.name, client.id, client.config.root_dir or "N/A")
+    )
   end
   vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
 end, { desc = "Show active LSP clients" })

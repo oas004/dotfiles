@@ -1,4 +1,4 @@
-.PHONY: test lint
+.PHONY: test lint format
 
 # Honours NVIM_APPNAME, TEST_SKIP etc. from the environment; see tests/run.sh.
 test:
@@ -9,8 +9,11 @@ test:
 # config in .luarc.json. lua-language-server type-checks vim.* against the
 # runtime of the nvim on PATH (or $VIMRUNTIME if set) and fails on warnings.
 # Also needs shellcheck (https://github.com/koalaman/shellcheck), config in
-# .shellcheckrc, which checks every tracked *.sh at its default severity.
+# .shellcheckrc, which checks every tracked *.sh at its default severity, and
+# stylua (https://github.com/JohnnyMorganz/StyLua), config in stylua.toml,
+# which fails if a Lua file isn't formatted. CI pins the version of each.
 SHELL_SCRIPTS := $(shell git ls-files '*.sh')
+LUA_PATHS := init.lua lua tests .github/scripts
 
 ifndef VIMRUNTIME
 VIMRUNTIME := $(shell nvim --clean --headless -c 'lua io.stdout:write(vim.env.VIMRUNTIME)' -c 'qa!' 2>/dev/null)
@@ -18,7 +21,12 @@ endif
 export VIMRUNTIME
 
 lint:
-	selene init.lua lua tests .github/scripts
+	stylua --check $(LUA_PATHS)
+	selene $(LUA_PATHS)
 	shellcheck $(SHELL_SCRIPTS)
 	@test -n "$(VIMRUNTIME)" || { echo "error: set VIMRUNTIME or put nvim on PATH" >&2; exit 1; }
 	lua-language-server --check=. --checklevel=Warning --logpath="$${TMPDIR:-/tmp}/luals-check"
+
+# Rewrites the Lua files in place with stylua.
+format:
+	stylua $(LUA_PATHS)

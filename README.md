@@ -310,6 +310,10 @@ It runs `tests/bootstrap_test.sh`, every `tests/*_test.lua` in a fresh headless 
 
 `make lint` runs [selene](https://github.com/Kampfkarren/selene) over the Lua files, with the `vim` global declared in `vim.yml`, [ShellCheck](https://github.com/koalaman/shellcheck) over the tracked `*.sh` files (`bootstrap.sh` and the shell scripts in `tests/`), and lua-language-server's type check. ShellCheck runs at its default severity, so info-level notes fail too; silence a false positive with a `# shellcheck disable=SCxxxx` comment on the narrowest scope, with a reason. CI runs `make lint` too.
 
+Lua is formatted with [StyLua](https://github.com/JohnnyMorganz/StyLua), configured in `stylua.toml` (2-space indentation, double quotes, 120 columns). `make lint` starts with `stylua --check` over `init.lua`, `lua/`, `tests/` and `.github/scripts/` and fails on any file that isn't formatted; `make format` rewrites them in place. CI pins StyLua (`STYLUA_VERSION` in `.github/workflows/test.yml`), and other releases can format some code differently, so use the same version locally.
+
+The commit that first formatted the repo with StyLua is listed in `.git-blame-ignore-revs`, so blame shows who last really changed a line. GitHub's blame view uses the file automatically; for local `git blame`, run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once.
+
 To test changes without touching your live config, check them out in a separate directory under `~/.config` and point Neovim at it with `NVIM_APPNAME`, which also gives it its own plugin and data directories:
 
 ```bash

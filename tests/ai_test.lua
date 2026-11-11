@@ -32,7 +32,9 @@ test("each reload event runs :checktime", function()
   -- autocmd until it is idle waiting for input, which never happens inside
   -- this script, so spy on the command instead of waiting for the reload.
   local calls = 0
-  rawset(vim.cmd, "checktime", function() calls = calls + 1 end)
+  rawset(vim.cmd, "checktime", function()
+    calls = calls + 1
+  end)
   local ok, err = pcall(function()
     for _, event in ipairs({ "FocusGained", "BufEnter", "CursorHold", "TermLeave", "TermClose" }) do
       local before = calls
@@ -41,7 +43,9 @@ test("each reload event runs :checktime", function()
     end
   end)
   rawset(vim.cmd, "checktime", nil)
-  if not ok then error(err, 0) end
+  if not ok then
+    error(err, 0)
+  end
 end)
 
 -- Code reference keymap -----------------------------------------------------
@@ -52,12 +56,20 @@ local fake_clipboard = { ["+"] = { { "" }, "v" }, ["*"] = { { "" }, "v" } }
 vim.g.clipboard = {
   name = "ai_test",
   copy = {
-    ["+"] = function(l, t) fake_clipboard["+"] = { l, t } end,
-    ["*"] = function(l, t) fake_clipboard["*"] = { l, t } end,
+    ["+"] = function(l, t)
+      fake_clipboard["+"] = { l, t }
+    end,
+    ["*"] = function(l, t)
+      fake_clipboard["*"] = { l, t }
+    end,
   },
   paste = {
-    ["+"] = function() return fake_clipboard["+"] end,
-    ["*"] = function() return fake_clipboard["*"] end,
+    ["+"] = function()
+      return fake_clipboard["+"]
+    end,
+    ["*"] = function()
+      return fake_clipboard["*"]
+    end,
   },
 }
 vim.g.loaded_clipboard_provider = nil
@@ -68,7 +80,9 @@ local saved_cwd = vim.fn.getcwd()
 local tmpdir = vim.fn.tempname()
 vim.fn.mkdir(tmpdir .. "/sub", "p")
 local lines = {}
-for i = 1, 10 do lines[i] = "line " .. i end
+for i = 1, 10 do
+  lines[i] = "line " .. i
+end
 vim.fn.writefile(lines, tmpdir .. "/sub/file.lua")
 vim.cmd("cd " .. vim.fn.fnameescape(tmpdir))
 vim.cmd("edit sub/file.lua")
@@ -77,7 +91,9 @@ vim.cmd("edit sub/file.lua")
 local notifications = {}
 local real_notify = vim.notify
 ---@diagnostic disable-next-line: duplicate-set-field
-vim.notify = function(msg) table.insert(notifications, msg) end
+vim.notify = function(msg)
+  table.insert(notifications, msg)
+end
 
 test("clipboard (+ register) is available", function()
   assert_true(vim.fn.has("clipboard") == 1, "no clipboard provider")
@@ -149,17 +165,30 @@ vim.fn.delete(tmpdir, "rf")
 -- claudecode.nvim -----------------------------------------------------------
 
 local claude_commands = {
-  "ClaudeCode", "ClaudeCodeFocus", "ClaudeCodeSelectModel", "ClaudeCodeAdd",
-  "ClaudeCodeSend", "ClaudeCodeTreeAdd", "ClaudeCodeStatus", "ClaudeCodeStart",
-  "ClaudeCodeStop", "ClaudeCodeOpen", "ClaudeCodeClose", "ClaudeCodeDiffAccept",
-  "ClaudeCodeDiffDeny", "ClaudeCodeCloseAllDiffs",
+  "ClaudeCode",
+  "ClaudeCodeFocus",
+  "ClaudeCodeSelectModel",
+  "ClaudeCodeAdd",
+  "ClaudeCodeSend",
+  "ClaudeCodeTreeAdd",
+  "ClaudeCodeStatus",
+  "ClaudeCodeStart",
+  "ClaudeCodeStop",
+  "ClaudeCodeOpen",
+  "ClaudeCodeClose",
+  "ClaudeCodeDiffAccept",
+  "ClaudeCodeDiffDeny",
+  "ClaudeCodeCloseAllDiffs",
 }
 
 test("claudecode.nvim loads on VeryLazy (server up without a keypress)", function()
   local plugin = require("lazy.core.config").plugins["claudecode.nvim"]
   assert_true(plugin ~= nil, "claudecode.nvim spec missing")
   local events = type(plugin.event) == "table" and plugin.event or { plugin.event }
-  assert_true(vim.tbl_contains(events, "VeryLazy"), "claudecode.nvim not loaded on VeryLazy: " .. vim.inspect(plugin.event))
+  assert_true(
+    vim.tbl_contains(events, "VeryLazy"),
+    "claudecode.nvim not loaded on VeryLazy: " .. vim.inspect(plugin.event)
+  )
 end)
 
 test("claudecode.nvim loads and registers its commands", function()
@@ -176,7 +205,16 @@ test("snacks terminal provider is available", function()
 end)
 
 test("<leader>a* keymaps exist", function()
-  for _, lhs in ipairs({ "<leader>ac", "<leader>af", "<leader>ar", "<leader>aC", "<leader>am", "<leader>ab", "<leader>aa", "<leader>ad" }) do
+  for _, lhs in ipairs({
+    "<leader>ac",
+    "<leader>af",
+    "<leader>ar",
+    "<leader>aC",
+    "<leader>am",
+    "<leader>ab",
+    "<leader>aa",
+    "<leader>ad",
+  }) do
     assert_true(vim.fn.maparg(lhs, "n") ~= "", "missing " .. lhs)
   end
   assert_true(vim.fn.maparg("<leader>as", "v") ~= "", "missing visual <leader>as")

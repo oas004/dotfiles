@@ -35,14 +35,18 @@ end)
 local cmp = require("cmp")
 
 test("LuaSnip and cmp_luasnip are not in the plugin list", function()
-  local names = vim.tbl_map(function(p) return p.name end, require("lazy").plugins())
+  local names = vim.tbl_map(function(p)
+    return p.name
+  end, require("lazy").plugins())
   for _, name in ipairs({ "LuaSnip", "cmp_luasnip" }) do
     assert_true(not vim.tbl_contains(names, name), name .. " is still a plugin")
   end
 end)
 
 test("cmp sources are nvim_lsp and buffer, without luasnip", function()
-  local names = vim.tbl_map(function(s) return s.name end, cmp.get_config().sources)
+  local names = vim.tbl_map(function(s)
+    return s.name
+  end, cmp.get_config().sources)
   assert_true(vim.tbl_contains(names, "nvim_lsp"), "nvim_lsp not in " .. vim.inspect(names))
   assert_true(vim.tbl_contains(names, "buffer"), "buffer not in " .. vim.inspect(names))
   assert_true(not vim.tbl_contains(names, "luasnip"), "luasnip still in " .. vim.inspect(names))
@@ -52,7 +56,9 @@ test("cmp expands snippets with vim.snippet", function()
   local got
   local orig = vim.snippet.expand
   ---@diagnostic disable-next-line: duplicate-set-field
-  vim.snippet.expand = function(body) got = body end
+  vim.snippet.expand = function(body)
+    got = body
+  end
   local ok, err = pcall(cmp.get_config().snippet.expand, { body = "x$0" })
   vim.snippet.expand = orig
   assert_true(ok, tostring(err))
@@ -107,7 +113,9 @@ end
 step("cmp maps <Tab>/<S-Tab> in insert and select mode", function()
   return ""
 end, function()
-  if not has_cmp_map("s", "<Tab>") then return false end
+  if not has_cmp_map("s", "<Tab>") then
+    return false
+  end
   for _, m in ipairs({ "i", "s" }) do
     for _, lhs in ipairs({ "<Tab>", "<S-Tab>" }) do
       assert_true(has_cmp_map(m, lhs), m .. " " .. lhs .. " not mapped by cmp")
@@ -201,7 +209,9 @@ end)
 step("<C-e> closes the menu", function()
   return "<C-e>"
 end, function()
-  if cmp.visible() then return false end
+  if cmp.visible() then
+    return false
+  end
   assert_eq(line(), "alp end", "line")
 end)
 
@@ -238,7 +248,9 @@ local function next_step()
     return
   end
   local ok, keys = pcall(s.fn)
-  if not ok then return fail(s.name, keys) end
+  if not ok then
+    return fail(s.name, keys)
+  end
   -- The sync hop queues the check behind keys that vim.snippet and cmp feed
   -- while processing these keys
   feed(keys .. SYNC)
@@ -249,17 +261,25 @@ local function check()
   local ok, res = pcall(s.check)
   if ok and res == false then
     retries = retries + 1
-    if retries > 100 then return fail(s.name, "timed out waiting") end
-    vim.defer_fn(function() feed(CHECK) end, 20)
+    if retries > 100 then
+      return fail(s.name, "timed out waiting")
+    end
+    vim.defer_fn(function()
+      feed(CHECK)
+    end, 20)
     return
   end
   retries = 0
-  if not ok then return fail(s.name, res) end
+  if not ok then
+    return fail(s.name, res)
+  end
   h.pass(s.name)
   next_step()
 end
 
-vim.keymap.set({ "i", "s" }, SYNC, function() feed(CHECK) end)
+vim.keymap.set({ "i", "s" }, SYNC, function()
+  feed(CHECK)
+end)
 vim.keymap.set({ "i", "s" }, CHECK, check)
 
 -- Safety net so a stuck key sequence fails instead of hanging

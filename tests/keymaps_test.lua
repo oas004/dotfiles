@@ -19,7 +19,9 @@ local function captured_maps()
   end
   local ok, err = pcall(dofile, config_dir .. "/lua/core/keymaps.lua")
   vim.keymap.set = orig
-  if not ok then error(err) end
+  if not ok then
+    error(err)
+  end
   return maps
 end
 
@@ -43,7 +45,9 @@ end)
 
 test("core/keymaps.lua leaves LSP and builtin keys alone", function()
   local lhs = {}
-  for _, m in ipairs(maps) do lhs[m.lhs] = true end
+  for _, m in ipairs(maps) do
+    lhs[m.lhs] = true
+  end
   for _, key in ipairs({ "Y", "j", "k", "gr", "gd", "gD", "gI", "gy", "<D-b>", "<D-A-b>", "<A-F7>", "<S-F6>", "<A-CR>" }) do
     assert_true(not lhs[key], key .. " is still mapped in core/keymaps.lua")
   end
@@ -67,7 +71,9 @@ test("gd and friends have no map in a non-LSP scratch buffer", function()
   local bufnr = vim.api.nvim_get_current_buf()
   assert_eq(#vim.lsp.get_clients({ bufnr = bufnr }), 0, "LSP clients in scratch buffer")
   local buf_maps = {}
-  for _, m in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "n")) do buf_maps[m.lhs] = true end
+  for _, m in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "n")) do
+    buf_maps[m.lhs] = true
+  end
   for _, lhs in ipairs({ "gd", "gD", "gI", "gy", "gs", "<D-b>", "<D-A-b>", "<A-F7>", "<S-F6>", "<A-CR>" }) do
     assert_true(not buf_maps[lhs], lhs .. " has a buffer-local map")
     assert_eq(vim.fn.maparg(lhs, "n"), "", lhs .. " has a global map")
@@ -89,7 +95,9 @@ test("<C-s> in insert mode saves, leaves insert mode and fires InsertLeave", fun
   local left = 0
   local id = vim.api.nvim_create_autocmd("InsertLeave", {
     buffer = 0,
-    callback = function() left = left + 1 end,
+    callback = function()
+      left = left + 1
+    end,
   })
   vim.api.nvim_feedkeys(vim.keycode("ihello<C-s>"), "mx", false)
   vim.api.nvim_del_autocmd(id)
@@ -154,7 +162,9 @@ test("<C-k> in insert mode shows signature help in LSP buffers only, <C-s> still
   assert_eq(m.desc, "LSP: Show function signature", "<C-k> desc")
 
   vim.api.nvim_feedkeys(vim.keycode("i<C-k><Esc>"), "mx", false)
-  vim.wait(2000, function() return vim.tbl_contains(log, "textDocument/signatureHelp") end)
+  vim.wait(2000, function()
+    return vim.tbl_contains(log, "textDocument/signatureHelp")
+  end)
   assert_true(vim.tbl_contains(log, "textDocument/signatureHelp"), "no signatureHelp request: " .. vim.inspect(log))
 
   -- The save map, not Neovim's signature help default, still owns insert <C-s>
@@ -166,7 +176,9 @@ test("<C-k> in insert mode shows signature help in LSP buffers only, <C-s> still
   assert_eq(vim.fn.readfile(path)[1], "hello", "file contents")
 
   vim.lsp.buf_detach_client(buf, client_id)
-  vim.wait(2000, function() return h.find_keymap("i", "<C-K>", buf) == nil end)
+  vim.wait(2000, function()
+    return h.find_keymap("i", "<C-K>", buf) == nil
+  end)
   assert_eq(h.find_keymap("i", "<C-K>", buf), nil, "<C-k> still mapped after the client detached")
   assert_eq(vim.fn.maparg("<C-k>", "i"), "", "<C-k> has an insert map after detach")
   -- With the map gone, <C-k> enters digraphs again
@@ -175,7 +187,9 @@ test("<C-k> in insert mode shows signature help in LSP buffers only, <C-s> still
   assert_eq(vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1], "ë", "digraph after detach")
 
   local client = vim.lsp.get_client_by_id(client_id)
-  if client then h.stop_client(client) end
+  if client then
+    h.stop_client(client)
+  end
   vim.cmd("bwipeout!")
   vim.fn.delete(path)
 end)

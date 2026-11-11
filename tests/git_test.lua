@@ -9,8 +9,15 @@ local test, assert_true, plugin_loaded = h.test, h.assert_true, h.plugin_loaded
 local function git(args, cwd)
   -- Ignore the user's global git config (signing, hooks, templates)
   local cmd = vim.list_extend({
-    "git", "-c", "user.name=test", "-c", "user.email=test@example.com",
-    "-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main",
+    "git",
+    "-c",
+    "user.name=test",
+    "-c",
+    "user.email=test@example.com",
+    "-c",
+    "commit.gpgsign=false",
+    "-c",
+    "init.defaultBranch=main",
   }, args)
   local res = vim.system(cmd, { cwd = cwd, text = true, env = { GIT_CONFIG_GLOBAL = "/dev/null" } }):wait()
   assert_true(res.code == 0, table.concat(args, " ") .. " failed: " .. (res.stderr or ""))
@@ -63,11 +70,16 @@ end)
 
 test("buffer-local git keymaps exist with descs", function()
   local expected = {
-    { "n", "]c" }, { "n", "[c" },
-    { "n", "<leader>hs" }, { "n", "<leader>hr" },
-    { "x", "<leader>hs" }, { "x", "<leader>hr" },
-    { "n", "<leader>hp" }, { "n", "<leader>hb" },
-    { "o", "ih" }, { "x", "ih" },
+    { "n", "]c" },
+    { "n", "[c" },
+    { "n", "<leader>hs" },
+    { "n", "<leader>hr" },
+    { "x", "<leader>hs" },
+    { "x", "<leader>hr" },
+    { "n", "<leader>hp" },
+    { "n", "<leader>hb" },
+    { "o", "ih" },
+    { "x", "ih" },
   }
   local missing = {}
   for _, e in ipairs(expected) do
@@ -100,7 +112,9 @@ test("]c and [c fall back to the built-in maps in diff mode", function()
   local gitsigns = require("gitsigns")
   local orig = gitsigns.nav_hunk
   local calls = 0
-  gitsigns.nav_hunk = function() calls = calls + 1 end
+  gitsigns.nav_hunk = function()
+    calls = calls + 1
+  end
   local win = vim.api.nvim_get_current_win()
   vim.cmd("vnew")
   vim.api.nvim_buf_set_lines(0, 0, -1, false, { "one", "two", "three", "four", "five", "six" })

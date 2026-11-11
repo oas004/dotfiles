@@ -46,18 +46,18 @@ local function select_lines(textobject)
 end
 
 local lua_src = {
-  "local M = {}",               -- 1
-  "",                           -- 2
-  "local function add(a, b)",   -- 3
-  "  local sum = a + b",        -- 4
-  "  return sum",               -- 5
-  "end",                        -- 6
-  "",                           -- 7
-  "function M.twice(x)",        -- 8
-  "  return add(x, x)",         -- 9
-  "end",                        -- 10
-  "",                           -- 11
-  "return M",                   -- 12
+  "local M = {}", -- 1
+  "", -- 2
+  "local function add(a, b)", -- 3
+  "  local sum = a + b", -- 4
+  "  return sum", -- 5
+  "end", -- 6
+  "", -- 7
+  "function M.twice(x)", -- 8
+  "  return add(x, x)", -- 9
+  "end", -- 10
+  "", -- 11
+  "return M", -- 12
 }
 
 h.out("\n=== Treesitter Tests ===\n")
@@ -72,7 +72,7 @@ local lua_path = write_file("sample.lua", lua_src)
 local kt_path = write_file("Sample.kt", {
   "class Sample {",
   "    fun greet(name: String): String {",
-  "        return \"Hello, $name\"",
+  '        return "Hello, $name"',
   "    }",
   "}",
 })
@@ -118,7 +118,7 @@ test("large-file guard skips highlighting over 100KB", function()
   -- Kotlin, because Neovim's own lua/help/query ftplugins start treesitter
   -- themselves, independent of this config.
   local lines = { "class Big {" }
-  local line = "    val value = \"" .. string.rep("x", 80) .. "\""
+  local line = '    val value = "' .. string.rep("x", 80) .. '"'
   for _ = 1, 1500 do
     lines[#lines + 1] = line
   end
@@ -133,7 +133,9 @@ end)
 
 test("no LSP client started, no errors in :messages", function()
   ---@diagnostic disable-next-line: invisible
-  local names = vim.tbl_map(function(c) return c.name end, vim.lsp.get_clients({ _uninitialized = true }))
+  local names = vim.tbl_map(function(c)
+    return c.name
+  end, vim.lsp.get_clients({ _uninitialized = true }))
   assert_eq(names, {}, "LSP clients")
   h.assert_no_message_errors()
 end)
