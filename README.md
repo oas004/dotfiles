@@ -312,6 +312,8 @@ It runs `tests/bootstrap_test.sh`, every `tests/*_test.lua` in a fresh headless 
 
 Lua is formatted with [StyLua](https://github.com/JohnnyMorganz/StyLua), configured in `stylua.toml` (2-space indentation, double quotes, 120 columns). `make lint` starts with `stylua --check` over `init.lua`, `lua/`, `tests/` and `.github/scripts/` and fails on any file that isn't formatted; `make format` rewrites them in place. CI pins StyLua (`STYLUA_VERSION` in `.github/workflows/test.yml`), and other releases can format some code differently, so use the same version locally.
 
+The commit that first formatted the repo with StyLua is listed in `.git-blame-ignore-revs`, so blame shows who last really changed a line. GitHub's blame view uses the file automatically; for local `git blame`, run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once.
+
 To test changes without touching your live config, check them out in a separate directory under `~/.config` and point Neovim at it with `NVIM_APPNAME`, which also gives it its own plugin and data directories:
 
 ```bash

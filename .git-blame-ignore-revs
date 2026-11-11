@@ -1,0 +1,5 @@
+# Commits that only reformat code; git blame skips them.
+# Enable locally with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Format Lua with stylua (#23)
+408f2a5e39640be6b5e3b7dfb2c9e54da8d28423
