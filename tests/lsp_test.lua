@@ -353,7 +353,7 @@ local native_codelens = vim.lsp.codelens.enable ~= nil
 
 local function lenses(bufnr)
   if native_codelens then
-    -- 0.12's signature; make lint type-checks against the 0.11 runtime
+    -- 0.12's signature, for linting against the 0.11 runtime
     ---@diagnostic disable-next-line: param-type-mismatch
     return vim.lsp.codelens.get({ bufnr = bufnr })
   end

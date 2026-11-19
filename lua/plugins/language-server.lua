@@ -258,18 +258,21 @@ return {
       end
 
       --- 0.11: refresh code lenses now and whenever the buffer is entered or
-      --- changed, once per buffer.
+      --- changed, once per buffer. Only called on 0.11, where refresh() isn't
+      --- deprecated; the disable comments are for linting against 0.12.
       local function refresh_codelens(bufnr)
         if vim.b[bufnr].user_codelens_refresh then
           return
         end
         vim.b[bufnr].user_codelens_refresh = true
+        ---@diagnostic disable-next-line: deprecated
         vim.lsp.codelens.refresh({ bufnr = bufnr })
         vim.api.nvim_create_autocmd({ "BufEnter", "InsertLeave", "BufWritePost" }, {
           group = vim.api.nvim_create_augroup("user_codelens_" .. bufnr, { clear = true }),
           buffer = bufnr,
           desc = "Refresh code lenses",
           callback = function()
+            ---@diagnostic disable-next-line: deprecated
             vim.lsp.codelens.refresh({ bufnr = bufnr })
           end,
         })
