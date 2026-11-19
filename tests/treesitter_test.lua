@@ -1,4 +1,5 @@
--- Treesitter behaviour tests (highlighting, text objects, large-file guard)
+-- Treesitter behaviour tests (highlighting, folding, indentation, text
+-- objects, large-file guard)
 -- Run with: nvim --headless -c "luafile tests/treesitter_test.lua"
 -- Needs the parsers in lua/plugins/parser.lua installed (bootstrap.sh and
 -- the CI warmup install them).
@@ -14,8 +15,9 @@ h.wait_for_lazy()
 -- (initializing, or indexing on a cold start on CI) when the test quits, so
 -- it gets force-stopped and logs "Client kotlin_lsp quit with exit code 143",
 -- and on CI it doesn't exit within 10 s of a graceful stop either.
--- gradle_ls would attach to the build.gradle files below the same way.
-vim.lsp.enable({ "kotlin_lsp", "lua_ls", "gradle_ls" }, false)
+-- gradle_ls would attach to the build.gradle files below the same way, and
+-- rust_analyzer and clangd to the Rust and C++ indent samples.
+vim.lsp.enable({ "kotlin_lsp", "lua_ls", "gradle_ls", "rust_analyzer", "clangd" }, false)
 
 local tmpdir = vim.fn.tempname()
 vim.fn.mkdir(tmpdir, "p")
@@ -65,8 +67,8 @@ local lua_src = {
 
 h.out("\n=== Treesitter Tests ===\n")
 
-test("lua and kotlin parsers are installed", function()
-  for _, lang in ipairs({ "lua", "kotlin" }) do
+test("lua, kotlin, rust and cpp parsers are installed", function()
+  for _, lang in ipairs({ "lua", "kotlin", "rust", "cpp" }) do
     assert_true(vim.treesitter.language.add(lang), lang .. " parser not available")
   end
 end)
@@ -168,6 +170,96 @@ test("]m moves to next function start", function()
   assert_eq(vim.fn.line("."), 8, "second ]m")
 end)
 
+-- Folding
+
+local function uses_treesitter_folds()
+  return vim.wo.foldmethod == "expr" and vim.wo.foldexpr == "v:lua.vim.treesitter.foldexpr()"
+end
+
+test("lua buffer folds with treesitter, all folds open", function()
+  open(lua_path)
+  assert_true(uses_treesitter_folds(), "foldmethod=" .. vim.wo.foldmethod .. " foldexpr=" .. vim.wo.foldexpr)
+  assert_eq(vim.wo.foldtext, "", "foldtext")
+  assert_eq(vim.fn.foldlevel(4), 1, "fold level inside add()")
+  assert_eq(vim.fn.foldclosed(4), -1, "add() fold is closed")
+end)
+
+test("zM closes the function folds and :edit keeps them closed", function()
+  open(lua_path)
+  feed("zM")
+  assert_eq(vim.fn.foldclosed(4), 3, "add() fold after zM")
+  vim.cmd("edit")
+  assert_eq(vim.fn.foldclosed(4), 3, "add() fold after :edit")
+  feed("zR")
+end)
+
+test("a buffer without a parser in the same window keeps manual folds", function()
+  open(lua_path)
+  open(write_file("notes.txt", { "plain", "text" }))
+  assert_eq(vim.wo.foldmethod, "manual", "foldmethod")
+  open(lua_path)
+  assert_true(uses_treesitter_folds(), "lua buffer lost its folds")
+end)
+
+test("a file loaded in the background folds once it is shown", function()
+  -- LSP rename and references load files with bufload() without showing them
+  local path = write_file("background.lua", lua_src)
+  local buf = vim.fn.bufadd(path)
+  vim.fn.bufload(buf)
+  vim.api.nvim_set_current_buf(buf)
+  assert_true(uses_treesitter_folds(), "foldmethod=" .. vim.wo.foldmethod .. " foldexpr=" .. vim.wo.foldexpr)
+end)
+
+-- Indentation
+
+local rust_path = write_file("sample.rs", {
+  "fn main() {",
+  "    let double = |x: u32| {",
+  "        x * 2",
+  "    };",
+  "}",
+})
+local cpp_src = {
+  "namespace app {",
+  "class Widget {",
+  "public:",
+  "  int area() const { return 1; }",
+  "};",
+  "} // namespace app",
+}
+local cpp_path = write_file("sample.cpp", cpp_src)
+
+local ts_indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+
+test("rust and cpp use treesitter indentation", function()
+  for _, path in ipairs({ rust_path, cpp_path }) do
+    local buf = open(path)
+    assert_eq(vim.bo[buf].indentexpr, ts_indentexpr, vim.bo[buf].filetype .. " indentexpr")
+  end
+end)
+
+test("lua and kotlin keep their runtime indent scripts", function()
+  for path, expr in pairs({ [lua_path] = "GetLuaIndent()", [kt_path] = "GetKotlinIndent()" }) do
+    local buf = open(path)
+    assert_eq(vim.bo[buf].indentexpr, expr, vim.bo[buf].filetype .. " indentexpr")
+  end
+end)
+
+test("rust: a new line after a tail expression is not indented further", function()
+  open(rust_path)
+  vim.api.nvim_win_set_cursor(0, { 3, 0 })
+  feed("oy<Esc>")
+  assert_eq(vim.api.nvim_get_current_line(), "        y", "new line")
+  vim.cmd("edit!")
+end)
+
+test("cpp: reindenting leaves namespace and access specifier levels alone", function()
+  open(cpp_path)
+  vim.cmd("silent normal! gg=G")
+  assert_eq(vim.api.nvim_buf_get_lines(0, 0, -1, false), cpp_src, "lines after gg=G")
+  vim.cmd("edit!")
+end)
+
 test("large-file guard skips highlighting over 100KB", function()
   -- Kotlin, because Neovim's own lua/help/query ftplugins start treesitter
   -- themselves, independent of this config.
@@ -183,6 +275,7 @@ test("large-file guard skips highlighting over 100KB", function()
   local buf = open(path)
   assert_eq(vim.bo[buf].filetype, "kotlin", "filetype")
   assert_true(not highlighting(buf), "treesitter highlighter active for large file")
+  assert_eq(vim.wo.foldmethod, "manual", "foldmethod for large file")
 end)
 
 test("no LSP client started, no errors in :messages", function()

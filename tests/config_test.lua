@@ -15,9 +15,9 @@ test("treesitter loads", function()
   assert_not_nil(ts.install, "nvim-treesitter.install missing (not on main branch?)")
 end)
 
-test("treesitter highlight autocmd registered", function()
-  local cmds = vim.api.nvim_get_autocmds({ group = "treesitter_highlight", event = "FileType" })
-  assert_true(#cmds > 0, "no FileType autocmd in treesitter_highlight group")
+test("treesitter FileType autocmd registered", function()
+  local cmds = vim.api.nvim_get_autocmds({ group = "treesitter_buffer", event = "FileType" })
+  assert_true(#cmds > 0, "no FileType autocmd in treesitter_buffer group")
 end)
 
 test("treesitter-textobjects loads", function()

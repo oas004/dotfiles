@@ -277,6 +277,12 @@ These bind the keys without the tmux prefix, so in panes that don't run Neovim (
 | `]m` / `[m` | Next/previous function start |
 | `]M` / `[M` | Next/previous function end |
 
+### Folding and Indentation
+
+Buffers with a treesitter parser fold on the syntax tree (functions, classes, blocks), and files open with every fold open. Use Neovim's fold keys: `za` toggles the fold under the cursor, `zc`/`zo` close/open it, `zM`/`zR` close/open all. Files over 100 KB get no treesitter folds, like they get no treesitter highlighting.
+
+Rust and C++ are indented with nvim-treesitter's indentation (which the plugin calls experimental). Every other language keeps Neovim's runtime indent script, which did as well or better in a comparison (Java, C, Lua, Python), or is the only option (Kotlin). The list is `treesitter_indent` in `lua/plugins/parser.lua`.
+
 ### Git (gitsigns)
 
 [gitsigns.nvim](https://github.com/lewis6991/gitsigns.nvim) shows added, changed and deleted lines in the sign column. These maps are only set in buffers for files in a git repository.
