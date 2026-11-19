@@ -163,6 +163,10 @@ test("formatters_by_ft: rust uses rustfmt", function()
   assert_eq(require("conform").formatters_by_ft.rust, { "rustfmt" }, "rust")
 end)
 
+test("formatters_by_ft: lua uses stylua", function()
+  assert_eq(require("conform").formatters_by_ft.lua, { "stylua" }, "lua")
+end)
+
 test("formatters_by_ft: json uses jq/prettierd/prettier", function()
   local json = require("conform").formatters_by_ft.json
   assert_eq({ json[1], json[2], json[3], json.stop_after_first }, { "jq", "prettierd", "prettier", true }, "json")
@@ -214,7 +218,8 @@ for ft, timeout in vim.spairs(on_save) do
   end)
 end
 
-for _, ft in ipairs({ "kotlin", "json", "lua" }) do
+-- lua is covered by the stylua project tests below
+for _, ft in ipairs({ "kotlin", "json" }) do
   test("format_on_save returns nil for " .. ft, function()
     local buf = scratch(ft)
     local res = format_on_save_fn()(buf)
@@ -248,6 +253,91 @@ for ft, timeout in vim.spairs({ c = 10000, rust = 5000, kotlin = 5000 }) do
   end)
 end
 
+-- stylua is only used in projects with a stylua config file. Each case
+-- opens <dir>/m.lua, with the config file (if any) in dir.
+local unformatted_lua = { "local  x = {1,2}" }
+local formatted_lua = { "local x = { 1, 2 }" }
+
+local function lua_project(config_name)
+  local dir = vim.fn.tempname()
+  vim.fn.mkdir(dir, "p")
+  if config_name then
+    vim.fn.writefile({ 'indent_type = "Spaces"', "indent_width = 2" }, dir .. "/" .. config_name)
+  end
+  local path = dir .. "/m.lua"
+  vim.fn.writefile(unformatted_lua, path)
+  -- No FileType autocmds, so the real lua_ls does not start
+  vim.api.nvim_set_option_value("eventignore", "FileType", { scope = "global" })
+  vim.cmd("silent edit " .. vim.fn.fnameescape(path))
+  vim.api.nvim_set_option_value("eventignore", "", { scope = "global" })
+  return dir, path, vim.api.nvim_get_current_buf()
+end
+
+for _, case in ipairs({ { "stylua.toml", true }, { ".stylua.toml", true }, { nil, false } }) do
+  local config_name, available = case[1], case[2]
+  test(
+    "stylua is " .. (available and "" or "not ") .. "available with " .. (config_name or "no config file"),
+    function()
+      local dir, _, buf = lua_project(config_name)
+      local info = require("conform").get_formatter_info("stylua", buf)
+      vim.cmd("bwipeout!")
+      vim.fn.delete(dir, "rf")
+      -- Without a config, conform reports the missing cwd. With one it is
+      -- available if the stylua binary is found, so only check the reason.
+      local no_root = info.available_msg ~= nil and info.available_msg:lower():find("root", 1, true) ~= nil
+      if available then
+        assert_true(info.available or not no_root, tostring(info.available_msg))
+      else
+        assert_eq(info.available, false, "available")
+        assert_true(no_root, tostring(info.available_msg))
+      end
+    end
+  )
+end
+
+test("saving a Lua file without a stylua config leaves it alone and does not ask lua_ls", function()
+  local dir, path, buf = lua_project(nil)
+  local log = {}
+  vim.lsp.start({ name = "lua_ls", cmd = fake_server("lua_ls", log), root_dir = dir }, { bufnr = buf })
+  vim.wait(2000, function()
+    return #vim.lsp.get_clients({ bufnr = buf }) == 1
+  end)
+  assert_eq(#vim.lsp.get_clients({ bufnr = buf }), 1, "fake lua_ls attached")
+  local save_opts = format_on_save_fn()(buf)
+  -- conform warns "Formatters unavailable" if asked to format with nothing
+  -- available, which would show on every save
+  local msgs = {}
+  local orig_notify = vim.notify
+  ---@diagnostic disable-next-line: duplicate-set-field
+  vim.notify = function(msg)
+    table.insert(msgs, msg)
+  end
+  local ok, err = pcall(vim.cmd.write, { mods = { silent = true } })
+  vim.notify = orig_notify
+  local lines = vim.fn.readfile(path)
+  h.stop_clients(vim.lsp.get_clients({ bufnr = buf }))
+  vim.cmd("bwipeout!")
+  vim.fn.delete(dir, "rf")
+  assert_true(ok, tostring(err))
+  assert_eq(save_opts, nil, "format_on_save")
+  assert_eq(lines, unformatted_lua, "saved file")
+  assert_true(not vim.list_contains(log, "lua_ls:textDocument/formatting"), "lua_ls asked to format")
+  assert_eq(msgs, {}, "notifications")
+end)
+
+-- stylua's version is pinned in vim.g.mason_tool_versions so it matches
+-- what make lint and CI use.
+test("Mason's stylua is pinned to CI's STYLUA_VERSION", function()
+  local workflow = vim.fn.readfile(vim.fn.stdpath("config") .. "/.github/workflows/test.yml")
+  local ci_version
+  for _, line in ipairs(workflow) do
+    ci_version = ci_version or line:match("^%s*STYLUA_VERSION:%s*([%d.]+)")
+  end
+  assert_true(ci_version ~= nil, "STYLUA_VERSION not found in test.yml")
+  assert_true(vim.list_contains(vim.g.mason_tools, "stylua"), "stylua not in vim.g.mason_tools")
+  assert_eq(vim.g.mason_tool_versions.stylua, "v" .. ci_version, "pinned stylua version")
+end)
+
 test("<leader>fm is no longer mapped", function()
   assert_true(
     vim.tbl_isempty(vim.fn.maparg("<leader>fm", "n", false, true)),
@@ -279,6 +369,31 @@ local samples = {
     want = { "class A {", "  void f() {}", "}" },
   },
 }
+if vim.fn.executable(mason_bin .. "stylua") == 1 or vim.env.CI then
+  test("saving a Lua file with a stylua.toml formats it with Mason's pinned stylua", function()
+    assert_eq(vim.fn.exepath("stylua"), mason_bin .. "stylua", "stylua on PATH")
+    local version = vim.system({ "stylua", "--version" }, { text = true }):wait().stdout or ""
+    assert_eq(vim.trim(version), "stylua " .. vim.g.mason_tool_versions.stylua:sub(2), "stylua --version")
+    local dir, path, buf = lua_project("stylua.toml")
+    local log = {}
+    vim.lsp.start({ name = "lua_ls", cmd = fake_server("lua_ls", log), root_dir = dir }, { bufnr = buf })
+    vim.wait(2000, function()
+      return #vim.lsp.get_clients({ bufnr = buf }) == 1
+    end)
+    local save_opts = format_on_save_fn()(buf)
+    vim.cmd("silent write")
+    local lines = vim.fn.readfile(path)
+    h.stop_clients(vim.lsp.get_clients({ bufnr = buf }))
+    vim.cmd("bwipeout!")
+    vim.fn.delete(dir, "rf")
+    assert_eq(save_opts, { timeout_ms = 5000, lsp_format = "fallback" }, "format_on_save")
+    assert_eq(lines, formatted_lua, "saved file")
+    assert_true(not vim.list_contains(log, "lua_ls:textDocument/formatting"), "lua_ls asked to format")
+  end)
+else
+  h.skip("saving a Lua file with a stylua.toml formats it with Mason's pinned stylua", "not installed")
+end
+
 for _, s in ipairs(samples) do
   if vim.fn.executable(mason_bin .. s.tool) == 1 or vim.env.CI then
     test("conform formats " .. s.ft .. " with Mason's " .. s.tool, function()
