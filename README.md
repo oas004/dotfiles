@@ -215,6 +215,36 @@ In the open buffers picker, `<leader>q` in normal mode (or `<M-d>` in insert mod
 | `<leader>l` | Toggle file explorer |
 | `<leader>L` | Reveal current file in explorer |
 
+### Window navigation and tmux
+
+| Keys | Action |
+|------|--------|
+| `<C-h>` `<C-j>` `<C-k>` `<C-l>` | Move to the window left/below/above/right, or past the last window into the tmux pane there |
+| `<A-h>` `<A-j>` `<A-k>` `<A-l>` | Resize the window (takes a count) |
+
+These come from [smart-splits.nvim](https://github.com/smart-splits-nvim/smart-splits.nvim) with its tmux backend, and are normal mode only, so in terminal mode (the Claude Code terminal) the keys still go to the program. `<C-l>` replaces Neovim's default redraw/clear-highlight map; `<Esc>` clears search highlighting. In nvim-tree, `<C-k>` is nvim-tree's own file info map. On macOS the `<A-…>` maps need the terminal to send Option as Meta (Alt).
+
+Outside tmux the keys just move between Neovim windows. Inside tmux, tmux needs bindings that pass the keys to Neovim when the pane runs it (smart-splits sets the pane option `@pane-is-vim` while Neovim runs) and move between panes otherwise. Add this to `~/.tmux.conf` and reload it with `tmux source-file ~/.tmux.conf`:
+
+```tmux
+bind -n C-h if -F '#{@pane-is-vim}' { send-keys C-h } { select-pane -L }
+bind -n C-j if -F '#{@pane-is-vim}' { send-keys C-j } { select-pane -D }
+bind -n C-k if -F '#{@pane-is-vim}' { send-keys C-k } { select-pane -U }
+bind -n C-l if -F '#{@pane-is-vim}' { send-keys C-l } { select-pane -R }
+
+bind -n M-h if -F '#{@pane-is-vim}' { send-keys M-h } { resize-pane -L 3 }
+bind -n M-j if -F '#{@pane-is-vim}' { send-keys M-j } { resize-pane -D 3 }
+bind -n M-k if -F '#{@pane-is-vim}' { send-keys M-k } { resize-pane -U 3 }
+bind -n M-l if -F '#{@pane-is-vim}' { send-keys M-l } { resize-pane -R 3 }
+
+bind -T copy-mode-vi C-h select-pane -L
+bind -T copy-mode-vi C-j select-pane -D
+bind -T copy-mode-vi C-k select-pane -U
+bind -T copy-mode-vi C-l select-pane -R
+```
+
+These bind the keys without the tmux prefix, so in panes that don't run Neovim (a shell, or Claude Code started directly in tmux) the keys move between panes instead of reaching the program: the shell's `<C-l>` (clear screen) and `<C-k>` (kill to end of line) are gone there. At the edge of the tmux window, focus wraps to the pane on the far side, which matches smart-splits' default `move.at_edge = "wrap"`. The backend's [README](https://github.com/smart-splits-nvim/backend-tmux#tmux) has variants that stop at the edge or create a pane instead. `:checkhealth smart-splits` shows whether the tmux backend is in use and which tmux keys defer to Neovim.
+
 ### General
 
 | Keys | Action |
