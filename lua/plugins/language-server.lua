@@ -285,7 +285,13 @@ return {
 
       -- Formatters for conform (lua/plugins/formatting.lua), installed by
       -- Mason below. Mason package names, read by .github/scripts/ci_warmup.lua.
-      vim.g.mason_tools = { "ktfmt", "google-java-format" }
+      vim.g.mason_tools = { "ktfmt", "google-java-format", "stylua" }
+      -- Versions for tools that must not follow Mason's latest. Mason installs
+      -- this version, and reinstalls it if a different one is installed (e.g.
+      -- after updating it in :Mason). stylua must match STYLUA_VERSION in
+      -- .github/workflows/test.yml, since another release can format the
+      -- same code differently than make lint and CI expect.
+      vim.g.mason_tool_versions = { stylua = "v2.6.0" }
 
       -- Only these servers are enabled, whatever else Mason has installed.
       -- rust-analyzer comes from rustup (bootstrap.sh) so it matches the toolchain.
@@ -320,9 +326,11 @@ return {
         registry.refresh(vim.schedule_wrap(function()
           for _, name in ipairs(vim.g.mason_tools) do
             local ok, pkg = pcall(registry.get_package, name)
-            if ok and not pkg:is_installed() and not pkg:is_installing() then
+            local version = vim.g.mason_tool_versions[name]
+            local wrong_version = ok and version and pkg:is_installed() and pkg:get_installed_version() ~= version
+            if ok and (not pkg:is_installed() or wrong_version) and not pkg:is_installing() then
               pkg:install(
-                {},
+                { version = version },
                 vim.schedule_wrap(function(success)
                   if not success then
                     vim.notify("Mason failed to install " .. name .. ", see :Mason and :MasonLog", vim.log.levels.ERROR)

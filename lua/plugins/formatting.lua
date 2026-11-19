@@ -6,6 +6,8 @@
 --   haskell    -> hls (ormolu, see language-server.lua), on save
 --   c/cpp/objc -> clangd (.clang-format, else LLVM style), on save
 --   json       -> jq / prettierd / prettier, manual only
+--   lua        -> stylua, on save, only in projects with a stylua.toml or
+--                 .stylua.toml (this repo has one); otherwise not on save
 
 -- Filetypes formatted by their language server. They list no CLI formatter,
 -- so lsp_format = "fallback" sends them straight to the server, and `name`
@@ -23,6 +25,7 @@ local formatters_by_ft = {
   kotlin = { "ktfmt" },
   java = { "google-java-format" },
   rust = { "rustfmt" },
+  lua = { "stylua" },
   json = { "jq", "prettierd", "prettier", stop_after_first = true },
 }
 for ft, server in pairs(lsp_formatters) do
@@ -33,6 +36,15 @@ end
 local format_on_save_filetypes = {
   java = true,
   rust = true,
+  lua = true,
+}
+
+-- Filetypes formatted on save only when this formatter can run. stylua needs
+-- a stylua.toml or .stylua.toml (require_cwd below). Without one, saving would
+-- warn "Formatters unavailable" every time, or with lsp_format = "fallback"
+-- reformat the file in lua_ls's own style.
+local on_save_only_with = {
+  lua = "stylua",
 }
 for ft in pairs(lsp_formatters) do
   format_on_save_filetypes[ft] = true
@@ -49,6 +61,10 @@ end
 
 local function format_on_save(bufnr)
   if not format_on_save_filetypes[vim.bo[bufnr].filetype] then
+    return nil
+  end
+  local required = on_save_only_with[vim.bo[bufnr].filetype]
+  if required and not require("conform").get_formatter_info(required, bufnr).available then
     return nil
   end
   -- java and rust fall back to their language server (jdtls / rust-analyzer)
@@ -105,6 +121,12 @@ return {
       formatters = {
         ktfmt = {
           prepend_args = { "--kotlinlang-style" },
+        },
+        -- conform's stylua runs in the directory of the nearest stylua.toml
+        -- or .stylua.toml; require_cwd makes it unavailable when there is
+        -- none, so Lua files elsewhere are left as they are.
+        stylua = {
+          require_cwd = true,
         },
       },
       format_on_save = format_on_save,

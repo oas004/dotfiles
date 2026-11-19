@@ -32,6 +32,16 @@ end
 local ok_registry, registry = pcall(require, "mason-registry")
 local ensure_installed = {}
 local tools = vim.g.mason_tools or {}
+local tool_versions = vim.g.mason_tool_versions or {}
+
+-- Installed at the version in vim.g.mason_tool_versions, if it has one
+local function tool_ok(pkg)
+  local version = tool_versions[pkg]
+  if not registry.is_installed(pkg) then
+    return false
+  end
+  return version == nil or registry.get_package(pkg):get_installed_version() == version
+end
 
 if ok_registry and vim.env.WARMUP_MASON ~= "0" then
   local ok_settings, settings = pcall(require, "mason-lspconfig.settings")
@@ -48,8 +58,9 @@ if ok_registry and vim.env.WARMUP_MASON ~= "0" then
     end
   end
   for _, pkg in ipairs(tools) do
-    if not registry.is_installed(pkg) then
-      table.insert(missing, pkg)
+    if not tool_ok(pkg) then
+      -- MasonInstall takes <package>@<version>
+      table.insert(missing, tool_versions[pkg] and (pkg .. "@" .. tool_versions[pkg]) or pkg)
     end
   end
   if #missing > 0 then
@@ -93,7 +104,13 @@ local function report(reason)
       out(string.format("  %s (%s): %s", server, pkg or "?", installed and "installed" or "MISSING"))
     end
     for _, pkg in ipairs(tools) do
-      out(string.format("  %s: %s", pkg, registry.is_installed(pkg) and "installed" or "MISSING"))
+      local status = "MISSING"
+      if tool_ok(pkg) then
+        status = "installed"
+      elseif registry.is_installed(pkg) then
+        status = "WRONG VERSION " .. tostring(registry.get_package(pkg):get_installed_version())
+      end
+      out(string.format("  %s: %s", pkg, status))
     end
   end
 

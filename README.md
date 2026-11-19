@@ -7,7 +7,7 @@ A modern Neovim configuration written in Lua with LSP support for Kotlin/Android
 - **Plugin Management**: lazy.nvim for fast, lazy-loading plugins
 - **LSP Support**: Rust (rust-analyzer from rustup), and Kotlin (JetBrains kotlin-lsp), Java, C/C++, Haskell, Python, Lua and Gradle via mason.nvim
 - **WebAssembly**: treesitter highlighting for WIT files; bootstrap.sh installs the wasm-tools CLI and the wasm32 Rust targets
-- **Autoformatting**: conform.nvim with ktfmt for Kotlin, google-java-format for Java (both installed by Mason), rustfmt for Rust
+- **Autoformatting**: conform.nvim with ktfmt for Kotlin, google-java-format for Java, StyLua for Lua in projects with a `stylua.toml` (all three installed by Mason), rustfmt for Rust
 - **Fuzzy Finding**: Telescope.nvim with ripgrep backend
 - **Theme**: Nordic colorscheme with optimized UI
 
@@ -31,7 +31,7 @@ jdtls needs Java 21+ and uses `JAVA_HOME` if it is set, otherwise `java` on PATH
 
 The script does not install ghcup, which Mason uses to install haskell-language-server. It warns if ghcup is missing; to use Haskell, install ghcup and GHC with `curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh`.
 
-The language servers (kotlin-lsp included) and the ktfmt and google-java-format formatters are installed by Mason, not by the script. Mason starts installing whatever is missing the first time you open Neovim; `:Mason` shows the progress. Mason's bin directory (`~/.local/share/nvim/mason/bin`) is put on PATH inside Neovim only, so these tools are not on your shell's PATH. ktfmt is a jar that Mason runs with `java -jar`, so it needs Java 17+ as `java` on PATH.
+The language servers (kotlin-lsp included) and the ktfmt, google-java-format and StyLua formatters are installed by Mason, not by the script. Mason starts installing whatever is missing the first time you open Neovim; `:Mason` shows the progress. Mason's bin directory (`~/.local/share/nvim/mason/bin`) is put on PATH inside Neovim only, so these tools are not on your shell's PATH. ktfmt is a jar that Mason runs with `java -jar`, so it needs Java 17+ as `java` on PATH.
 
 ### Manual Setup
 
@@ -92,7 +92,7 @@ sudo dnf install neovim ripgrep tree-sitter-cli gcc unzip jq java-21-openjdk-dev
    nvim
    ```
 
-4. **Let Mason install the LSP servers and formatters** (kotlin-lsp, ktfmt and google-java-format included). This starts on its own; follow it with:
+4. **Let Mason install the LSP servers and formatters** (kotlin-lsp, ktfmt, google-java-format and StyLua included). This starts on its own; follow it with:
    ```
    :Mason
    ```
@@ -311,6 +311,8 @@ It runs `tests/bootstrap_test.sh`, every `tests/*_test.lua` in a fresh headless 
 `make lint` runs [selene](https://github.com/Kampfkarren/selene) over the Lua files, with the `vim` global declared in `vim.yml`, [ShellCheck](https://github.com/koalaman/shellcheck) over the tracked `*.sh` files (`bootstrap.sh` and the shell scripts in `tests/`), and lua-language-server's type check. ShellCheck runs at its default severity, so info-level notes fail too; silence a false positive with a `# shellcheck disable=SCxxxx` comment on the narrowest scope, with a reason. CI runs `make lint` too.
 
 Lua is formatted with [StyLua](https://github.com/JohnnyMorganz/StyLua), configured in `stylua.toml` (2-space indentation, double quotes, 120 columns). `make lint` starts with `stylua --check` over `init.lua`, `lua/`, `tests/` and `.github/scripts/` and fails on any file that isn't formatted; `make format` rewrites them in place. CI pins StyLua (`STYLUA_VERSION` in `.github/workflows/test.yml`), and other releases can format some code differently, so use the same version locally.
+
+Inside Neovim, saving a Lua file formats it with StyLua when a `stylua.toml` or `.stylua.toml` is found in its directory or a parent, as in this repo. Lua files in projects without one are not formatted on save (`<leader>cf` still formats them with lua_ls). Mason installs StyLua at the version in `vim.g.mason_tool_versions` (`lua/plugins/language-server.lua`), which must match `STYLUA_VERSION`; tests/format_test.lua fails if they differ. Mason's copy is only on PATH inside Neovim, so `make lint` and `make format` still need `stylua` on your shell's PATH (or run them with `PATH=~/.local/share/nvim/mason/bin:$PATH`).
 
 The commit that first formatted the repo with StyLua is listed in `.git-blame-ignore-revs`, so blame shows who last really changed a line. GitHub's blame view uses the file automatically; for local `git blame`, run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once.
 
