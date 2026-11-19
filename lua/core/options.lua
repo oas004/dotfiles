@@ -1,4 +1,7 @@
 vim.g.mapleader = " "
+-- Set explicitly (the default is also backslash) so it is defined before
+-- lazy.nvim loads filetype plugins that map <localleader>.
+vim.g.maplocalleader = "\\"
 
 local opt = vim.opt
 
@@ -6,9 +9,23 @@ opt.clipboard = "unnamedplus" -- use system clipboard
 
 -- ui
 opt.termguicolors = true -- true color support
-opt.cursorline = false -- disable for performance (especially on macOS)
+-- Highlight only the current line number. cursorline was slow with Vim's
+-- regex syntax highlighting, but it is cheap with treesitter.
+opt.cursorline = true
+opt.cursorlineopt = "number"
 opt.wrap = false -- nowrap
 opt.signcolumn = "yes" -- always show, so text does not shift when signs appear
+opt.breakindent = true -- wrapped lines keep their indent (when wrap is on)
+-- Show tabs, trailing spaces and non-breaking spaces
+opt.list = true
+opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
+
+-- windows
+opt.splitright = true -- :vsplit opens to the right
+opt.splitbelow = true -- :split opens below
+
+-- Ask to save instead of failing on :q with unsaved changes
+opt.confirm = true
 
 -- line numbers
 opt.number = true -- show line numbers
@@ -35,6 +52,13 @@ opt.undofile = true
 -- search
 opt.hlsearch = true
 opt.incsearch = true
+-- Case-insensitive unless the pattern has an uppercase letter, like
+-- live grep's rg --smart-case. * and # don't use smartcase, so they ignore
+-- case too; \C in a pattern forces case-sensitive matching.
+opt.ignorecase = true
+opt.smartcase = true
+-- Preview :s replacements as you type, with off-screen matches in a split
+opt.inccommand = "split"
 
 opt.scrolloff = 8
 opt.sidescrolloff = 8
@@ -43,10 +67,10 @@ opt.sidescrolloff = 8
 -- CursorHold autoreload check below notices changed files sooner.
 opt.updatetime = 250
 
--- Performance optimizations
-opt.lazyredraw = true -- don't redraw during macros/scripts
-opt.synmaxcol = 300 -- don't syntax highlight long lines
-opt.redrawtime = 1500 -- prevent slow rendering
+-- Regex syntax highlighting (buffers without a treesitter parser) stops
+-- after this column. Treesitter highlighting ignores it.
+opt.synmaxcol = 300
+opt.redrawtime = 1500 -- ms before hlsearch and regex syntax give up on a redraw
 
 -- Reload files changed on disk by other programs (e.g. AI coding agents
 -- such as Claude Code editing files while they are open here).
