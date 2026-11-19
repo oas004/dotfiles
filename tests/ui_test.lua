@@ -238,9 +238,24 @@ test("telescope pickers open without warnings, errors or deprecations", function
   vim.cmd("messages clear")
   vim.v.errmsg = ""
   local problems = {}
+  -- Prompt title of each picker, to check a map opens the right one
+  local titles = {
+    find_files = "Find Files",
+    live_grep = "Live Grep",
+    buffers = "Buffers",
+    oldfiles = "Oldfiles",
+    lsp_document_symbols = "LSP Document Symbols",
+    lsp_workspace_symbols = "LSP Workspace Symbols",
+  }
+  -- The <leader>f group, then the old single-letter aliases
   local pickers = {
+    { "<leader>ff", "find_files" },
+    { "<leader>fg", "live_grep" },
+    { "<leader>fb", "buffers" },
+    { "<leader>fr", "oldfiles" },
+    { "<leader>fs", "lsp_document_symbols" },
+    { "<leader>fS", "lsp_workspace_symbols" },
     { "<leader>p", "find_files" },
-    { "<leader>f", "live_grep" },
     { "<leader>o", "buffers" },
     { "<leader>r", "oldfiles" },
     { "<leader>s", "lsp_document_symbols" },
@@ -262,7 +277,12 @@ test("telescope pickers open without warnings, errors or deprecations", function
       if not opened then
         table.insert(problems, picker .. " (" .. lhs .. ") did not open")
       else
-        require("telescope.actions").close(vim.api.nvim_get_current_buf())
+        local prompt = vim.api.nvim_get_current_buf()
+        local title = require("telescope.actions.state").get_current_picker(prompt).prompt_title
+        if title ~= titles[picker] then
+          table.insert(problems, ("%s opened %q, expected %q"):format(lhs, title, titles[picker]))
+        end
+        require("telescope.actions").close(prompt)
       end
     end
   end

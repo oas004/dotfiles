@@ -272,6 +272,7 @@ test("LSP keymaps stay until the last client detaches", function()
     "<F2>",
     "<F4>",
     "<leader>ca",
+    "<leader>cr",
     "<D-b>",
     "<D-A-b>",
     "<A-F7>",
@@ -308,6 +309,7 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
     end
     for _, lhs in ipairs({
       "<leader>ca",
+      "<leader>cr",
       "gs",
       "<F2>",
       "<F4>",

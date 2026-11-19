@@ -138,9 +138,11 @@ See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 
 The leader key is `<Space>`, and the local leader (used by some filetype plugins) is `\`.
 
+Leader maps are grouped by a mnemonic letter: `a` Claude, `c` code, `f` find, `h` git hunks, `n` new, `y` yank. Planned features get their own groups: `g` git tools (diff views, Git UI), `d` debug, `t` test, `u` toggles and `x` lists (diagnostics, quickfix). The pickers used to be single letters (`<leader>p`, `o`, `r`, `s`, `S`); those still work as aliases of the `<leader>f` maps and will be removed later. The old `<leader>f` (grep) is now `<leader>fg`, since `<leader>f` is the group. `<leader>e`/`<leader>E` (diagnostics) and `<leader>l`/`<leader>L` (file explorer) stay as they are.
+
 ### which-key
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) shows a popup with the keys that can follow a prefix (`<leader>`, `g`, `z`, `]`, ...) when you pause after typing it. It loads right after startup. The `<leader>` groups are `a` (Claude), `c` (code), `h` (git hunks), `n` (new) and `y` (yank); a group only shows up when something is mapped under it. `<leader>?` lists the keymaps local to the current buffer, such as the LSP maps. `:checkhealth which-key` reports overlapping and duplicate mappings.
+[which-key.nvim](https://github.com/folke/which-key.nvim) shows a popup with the keys that can follow a prefix (`<leader>`, `g`, `z`, `]`, ...) when you pause after typing it. It loads right after startup. The `<leader>` groups are `a` (Claude), `c` (code), `f` (find), `h` (git hunks), `n` (new) and `y` (yank); a group only shows up when something is mapped under it. `<leader>?` lists the keymaps local to the current buffer, such as the LSP maps. `:checkhealth which-key` reports overlapping and duplicate mappings.
 
 ### LSP Navigation
 
@@ -176,7 +178,7 @@ Neovim's own insert-mode `<C-s>` for signature help is replaced by save, so it i
 | Keys | Action |
 |------|--------|
 | `<leader>ca` / `<F4>` | Code actions (quick fixes) |
-| `<F2>` / `<S-F6>` | Rename symbol |
+| `<leader>cr` / `<F2>` / `<S-F6>` | Rename symbol |
 | `<leader>cf` | Format buffer |
 
 ### Android Studio-style keys (macOS)
@@ -197,14 +199,14 @@ These need a terminal or GUI that passes Cmd (and Option as Alt) through to Neov
 
 ### File Navigation (Telescope)
 
-| Keys | Action |
-|------|--------|
-| `<leader>p` | Find files |
-| `<leader>f` | Find in files (grep) |
-| `<leader>o` | Open buffers |
-| `<leader>s` | Document symbols (outline of current file) |
-| `<leader>S` | Workspace symbols (search across project) |
-| `<leader>r` | Recent files |
+| Keys | Old alias | Action |
+|------|-----------|--------|
+| `<leader>ff` | `<leader>p` | Find files |
+| `<leader>fg` | | Find in files (grep) |
+| `<leader>fb` | `<leader>o` | Open buffers |
+| `<leader>fr` | `<leader>r` | Recent files |
+| `<leader>fs` | `<leader>s` | Document symbols (outline of current file) |
+| `<leader>fS` | `<leader>S` | Workspace symbols (search across project) |
 
 In the open buffers picker, `<leader>q` in normal mode (or `<M-d>` in insert mode) closes the selected buffer.
 

@@ -231,6 +231,7 @@ return {
         { "n", "<F2>", vim.lsp.buf.rename, "LSP: Rename symbol" },
         { { "n", "x" }, "<F4>", vim.lsp.buf.code_action, "LSP: Code actions" },
         { "n", "<leader>ca", vim.lsp.buf.code_action, "LSP: Code actions" },
+        { "n", "<leader>cr", vim.lsp.buf.rename, "LSP: Rename symbol" },
         -- Android Studio-like keybindings (Mac)
         { "n", "<D-b>", vim.lsp.buf.definition, "LSP: Go to definition (Cmd+B)" },
         { "n", "<D-A-b>", vim.lsp.buf.implementation, "LSP: Go to implementation (Cmd+Opt+B)" },

@@ -1,4 +1,40 @@
 -- https://github.com/nvim-telescope/telescope.nvim
+
+local function picker(name)
+  return function()
+    require("telescope.builtin")[name]()
+  end
+end
+
+-- Android Studio-like keybindings (Mac). Terminals that don't pass Cmd
+-- through use the <leader>f maps below.
+local keys = {
+  { "<D-S-o>", picker("find_files"), desc = "Go to file (Cmd+Shift+O)" },
+  { "<D-o>", picker("lsp_document_symbols"), desc = "Go to symbol in file (Cmd+O)" },
+  { "<D-A-o>", picker("lsp_workspace_symbols"), desc = "Go to symbol (Cmd+Opt+O)" },
+  { "<D-S-f>", picker("live_grep"), desc = "Find in path (Cmd+Shift+F)" },
+  { "<D-e>", picker("oldfiles"), desc = "Recent files (Cmd+E)" },
+}
+
+-- Pickers under the <leader>f (find) group. The single-letter maps they
+-- replaced stay as aliases for now. <leader>f itself is the group prefix,
+-- so its old live grep map is only on <leader>fg.
+local leader_pickers = {
+  { "ff", "find_files", "Find files", alias = "p" },
+  { "fg", "live_grep", "Grep in files" },
+  { "fb", "buffers", "Buffers", alias = "o" },
+  { "fr", "oldfiles", "Recent files", alias = "r" },
+  { "fs", "lsp_document_symbols", "Document symbols", alias = "s" },
+  { "fS", "lsp_workspace_symbols", "Workspace symbols", alias = "S" },
+}
+for _, p in ipairs(leader_pickers) do
+  table.insert(keys, { "<Leader>" .. p[1], picker(p[2]), desc = p[3] })
+  if p.alias then
+    local desc = p[3] .. " (old map, use <leader>" .. p[1] .. ")"
+    table.insert(keys, { "<Leader>" .. p.alias, picker(p[2]), desc = desc })
+  end
+end
+
 return {
   {
     "nvim-telescope/telescope.nvim",
@@ -69,87 +105,6 @@ return {
       -- fzf binary. pcall covers the case where `make` has not been run.
       pcall(telescope.load_extension, "fzf")
     end,
-    keys = {
-      -- Android Studio-like keybindings (Mac)
-      {
-        "<D-S-o>",
-        function()
-          require("telescope.builtin").find_files()
-        end,
-        desc = "Go to file (Cmd+Shift+O)",
-      },
-      {
-        "<D-o>",
-        function()
-          require("telescope.builtin").lsp_document_symbols()
-        end,
-        desc = "Go to symbol in file (Cmd+O)",
-      },
-      {
-        "<D-A-o>",
-        function()
-          require("telescope.builtin").lsp_workspace_symbols()
-        end,
-        desc = "Go to symbol (Cmd+Opt+O)",
-      },
-      {
-        "<D-S-f>",
-        function()
-          require("telescope.builtin").live_grep()
-        end,
-        desc = "Find in path (Cmd+Shift+F)",
-      },
-      {
-        "<D-e>",
-        function()
-          require("telescope.builtin").oldfiles()
-        end,
-        desc = "Recent files (Cmd+E)",
-      },
-
-      -- Fallback leader-based bindings (for terminals that don't pass Cmd)
-      {
-        "<Leader>f",
-        function()
-          require("telescope.builtin").live_grep()
-        end,
-        desc = "Find in files",
-      },
-      {
-        "<Leader>p",
-        function()
-          require("telescope.builtin").find_files()
-        end,
-        desc = "Find files",
-      },
-      {
-        "<Leader>o",
-        function()
-          require("telescope.builtin").buffers()
-        end,
-        desc = "Open buffers",
-      },
-      {
-        "<Leader>s",
-        function()
-          require("telescope.builtin").lsp_document_symbols()
-        end,
-        desc = "Document symbols",
-      },
-      {
-        "<Leader>S",
-        function()
-          require("telescope.builtin").lsp_workspace_symbols()
-        end,
-        desc = "Workspace symbols",
-      },
-      {
-        "<Leader>r",
-        function()
-          require("telescope.builtin").oldfiles()
-        end,
-        desc = "Recent files",
-      },
-    },
+    keys = keys,
   },
 }
