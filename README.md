@@ -136,7 +136,7 @@ See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 
 ### Leader Key
 
-The leader key is `<Space>`.
+The leader key is `<Space>`, and the local leader (used by some filetype plugins) is `\`.
 
 ### which-key
 
