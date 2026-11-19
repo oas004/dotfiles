@@ -289,12 +289,151 @@ test("LSP keymaps stay until the last client detaches", function()
   vim.cmd("bwipeout!")
 end)
 
+-- Start a fake server with capabilities on a new buffer, wait for it to
+-- initialize, and return the client and buffer. Request methods go to log.
+local function start_fake(name, capabilities, results, log)
+  vim.cmd("enew")
+  local bufnr = vim.api.nvim_get_current_buf()
+  local id = vim.lsp.start({
+    name = name,
+    cmd = h.fake_lsp_server({ capabilities = capabilities, results = results, log = log }),
+    root_dir = tmp,
+  }, { bufnr = bufnr })
+  assert_not_nil(id, name .. " did not start")
+  ---@cast id -nil
+  vim.wait(2000, function()
+    local c = vim.lsp.get_client_by_id(id)
+    return c ~= nil and c.initialized == true
+  end, 20)
+  return assert(vim.lsp.get_client_by_id(id)), bufnr
+end
+
+local function count(log, method)
+  return #vim.tbl_filter(function(m)
+    return m == method
+  end, log)
+end
+
+local function wait_for_request(log, method, n)
+  vim.wait(2000, function()
+    return count(log, method) >= (n or 1)
+  end, 20)
+  return count(log, method)
+end
+
+local zero_range = { start = { line = 0, character = 0 }, ["end"] = { line = 0, character = 1 } }
+
+test("inlay hints are on, and <leader>uh toggles them everywhere", function()
+  local log = {}
+  -- textDocumentSync, since 0.11 asks for hints after didOpen/didChange
+  local client, bufnr = start_fake("fake_hints", { inlayHintProvider = true, textDocumentSync = 1 }, {
+    ["textDocument/inlayHint"] = { { position = { line = 0, character = 1 }, label = ": int", kind = 1 } },
+  }, log)
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "x = 1" })
+  assert_true(vim.lsp.inlay_hint.is_enabled(), "inlay hints not enabled globally")
+  assert_true(vim.lsp.inlay_hint.is_enabled({ bufnr = bufnr }), "inlay hints not enabled in the buffer")
+  assert_true(wait_for_request(log, "textDocument/inlayHint") > 0, "no inlayHint request: " .. vim.inspect(log))
+
+  local m = h.find_keymap("n", "<leader>uh")
+  assert_true(m ~= nil and m.callback ~= nil, "<leader>uh not mapped")
+  ---@cast m -nil
+  assert_eq(m.desc, "Toggle inlay hints", "<leader>uh desc")
+  m.callback()
+  assert_true(not vim.lsp.inlay_hint.is_enabled(), "still enabled after <leader>uh")
+  assert_true(not vim.lsp.inlay_hint.is_enabled({ bufnr = bufnr }), "still enabled in the buffer after <leader>uh")
+  m.callback()
+  assert_true(vim.lsp.inlay_hint.is_enabled({ bufnr = bufnr }), "not enabled again after a second <leader>uh")
+
+  h.stop_client(client)
+  vim.cmd("bwipeout!")
+end)
+
+-- 0.12 has vim.lsp.codelens.enable() and a global grx; 0.11 needs refresh()
+local native_codelens = vim.lsp.codelens.enable ~= nil
+
+local function lenses(bufnr)
+  if native_codelens then
+    -- 0.12's signature; make lint type-checks against the 0.11 runtime
+    ---@diagnostic disable-next-line: param-type-mismatch
+    return vim.lsp.codelens.get({ bufnr = bufnr })
+  end
+  return vim.lsp.codelens.get(bufnr)
+end
+
+test("code lenses are fetched and kept up to date", function()
+  local log = {}
+  local client, bufnr = start_fake("fake_lens", { codeLensProvider = { resolveProvider = false } }, {
+    ["textDocument/codeLens"] = { { range = zero_range, command = { title = "2 references", command = "noop" } } },
+  }, log)
+  assert_true(wait_for_request(log, "textDocument/codeLens") > 0, "no codeLens request: " .. vim.inspect(log))
+  vim.wait(1000, function()
+    return #lenses(bufnr) > 0
+  end, 20)
+  assert_eq(#lenses(bufnr), 1, "code lenses stored for the buffer")
+
+  -- Editing in insert mode and leaving it asks for the lenses again
+  local before = count(log, "textDocument/codeLens")
+  vim.api.nvim_feedkeys("ix\27", "x", false)
+  assert_true(
+    wait_for_request(log, "textDocument/codeLens", before + 1) > before,
+    "no codeLens request after an edit: " .. vim.inspect(log)
+  )
+
+  for _, lhs in ipairs(native_codelens and { "<leader>cl" } or { "<leader>cl", "grx" }) do
+    local m = h.find_keymap("n", lhs, bufnr)
+    assert_true(m ~= nil, lhs .. " not mapped in the buffer")
+    ---@cast m -nil
+    assert_eq(m.callback, vim.lsp.codelens.run, lhs .. " callback")
+  end
+  if native_codelens then
+    assert_true(vim.fn.maparg("grx", "n") ~= "", "built-in grx missing")
+  end
+
+  h.stop_client(client)
+  vim.cmd("bwipeout!")
+end)
+
+if not native_codelens then
+  test("0.11: code lens refresh stops when the last client detaches", function()
+    local log = {}
+    local client, bufnr = start_fake("fake_lens_detach", { codeLensProvider = {} }, {
+      ["textDocument/codeLens"] = {},
+    }, log)
+    wait_for_request(log, "textDocument/codeLens")
+    assert_true(#vim.api.nvim_get_autocmds({ group = "user_codelens_" .. bufnr }) > 0, "no refresh autocmds")
+    vim.lsp.buf_detach_client(bufnr, client.id)
+    vim.wait(1000, function()
+      return not pcall(vim.api.nvim_get_autocmds, { group = "user_codelens_" .. bufnr })
+    end, 20)
+    assert_true(
+      not pcall(vim.api.nvim_get_autocmds, { group = "user_codelens_" .. bufnr }),
+      "refresh autocmds left after detach"
+    )
+    h.stop_client(client)
+    vim.cmd("bwipeout!")
+  end)
+
+  test("0.11: no code lens refresh for servers without code lenses", function()
+    local client, bufnr = start_fake("fake_no_lens", {}, {}, {})
+    assert_true(
+      not pcall(vim.api.nvim_get_autocmds, { group = "user_codelens_" .. bufnr }),
+      "refresh autocmds created for a server without code lenses"
+    )
+    h.stop_client(client)
+    vim.cmd("bwipeout!")
+  end)
+else
+  skip("0.11: code lens refresh stops when the last client detaches", "0.12 refreshes code lenses itself")
+  skip("0.11: no code lens refresh for servers without code lenses", "0.12 refreshes code lenses itself")
+end
+
 if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
   test("lua_ls attaches with globals and buffer keymaps", function()
     local client, bufnr = attach(tmp .. "/lua/t.lua", { "vim.print(1)" }, "lua_ls")
     assert_not_nil(client, "lua_ls did not attach")
     local globals = vim.tbl_get(client.config.settings, "Lua", "diagnostics", "globals")
     assert_true(globals and vim.tbl_contains(globals, "vim"), "running client lacks globals")
+    assert_eq(vim.tbl_get(client.config.settings, "Lua", "hint", "enable"), true, "Lua.hint.enable")
     assert_not_nil(
       vim.tbl_get(client.config.capabilities, "textDocument", "completion", "completionItem", "resolveSupport"),
       "running client lacks cmp capabilities"

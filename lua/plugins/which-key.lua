@@ -26,6 +26,7 @@ return {
         { "<leader>f", group = "find" },
         { "<leader>h", group = "git hunks", mode = { "n", "x" } },
         { "<leader>n", group = "new" },
+        { "<leader>u", group = "toggles" },
         { "<leader>y", group = "yank", mode = { "n", "x" } },
       },
     },
