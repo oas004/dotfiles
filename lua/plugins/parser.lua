@@ -23,6 +23,17 @@ local parsers = {
   "bash",
   "markdown",
   "markdown_inline",
+  -- Android and Gradle: AndroidManifest.xml and res/ files, build.gradle
+  -- and settings.gradle (the .kts files use kotlin). xml also installs dtd.
+  "xml",
+  "groovy",
+  -- Git: commit messages, interactive rebase todo lists, patches
+  "gitcommit",
+  "git_rebase",
+  "diff",
+  -- Injected into other languages: regex literals, HTML in markdown
+  "regex",
+  "html",
 }
 -- Exposed so bootstrap.sh can install the same list synchronously.
 vim.g.treesitter_parsers = parsers
