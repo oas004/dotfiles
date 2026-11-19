@@ -38,8 +38,20 @@ local parsers = {
 -- Exposed so bootstrap.sh can install the same list synchronously.
 vim.g.treesitter_parsers = parsers
 
--- Treesitter highlighting is skipped for files larger than this.
+-- Treesitter highlighting, folding and indentation are skipped for files
+-- larger than this.
 local max_filesize = 100 * 1024
+
+-- Filetypes indented with nvim-treesitter's indentexpr instead of the
+-- runtime indent script. nvim-treesitter calls its indentation
+-- experimental, so it is only used where it did better than the runtime
+-- script (reindenting rustfmt and clang-format output, and typing new
+-- lines). Kotlin and Haskell have no indent queries; Java, C, Lua and
+-- Python did as well or better with the runtime script.
+local treesitter_indent = {
+  rust = true,
+  cpp = true,
+}
 
 -- nvim-treesitter's main branch dropped Neovim 0.11 support in c82bf96f.
 -- On 0.11, pin the last main commit that still supports it. Once Neovim is
@@ -81,16 +93,53 @@ return {
         end
       end
 
-      -- Highlighting is no longer a plugin module on main; start it per
-      -- buffer instead. pcall because not every filetype has a parser.
+      -- Files open with every fold open. Global, so reloading a file (which
+      -- fires FileType again) doesn't undo zM or zc.
+      vim.o.foldlevel = 99
+
+      -- Fold options are window-local. vim.wo[0][0] is :setlocal, so the
+      -- values belong to the current buffer in the current window and stay
+      -- with the buffer when it is shown in other windows; other buffers in
+      -- the window keep their own fold settings.
+      local function set_folds()
+        vim.wo[0][0].foldmethod = "expr"
+        vim.wo[0][0].foldexpr = "v:lua.vim.treesitter.foldexpr()"
+        vim.wo[0][0].foldtext = "" -- fold lines keep their highlighting
+      end
+
+      -- Highlighting, folding and indentation are no longer plugin modules
+      -- on main; enable them per buffer instead. pcall because not every
+      -- filetype has a parser.
+      local group = vim.api.nvim_create_augroup("treesitter_buffer", { clear = true })
       vim.api.nvim_create_autocmd("FileType", {
-        group = vim.api.nvim_create_augroup("treesitter_highlight", { clear = true }),
+        group = group,
         callback = function(args)
-          local ok, stats = pcall(vim.uv.fs_stat, vim.api.nvim_buf_get_name(args.buf))
+          local buf = args.buf
+          local ok, stats = pcall(vim.uv.fs_stat, vim.api.nvim_buf_get_name(buf))
           if ok and stats and stats.size > max_filesize then
             return
           end
-          pcall(vim.treesitter.start, args.buf)
+          if not pcall(vim.treesitter.start, buf) then
+            return
+          end
+          vim.b[buf].treesitter_folds = true
+          set_folds()
+          if treesitter_indent[vim.bo[buf].filetype] then
+            vim.bo[buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+          end
+        end,
+      })
+
+      -- A file loaded in the background (bufload(), as LSP rename does) gets
+      -- FileType in a temporary autocmd window, so the fold options above
+      -- never reach a real window. Set them when the buffer is first shown,
+      -- unless the window already has fold settings for it.
+      vim.api.nvim_create_autocmd("BufWinEnter", {
+        group = group,
+        callback = function(args)
+          if vim.b[args.buf].treesitter_folds and vim.wo.foldmethod == "manual" and vim.wo.foldexpr == "0" then
+            set_folds()
+          end
         end,
       })
     end,
