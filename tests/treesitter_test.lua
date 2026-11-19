@@ -1,6 +1,7 @@
 -- Treesitter behaviour tests (highlighting, text objects, large-file guard)
 -- Run with: nvim --headless -c "luafile tests/treesitter_test.lua"
--- Needs the lua and kotlin parsers installed (see lua/plugins/parser.lua).
+-- Needs the parsers in lua/plugins/parser.lua installed (bootstrap.sh and
+-- the CI warmup install them).
 
 ---@module "tests.helpers"
 local h = dofile(vim.fs.dirname(debug.getinfo(1, "S").source:sub(2)) .. "/helpers.lua")
@@ -13,13 +14,15 @@ h.wait_for_lazy()
 -- (initializing, or indexing on a cold start on CI) when the test quits, so
 -- it gets force-stopped and logs "Client kotlin_lsp quit with exit code 143",
 -- and on CI it doesn't exit within 10 s of a graceful stop either.
-vim.lsp.enable({ "kotlin_lsp", "lua_ls" }, false)
+-- gradle_ls would attach to the build.gradle files below the same way.
+vim.lsp.enable({ "kotlin_lsp", "lua_ls", "gradle_ls" }, false)
 
 local tmpdir = vim.fn.tempname()
 vim.fn.mkdir(tmpdir, "p")
 
 local function write_file(name, lines)
   local path = tmpdir .. "/" .. name
+  vim.fn.mkdir(vim.fs.dirname(path), "p")
   vim.fn.writefile(lines, path)
   return path
 end
@@ -88,6 +91,57 @@ test("highlighting active in kotlin buffer", function()
   assert_eq(vim.bo[buf].filetype, "kotlin", "filetype")
   assert_true(highlighting(buf), "treesitter highlighter not active for kotlin")
 end)
+
+test("every parser in vim.g.treesitter_parsers is installed", function()
+  local missing = vim.tbl_filter(function(lang)
+    return not vim.treesitter.language.add(lang)
+  end, vim.g.treesitter_parsers)
+  assert_eq(missing, {}, "parsers not available")
+end)
+
+-- Files this setup opens that have no parser without the Android, Gradle
+-- and Git entries in lua/plugins/parser.lua: path, filetype, parser.
+local file_parsers = {
+  { "app/src/main/AndroidManifest.xml", { '<?xml version="1.0"?>', '<manifest package="a" />' }, "xml", "xml" },
+  { "app/src/main/res/values/strings.xml", { '<resources><string name="a">A</string></resources>' }, "xml", "xml" },
+  { "build.gradle", { "plugins {", "    id 'java'", "}" }, "groovy", "groovy" },
+  { "settings.gradle", { "include ':app'" }, "groovy", "groovy" },
+  { ".git/COMMIT_EDITMSG", { "Fix the thing", "", "# Please enter the commit message" }, "gitcommit", "gitcommit" },
+  { ".git/rebase-merge/git-rebase-todo", { "pick abc1234 Fix the thing" }, "gitrebase", "git_rebase" },
+  { "fix.diff", { "--- a/x", "+++ b/x", "@@ -1 +1 @@", "-a", "+b" }, "diff", "diff" },
+  { "fix.patch", { "--- a/x", "+++ b/x", "@@ -1 +1 @@", "-a", "+b" }, "diff", "diff" },
+}
+
+for _, f in ipairs(file_parsers) do
+  local name, lines, ft, lang = f[1], f[2], f[3], f[4]
+  test(name .. " is highlighted with the " .. lang .. " parser", function()
+    assert_true(vim.list_contains(vim.g.treesitter_parsers, lang), lang .. " is not in vim.g.treesitter_parsers")
+    local buf = open(write_file(name, lines))
+    assert_eq(vim.bo[buf].filetype, ft, "filetype")
+    assert_true(highlighting(buf), "treesitter highlighter not active")
+    assert_eq(assert(vim.treesitter.get_parser(buf)):lang(), lang, "parser")
+  end)
+end
+
+-- Languages that are only used as injections into other languages
+local injections = {
+  { "regex", "pattern.js", { "const re = /a+b/;" } },
+  { "html", "page.md", { "# Title", "", "<div>", "  <p>hi</p>", "</div>" } },
+}
+
+for _, inj in ipairs(injections) do
+  local lang, name, lines = inj[1], inj[2], inj[3]
+  test(lang .. " is injected into " .. name, function()
+    assert_true(vim.list_contains(vim.g.treesitter_parsers, lang), lang .. " is not in vim.g.treesitter_parsers")
+    local buf = open(write_file(name, lines))
+    local parser = assert(vim.treesitter.get_parser(buf))
+    parser:parse(true)
+    assert_true(
+      parser:children()[lang] ~= nil,
+      "no " .. lang .. " injection, children: " .. vim.inspect(vim.tbl_keys(parser:children()))
+    )
+  end)
+end
 
 test("af selects around function", function()
   open(lua_path)
