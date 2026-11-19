@@ -138,11 +138,11 @@ See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 
 The leader key is `<Space>`, and the local leader (used by some filetype plugins) is `\`.
 
-Leader maps are grouped by a mnemonic letter: `a` Claude, `c` code, `f` find, `h` git hunks, `n` new, `y` yank. Planned features get their own groups: `g` git tools (diff views, Git UI), `d` debug, `t` test, `u` toggles and `x` lists (diagnostics, quickfix). The pickers used to be single letters (`<leader>p`, `o`, `r`, `s`, `S`); those still work as aliases of the `<leader>f` maps and will be removed later. The old `<leader>f` (grep) is now `<leader>fg`, since `<leader>f` is the group. `<leader>e`/`<leader>E` (diagnostics) and `<leader>l`/`<leader>L` (file explorer) stay as they are.
+Leader maps are grouped by a mnemonic letter: `a` Claude, `c` code, `f` find, `h` git hunks, `n` new, `u` toggles, `y` yank. Planned features get their own groups: `g` git tools (diff views, Git UI), `d` debug, `t` test and `x` lists (diagnostics, quickfix). The pickers used to be single letters (`<leader>p`, `o`, `r`, `s`, `S`); those still work as aliases of the `<leader>f` maps and will be removed later. The old `<leader>f` (grep) is now `<leader>fg`, since `<leader>f` is the group. `<leader>e`/`<leader>E` (diagnostics) and `<leader>l`/`<leader>L` (file explorer) stay as they are.
 
 ### which-key
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) shows a popup with the keys that can follow a prefix (`<leader>`, `g`, `z`, `]`, ...) when you pause after typing it. It loads right after startup. The `<leader>` groups are `a` (Claude), `c` (code), `f` (find), `h` (git hunks), `n` (new) and `y` (yank); a group only shows up when something is mapped under it. `<leader>?` lists the keymaps local to the current buffer, such as the LSP maps. `:checkhealth which-key` reports overlapping and duplicate mappings.
+[which-key.nvim](https://github.com/folke/which-key.nvim) shows a popup with the keys that can follow a prefix (`<leader>`, `g`, `z`, `]`, ...) when you pause after typing it. It loads right after startup. The `<leader>` groups are `a` (Claude), `c` (code), `f` (find), `h` (git hunks), `n` (new), `u` (toggles) and `y` (yank); a group only shows up when something is mapped under it. `<leader>?` lists the keymaps local to the current buffer, such as the LSP maps. `:checkhealth which-key` reports overlapping and duplicate mappings.
 
 ### LSP Navigation
 
@@ -180,6 +180,13 @@ Neovim's own insert-mode `<C-s>` for signature help is replaced by save, so it i
 | `<leader>ca` / `<F4>` | Code actions (quick fixes) |
 | `<leader>cr` / `<F2>` / `<S-F6>` | Rename symbol |
 | `<leader>cf` | Format buffer |
+| `<leader>cl` / `grx` | Run the code lens on the current line |
+
+### Inlay Hints and Code Lenses
+
+Inlay hints (inferred types and parameter names, shown inline) are on in every buffer whose language server provides them: for example rust-analyzer, clangd, jdtls and lua_ls. `<leader>uh` turns them off and on in all buffers.
+
+Code lenses are shown too, such as jdtls' reference and implementation counts and rust-analyzer's references. On Neovim 0.12 they appear as virtual lines above the code, and on 0.11 at the end of the line, refreshed when you enter the buffer, leave insert mode or save. `grx` (built in on 0.12, added on 0.11) or `<leader>cl` runs the lens on the current line. Lenses that need client-side support, like rust-analyzer's Run and Debug, report that the command isn't supported.
 
 ### Android Studio-style keys (macOS)
 

@@ -150,7 +150,11 @@ return {
       -- Server overrides. These are merged on top of nvim-lspconfig's lsp/<name>.lua
       vim.lsp.config("lua_ls", {
         settings = {
-          Lua = { diagnostics = { globals = { "vim" } } },
+          Lua = {
+            diagnostics = { globals = { "vim" } },
+            -- Inlay hints are off by default in lua-language-server
+            hint = { enable = true },
+          },
         },
         -- lua-language-server sometimes never exits after the "exit"
         -- notification. With the default (false) Neovim then waits forever:
@@ -232,6 +236,7 @@ return {
         { { "n", "x" }, "<F4>", vim.lsp.buf.code_action, "LSP: Code actions" },
         { "n", "<leader>ca", vim.lsp.buf.code_action, "LSP: Code actions" },
         { "n", "<leader>cr", vim.lsp.buf.rename, "LSP: Rename symbol" },
+        { "n", "<leader>cl", vim.lsp.codelens.run, "LSP: Run code lens" },
         -- Android Studio-like keybindings (Mac)
         { "n", "<D-b>", vim.lsp.buf.definition, "LSP: Go to definition (Cmd+B)" },
         { "n", "<D-A-b>", vim.lsp.buf.implementation, "LSP: Go to implementation (Cmd+Opt+B)" },
@@ -239,6 +244,48 @@ return {
         { "n", "<S-F6>", vim.lsp.buf.rename, "LSP: Rename (Shift+F6)" },
         { "n", "<A-CR>", vim.lsp.buf.code_action, "LSP: Code actions (Opt+Enter)" },
       }
+
+      -- Code lenses (jdtls reference/implementation counts, rust-analyzer's
+      -- run/references lenses). 0.12 refreshes them itself once enabled, and
+      -- maps grx to vim.lsp.codelens.run. 0.11 only shows lenses after
+      -- vim.lsp.codelens.refresh(), which 0.12 deprecates, so on 0.11 the
+      -- LspAttach handler below refreshes them and maps grx.
+      local native_codelens = vim.lsp.codelens.enable ~= nil
+      if native_codelens then
+        vim.lsp.codelens.enable(true)
+      else
+        table.insert(buffer_maps, { "n", "grx", vim.lsp.codelens.run, "LSP: Run code lens" })
+      end
+
+      --- 0.11: refresh code lenses now and whenever the buffer is entered or
+      --- changed, once per buffer. Only called on 0.11, where refresh() isn't
+      --- deprecated; the disable comments are for linting against 0.12.
+      local function refresh_codelens(bufnr)
+        if vim.b[bufnr].user_codelens_refresh then
+          return
+        end
+        vim.b[bufnr].user_codelens_refresh = true
+        ---@diagnostic disable-next-line: deprecated
+        vim.lsp.codelens.refresh({ bufnr = bufnr })
+        vim.api.nvim_create_autocmd({ "BufEnter", "InsertLeave", "BufWritePost" }, {
+          group = vim.api.nvim_create_augroup("user_codelens_" .. bufnr, { clear = true }),
+          buffer = bufnr,
+          desc = "Refresh code lenses",
+          callback = function()
+            ---@diagnostic disable-next-line: deprecated
+            vim.lsp.codelens.refresh({ bufnr = bufnr })
+          end,
+        })
+      end
+
+      -- Inlay hints (inferred types, parameter names) in every buffer whose
+      -- server provides them. <leader>uh turns them off and on everywhere.
+      vim.lsp.inlay_hint.enable(true)
+      vim.keymap.set("n", "<leader>uh", function()
+        local enable = not vim.lsp.inlay_hint.is_enabled()
+        vim.lsp.inlay_hint.enable(enable)
+        vim.notify("Inlay hints " .. (enable and "on" or "off"), vim.log.levels.INFO)
+      end, { desc = "Toggle inlay hints" })
 
       -- Format on save, hls and clangd included, is done by conform (formatting.lua).
       local attach_group = vim.api.nvim_create_augroup("user_lsp_attach", { clear = true })
@@ -248,6 +295,10 @@ return {
         callback = function(args)
           for _, m in ipairs(buffer_maps) do
             vim.keymap.set(m[1], m[2], m[3], { buffer = args.buf, desc = m[4] })
+          end
+          local client = vim.lsp.get_client_by_id(args.data.client_id)
+          if not native_codelens and client and client:supports_method("textDocument/codeLens", args.buf) then
+            refresh_codelens(args.buf)
           end
         end,
       })
@@ -269,6 +320,10 @@ return {
           end
           for _, m in ipairs(buffer_maps) do
             pcall(vim.keymap.del, m[1], m[2], { buffer = bufnr })
+          end
+          if vim.b[bufnr].user_codelens_refresh then
+            vim.b[bufnr].user_codelens_refresh = nil
+            pcall(vim.api.nvim_del_augroup_by_name, "user_codelens_" .. bufnr)
           end
         end,
       })
