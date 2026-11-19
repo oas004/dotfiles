@@ -1,4 +1,5 @@
 require("core.options")
+require("core.autocmds")
 require("core.diagnostics")
 require("core.package-manager")
 require("core.keymaps")
