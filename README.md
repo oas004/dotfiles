@@ -318,6 +318,18 @@ These bind the keys without the tmux prefix, so in panes that don't run Neovim (
 | `<C-o>` | Jump back (after go to definition) |
 | `<C-i>` | Jump forward |
 
+### Terminal
+
+`<C-/>` opens a shell in a split at the bottom, or hides it again; the shell keeps running while it is hidden. A count picks another shell, so `2<C-/>` toggles a second one. It comes from [snacks.terminal](https://github.com/folke/snacks.nvim/blob/main/docs/terminal.md). Most terminals send Ctrl+/ as `<C-_>`, which is mapped too.
+
+| Keys | Action |
+|------|--------|
+| `<C-/>` | Toggle the shell (normal mode, and terminal mode inside that shell) |
+| `<Esc><Esc>` | Leave terminal mode (a single `<Esc>` goes to the program) |
+| `q` | Hide the terminal (in normal mode inside it) |
+
+In the Claude Code terminal, Ctrl+/ goes to Claude, since the terminal-mode map only exists in the shell's own buffer. To move to another window from a terminal, leave terminal mode with `<Esc><Esc>` first; `<C-h/j/k/l>` aren't mapped in terminal mode because shells use them (backspace, newline, kill line, clear).
+
 ### Indent Guides
 
 [snacks.indent](https://github.com/folke/snacks.nvim/blob/main/docs/indent.md) draws a thin guide for each indent level, and the guide of the scope around the cursor a little brighter. They are only drawn in file buffers, not in help, terminals (including the Claude Code terminal), nvim-tree, lazy or Mason. `<leader>ui` turns them off and on.
