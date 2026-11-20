@@ -58,6 +58,55 @@ return {
       end
       vim.lsp.config("*", { capabilities = caps })
 
+      -- How long Neovim waits for a server to exit after shutdown/exit before
+      -- killing it. Without it (the default, false) a server that ignores
+      -- "exit" keeps running: on 0.11 Neovim quits without waiting, and on
+      -- 0.12 :lsp restart waits for it forever. 0.12 reads exit_timeout, for
+      -- every stop (quitting, :lsp restart, vim.lsp.enable(false)). 0.11 reads
+      -- flags.exit_timeout, and only when Neovim quits. Set both.
+      local jvm_exit_timeout = 5000
+      local function exit_timeout(ms)
+        return { exit_timeout = ms, flags = { exit_timeout = ms } }
+      end
+
+      -- 0.11's own exit handler sends shutdown on quit but never force-stops:
+      -- its wait loop only counts the timeout down and then reports success,
+      -- and its client:stop(true) is a no-op for a client already stopping.
+      -- jdtls quit during a Maven import kept running for 39 s after Neovim
+      -- exited. So on 0.11, after that handler, wait up to each server's
+      -- flags.exit_timeout and then stop the ones still running.
+      if vim.fn.has("nvim-0.12") == 0 then
+        vim.api.nvim_create_autocmd("VimLeavePre", {
+          group = vim.api.nvim_create_augroup("user_lsp_exit_timeout", { clear = true }),
+          desc = "Force-stop language servers that ignore exit (0.11)",
+          callback = function()
+            local start = vim.uv.now()
+            local waiting = vim.tbl_filter(function(c)
+              return type(c.flags.exit_timeout) == "number"
+            end, vim.lsp.get_clients())
+            local function running(c)
+              return not c.rpc.is_closing()
+            end
+            local max = 0
+            for _, c in ipairs(waiting) do
+              max = math.max(max, c.flags.exit_timeout)
+            end
+            vim.wait(max, function()
+              return not vim.iter(waiting):any(function(c)
+                return running(c) and vim.uv.now() - start < c.flags.exit_timeout
+              end)
+            end, 50)
+            -- Not client:stop(true): on 0.11 that returns early for a client
+            -- that is already stopping, as these are after the shutdown.
+            for _, c in ipairs(waiting) do
+              if running(c) then
+                c.rpc.terminate()
+              end
+            end
+          end,
+        })
+      end
+
       -- Server overrides. These are merged on top of nvim-lspconfig's lsp/<name>.lua
       vim.lsp.config("lua_ls", {
         settings = {
@@ -67,12 +116,10 @@ return {
             hint = { enable = true },
           },
         },
-        -- lua-language-server sometimes never exits after the "exit"
-        -- notification. With the default (false) Neovim then waits forever:
-        -- :lsp restart on 0.12 never starts the new server, and quitting
-        -- leaves the old one running. Force-stop it after 2 s instead.
-        exit_timeout = 2000,
       })
+      -- lua-language-server sometimes never exits after the "exit"
+      -- notification, so force-stop it after 2 s.
+      vim.lsp.config("lua_ls", exit_timeout(2000))
 
       vim.lsp.config("clangd", {
         -- Respects project-level .clang-format config before falling back to LLVM style
@@ -112,6 +159,10 @@ return {
           },
         },
       })
+      -- JVM servers. Both normally exit within a couple of seconds, but take
+      -- longer while importing a Gradle/Maven project on a slow machine (CI
+      -- saw kotlin-lsp still running 10 s after exit, see #37 and #40).
+      vim.lsp.config("jdtls", exit_timeout(jvm_exit_timeout))
 
       -- kotlin-lsp (JetBrains official). Mason's kotlin-lsp package links its
       -- launcher into mason/bin as intellij-server, the same command
@@ -127,6 +178,7 @@ return {
           }, dispatchers, config)
         end,
       })
+      vim.lsp.config("kotlin_lsp", exit_timeout(jvm_exit_timeout))
 
       -- Buffer-local keymaps, set only where a server is attached so builtins
       -- like gd keep working in other buffers. References, rename, code action,

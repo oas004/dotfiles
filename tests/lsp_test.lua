@@ -86,9 +86,15 @@ test("lua_ls has diagnostics.globals = { 'vim' }", function()
   assert_true(globals and vim.tbl_contains(globals, "vim"), "vim not in globals")
 end)
 
-test("lua_ls is force-stopped if it hangs on exit", function()
-  assert_eq(vim.lsp.config.lua_ls.exit_timeout, 2000, "exit_timeout")
-end)
+-- 0.12 reads exit_timeout, 0.11 reads flags.exit_timeout
+for name, ms in pairs({ lua_ls = 2000, jdtls = 5000, kotlin_lsp = 5000 }) do
+  test(name .. " is force-stopped if it hangs on exit", function()
+    -- vim.tbl_get, since 0.11 and 0.12 each type only one of the two fields
+    local config = assert(vim.lsp.config[name], name .. " has no config")
+    assert_eq(vim.tbl_get(config, "exit_timeout"), ms, "exit_timeout")
+    assert_eq(vim.tbl_get(config, "flags", "exit_timeout"), ms, "flags.exit_timeout")
+  end)
+end
 
 test("clangd cmd includes --fallback-style=LLVM", function()
   local cmd = vim.lsp.config.clangd.cmd
@@ -415,6 +421,95 @@ else
   skip("0.11: no code lens refresh for servers without code lenses", "0.12 refreshes code lenses itself")
 end
 
+-- In-process server that answers initialize and shutdown, and exits
+-- exit_after ms after the "exit" notification. Without exit_after it ignores
+-- "exit", like a server stuck importing a project.
+local function stubborn_server(exit_after)
+  return function(dispatchers)
+    local closing = false
+    local function close(signal)
+      if not closing then
+        closing = true
+        vim.schedule(function()
+          dispatchers.on_exit(0, signal)
+        end)
+      end
+    end
+    return {
+      request = function(method, _, callback)
+        vim.schedule(function()
+          callback(nil, method == "initialize" and { capabilities = {} } or vim.NIL)
+        end)
+        return true, 1
+      end,
+      notify = function(method)
+        if method == "exit" and exit_after then
+          vim.defer_fn(function()
+            close(0)
+          end, exit_after)
+        end
+        return true
+      end,
+      is_closing = function()
+        return closing
+      end,
+      terminate = function()
+        close(15)
+      end,
+    }
+  end
+end
+
+-- Start a client for server with flags.exit_timeout = ms, stop it the way
+-- Neovim's own exit handler does, then run this config's VimLeavePre
+-- fallback. Returns whether the client stopped and how long it took.
+local function quit_with(server, ms)
+  vim.cmd("enew")
+  local id = assert(vim.lsp.start({
+    name = "stubborn",
+    cmd = server,
+    root_dir = tmp,
+    ---@diagnostic disable-next-line: missing-fields
+    flags = { exit_timeout = ms },
+  }))
+  local client = assert(vim.lsp.get_client_by_id(id))
+  vim.wait(2000, function()
+    return client.initialized == true
+  end, 20)
+  client:stop()
+  vim.wait(50)
+  local start = vim.uv.now()
+  vim.api.nvim_exec_autocmds("VimLeavePre", { group = "user_lsp_exit_timeout" })
+  local elapsed = vim.uv.now() - start
+  vim.wait(1000, function()
+    return client.rpc.is_closing()
+  end, 20)
+  local stopped = client.rpc.is_closing()
+  if not stopped then
+    client:stop(true)
+  end
+  vim.cmd("bwipeout!")
+  return stopped, elapsed
+end
+
+if vim.fn.has("nvim-0.12") == 0 then
+  test("0.11: quitting force-stops a server that ignores exit after exit_timeout", function()
+    local stopped, elapsed = quit_with(stubborn_server(), 300)
+    assert_true(stopped, "server still running")
+    assert_true(elapsed >= 250 and elapsed < 2000, "waited " .. elapsed .. " ms, expected about 300")
+  end)
+
+  test("0.11: quitting stops waiting once the server has exited", function()
+    local stopped, elapsed = quit_with(stubborn_server(400), 5000)
+    assert_true(stopped, "server still running")
+    assert_true(elapsed >= 200 and elapsed < 2000, "waited " .. elapsed .. " ms, expected about 400")
+  end)
+else
+  test("0.12: no exit fallback, Neovim force-stops after exit_timeout itself", function()
+    assert_true(not pcall(vim.api.nvim_get_autocmds, { group = "user_lsp_exit_timeout" }), "fallback installed on 0.12")
+  end)
+end
+
 if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
   test("lua_ls attaches with globals and buffer keymaps", function()
     local client, bufnr = attach(tmp .. "/lua/t.lua", { "vim.print(1)" }, "lua_ls")
@@ -422,6 +517,12 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
     local globals = vim.tbl_get(client.config.settings, "Lua", "diagnostics", "globals")
     assert_true(globals and vim.tbl_contains(globals, "vim"), "running client lacks globals")
     assert_eq(vim.tbl_get(client.config.settings, "Lua", "hint", "enable"), true, "Lua.hint.enable")
+    -- The running client has the timeout where this Neovim version reads it
+    if vim.fn.has("nvim-0.12") == 1 then
+      assert_eq(vim.tbl_get(client, "exit_timeout"), 2000, "client.exit_timeout")
+    else
+      assert_eq(vim.tbl_get(client, "flags", "exit_timeout"), 2000, "client.flags.exit_timeout")
+    end
     assert_not_nil(
       vim.tbl_get(client.config.capabilities, "textDocument", "completion", "completionItem", "resolveSupport"),
       "running client lacks blink.cmp capabilities"
