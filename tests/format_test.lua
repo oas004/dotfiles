@@ -163,6 +163,10 @@ test("formatters_by_ft: rust uses rustfmt", function()
   assert_eq(require("conform").formatters_by_ft.rust, { "rustfmt" }, "rust")
 end)
 
+test("formatters_by_ft: python uses ruff format", function()
+  assert_eq(require("conform").formatters_by_ft.python, { "ruff_format" }, "python")
+end)
+
 test("formatters_by_ft: lua uses stylua", function()
   assert_eq(require("conform").formatters_by_ft.lua, { "stylua" }, "lua")
 end)
@@ -201,7 +205,7 @@ for ft, server in vim.spairs(lsp_only) do
   end)
 end
 
-local on_save = { java = 5000, rust = 5000 }
+local on_save = { java = 5000, rust = 5000, python = 5000 }
 for ft in pairs(lsp_only) do
   on_save[ft] = 10000
 end
@@ -368,6 +372,14 @@ local samples = {
     input = { "class A {  void f( ) { } }" },
     want = { "class A {", "  void f() {}", "}" },
   },
+  -- Mason's ruff comes with the ruff language server
+  {
+    tool = "ruff",
+    formatter = "ruff_format",
+    ft = "python",
+    input = { "x=( 1,2 )", "def f( a ):", "  return a" },
+    want = { "x = (1, 2)", "", "", "def f(a):", "    return a" },
+  },
 }
 if vim.fn.executable(mason_bin .. "stylua") == 1 or vim.env.CI then
   test("saving a Lua file with a stylua.toml formats it with Mason's pinned stylua", function()
@@ -401,7 +413,8 @@ for _, s in ipairs(samples) do
       local buf = scratch(s.ft)
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, s.input)
       local err ---@type string?
-      require("conform").format({ bufnr = buf, formatters = { s.tool }, async = false, timeout_ms = 30000 }, function(e)
+      local formatters = { s.formatter or s.tool }
+      require("conform").format({ bufnr = buf, formatters = formatters, async = false, timeout_ms = 30000 }, function(e)
         err = e
       end)
       local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)

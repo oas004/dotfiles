@@ -5,9 +5,9 @@ A modern Neovim configuration written in Lua with LSP support for Kotlin/Android
 ## Features
 
 - **Plugin Management**: lazy.nvim for fast, lazy-loading plugins
-- **LSP Support**: Rust (rust-analyzer from rustup), and Kotlin (JetBrains kotlin-lsp), Java, C/C++, Haskell, Python, Lua and Gradle via mason.nvim
+- **LSP Support**: Rust (rust-analyzer from rustup), and Kotlin (JetBrains kotlin-lsp), Java, C/C++, Haskell, Python (basedpyright and ruff), Lua and Gradle via mason.nvim
 - **WebAssembly**: treesitter highlighting for WIT files; bootstrap.sh installs the wasm-tools CLI and the wasm32 Rust targets
-- **Autoformatting**: conform.nvim with ktfmt for Kotlin, google-java-format for Java, StyLua for Lua in projects with a `stylua.toml` (all three installed by Mason), rustfmt for Rust
+- **Autoformatting**: conform.nvim with ktfmt for Kotlin, google-java-format for Java, StyLua for Lua in projects with a `stylua.toml` (all three installed by Mason), ruff for Python, rustfmt for Rust
 - **Linting**: nvim-lint with detekt for Kotlin, shellcheck for shell scripts and selene for Lua in projects with a `selene.toml` (all three installed by Mason)
 - **Completion**: blink.cmp with LSP, file path, snippet (friendly-snippets) and buffer word sources, plus `:` and `/` command-line completion
 - **Fuzzy Finding**: snacks.picker (files, grep, buffers, symbols, diagnostics, help, keymaps, git) with ripgrep backend
@@ -46,7 +46,7 @@ The language servers (kotlin-lsp included) and the ktfmt, google-java-format and
 - [`tree-sitter` CLI](https://github.com/tree-sitter/tree-sitter/blob/master/crates/cli/README.md) 0.26.1+ (not the npm package), plus `curl`, `tar` and a C compiler, for installing treesitter parsers
 - `unzip` and `gzip`, which Mason uses along with `curl`, `git` and `tar` to download and extract servers
 - JDK 21+ for jdtls, gradle_ls and ktfmt, as `java` on PATH (and `JAVA_HOME`, if you set it)
-- `python3` with the `venv` module (`python3-venv` on Debian/Ubuntu), for jedi-language-server and the jdtls launcher
+- `python3` with the `venv` module (`python3-venv` on Debian/Ubuntu), for basedpyright (Mason installs it from PyPI into a venv) and the jdtls launcher
 - [ghcup](https://www.haskell.org/ghcup/) and GHC, for haskell-language-server (optional)
 - `jq` (json formatter)
 - [lazygit](https://github.com/jesseduffield/lazygit), for `<leader>gg` (optional)
@@ -222,6 +222,10 @@ In the list, `<CR>` jumps to an item, `p` previews it, `q` closes the list and `
 Inlay hints (inferred types and parameter names, shown inline) are on in every buffer whose language server provides them: for example rust-analyzer, clangd, jdtls and lua_ls. `<leader>uh` turns them off and on in all buffers.
 
 Code lenses are shown too, such as jdtls' reference and implementation counts and rust-analyzer's references. On Neovim 0.12 they appear as virtual lines above the code, and on 0.11 at the end of the line, refreshed when you enter the buffer, leave insert mode or save. `grx` (built in on 0.12, added on 0.11) or `<leader>cl` runs the lens on the current line. Lenses that need client-side support, like rust-analyzer's Run and Debug, report that the command isn't supported.
+
+### Python
+
+basedpyright checks types and answers hover, go to definition and the like. ruff's language server lints, offers fixes and import sorting as code actions (`gra`), and `ruff format` formats Python on save. Both come from Mason, and both read a project's `pyproject.toml` (`[tool.basedpyright]`, `[tool.ruff]`). To avoid duplicate diagnostics, basedpyright runs in pyright's `standard` mode and leaves undefined names, unused expressions and redefinitions to ruff. A `[tool.basedpyright]` section in a project replaces those editor settings.
 
 ### LSP Progress
 

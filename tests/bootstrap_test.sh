@@ -607,7 +607,7 @@ t_jdk_macos_java_home() (
 )
 test_case "macOS suggests an installed JDK 21 instead of installing one" t_jdk_macos_java_home
 
-# Test: python3 with venv for Mason's jedi-language-server
+# Test: python3 with venv for Mason's basedpyright
 make_stub "$STUB_ROOT/py-novenv" python3 'exit 1'
 make_stub "$STUB_ROOT/py-venv" python3 'exit 0'
 
