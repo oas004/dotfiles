@@ -286,6 +286,10 @@ These bind the keys without the tmux prefix, so in panes that don't run Neovim (
 | `<C-o>` | Jump back (after go to definition) |
 | `<C-i>` | Jump forward |
 
+### Indent Guides
+
+[snacks.indent](https://github.com/folke/snacks.nvim/blob/main/docs/indent.md) draws a thin guide for each indent level, and the guide of the scope around the cursor a little brighter. They are only drawn in file buffers, not in help, terminals (including the Claude Code terminal), nvim-tree, lazy or Mason. `<leader>ui` turns them off and on.
+
 ### Treesitter Text Objects
 
 | Keys | Action |

@@ -20,6 +20,10 @@ local function nordic()
         -- Line numbers and sign column
         LineNr = { fg = "#616e88" },
         SignColumn = { bg = "NONE" },
+        -- Indent guides (snacks.indent): dimmer than listchars (NonText),
+        -- and the current scope a step brighter
+        SnacksIndent = { fg = "#434C5E" },
+        SnacksIndentScope = { fg = "#60728A" },
       }
 
       -- Reapply the overrides every time nordic is loaded, so they survive
@@ -49,6 +53,47 @@ return {
       options = {
         -- nordic.nvim ships a lualine theme at lua/lualine/themes/nordic.lua
         theme = "nordic",
+      },
+    },
+  },
+
+  -- https://github.com/folke/snacks.nvim/blob/main/docs/indent.md
+  -- Indent guides, with the scope around the cursor highlighted. Only in
+  -- normal file buffers: help, terminals (the Claude Code terminal),
+  -- nvim-tree, lazy and Mason all have a buftype and are skipped, and so
+  -- are files snacks.bigfile flagged.
+  {
+    "folke/snacks.nvim",
+    -- snacks turns indent guides on at the first BufReadPost after it is
+    -- set up. Loaded later (claudecode loads it on VeryLazy), the file
+    -- given on the command line would have no guides.
+    lazy = false,
+    keys = {
+      {
+        "<leader>ui",
+        function()
+          local indent = require("snacks").indent
+          if indent.enabled then
+            indent.disable()
+          else
+            indent.enable()
+          end
+        end,
+        desc = "Toggle indent guides",
+      },
+    },
+    opts = {
+      indent = {
+        enabled = true,
+        -- The scope moves with the cursor; without animation it just
+        -- switches.
+        animate = { enabled = false },
+        filter = function(buf)
+          return vim.g.snacks_indent ~= false
+            and vim.b[buf].snacks_indent ~= false
+            and vim.bo[buf].buftype == ""
+            and vim.bo[buf].filetype ~= "bigfile"
+        end,
       },
     },
   },
