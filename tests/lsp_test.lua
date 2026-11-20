@@ -727,10 +727,10 @@ then
       return entry:match("^%d+")
     end, seen)
     for _, line in ipairs({ "8", "9" }) do
-      local count = #vim.tbl_filter(function(l)
+      local on_line = #vim.tbl_filter(function(l)
         return l == line
       end, lines)
-      assert_eq(count, 1, "diagnostics on line " .. line .. ": " .. vim.inspect(seen))
+      assert_eq(on_line, 1, "diagnostics on line " .. line .. ": " .. vim.inspect(seen))
     end
   end)
 else
