@@ -62,15 +62,23 @@ test("lsp-zero is not installed as a plugin", function()
   assert_true(require("lazy.core.config").plugins["lsp-zero.nvim"] == nil, "lsp-zero.nvim still in spec")
 end)
 
-test("cmp capabilities applied to all servers", function()
+test("blink.cmp capabilities applied to all servers", function()
   local caps = vim.lsp.config["*"].capabilities
   assert_not_nil(caps, "no global capabilities")
   ---@cast caps -nil
-  local expected = require("cmp_nvim_lsp").default_capabilities().textDocument.completion
+  local expected = require("blink.cmp").get_lsp_capabilities(nil, true).textDocument.completion
   assert_true(
     vim.deep_equal(caps.textDocument.completion, expected),
-    "completion capabilities differ from cmp_nvim_lsp: " .. vim.inspect(caps.textDocument.completion)
+    "completion capabilities differ from blink.cmp's: " .. vim.inspect(caps.textDocument.completion)
   )
+  -- blink's completion capabilities win over Neovim's defaults, and the
+  -- rest of Neovim's capabilities are kept
+  assert_eq(
+    vim.tbl_get(caps, "textDocument", "completion", "completionItem", "labelDetailsSupport"),
+    true,
+    "labelDetailsSupport"
+  )
+  assert_not_nil(vim.tbl_get(caps, "textDocument", "hover"), "Neovim's default capabilities missing")
 end)
 
 test("lua_ls has diagnostics.globals = { 'vim' }", function()
@@ -217,27 +225,7 @@ test("kotlin_lsp cmd runs Mason's intellij-server with per-root --system-path", 
   assert_eq(argv[vim.fn.index(argv, "--system-path") + 2], cache_dir(paths.lsp_cache.kotlin_lsp, root), "--system-path")
 end)
 
-h.out("\n=== Completion Tests ===\n")
-
-test("cmp has nvim_lsp and buffer sources", function()
-  local names = vim.tbl_map(function(s)
-    return s.name
-  end, require("cmp").get_config().sources)
-  for _, want in ipairs({ "nvim_lsp", "buffer" }) do
-    assert_true(vim.tbl_contains(names, want), want .. " not in " .. vim.inspect(names))
-  end
-end)
-
-test("cmp-buffer is installed", function()
-  assert_not_nil(require("cmp_buffer"), "cmp_buffer missing")
-end)
-
-test("cmp keeps existing mappings", function()
-  local mapping = require("cmp").get_config().mapping
-  for _, key in ipairs({ "<C-Space>", "<Tab>", "<S-Tab>", "<CR>", "<C-U>", "<C-D>" }) do
-    assert_not_nil(mapping[key], key .. " not mapped")
-  end
-end)
+-- Completion itself is tested in tests/completion_test.lua
 
 h.out("\n=== LSP Runtime Tests ===\n")
 
@@ -436,7 +424,7 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
     assert_eq(vim.tbl_get(client.config.settings, "Lua", "hint", "enable"), true, "Lua.hint.enable")
     assert_not_nil(
       vim.tbl_get(client.config.capabilities, "textDocument", "completion", "completionItem", "resolveSupport"),
-      "running client lacks cmp capabilities"
+      "running client lacks blink.cmp capabilities"
     )
 
     -- maparg() on the current buffer prefers buffer-local maps and normalizes

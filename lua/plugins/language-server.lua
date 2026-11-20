@@ -1,96 +1,4 @@
 return {
-  -- nvim-cmp (completion)
-  {
-    "hrsh7th/nvim-cmp",
-    -- Only insert mode completion is set up (no cmp.setup.cmdline), so the
-    -- first InsertEnter is early enough. cmp-nvim-lsp's own InsertEnter
-    -- handler requires cmp too, which would also load it.
-    event = "InsertEnter",
-    dependencies = {
-      { "hrsh7th/cmp-buffer" },
-    },
-    config = function()
-      local utils = require("core.utils")
-
-      local cmp = utils.safe_require("cmp", "nvim-cmp failed to load")
-      if not cmp then
-        return
-      end
-
-      local select = { behavior = cmp.SelectBehavior.Select }
-
-      -- Move through the menu if it is open, otherwise open it
-      local function select_or_complete(direction)
-        return cmp.mapping(function()
-          if cmp.visible() then
-            if direction == "next" then
-              cmp.select_next_item({ behavior = cmp.SelectBehavior.Insert })
-            else
-              cmp.select_prev_item({ behavior = cmp.SelectBehavior.Insert })
-            end
-          else
-            cmp.complete()
-          end
-        end)
-      end
-
-      -- Move through the menu if it is open, otherwise jump to the next or
-      -- previous snippet placeholder. Mapped in select mode as well, since
-      -- vim.snippet selects placeholders in select mode.
-      local function select_or_jump(direction)
-        return cmp.mapping(function(fallback)
-          if cmp.visible() then
-            if direction == 1 then
-              cmp.select_next_item(select)
-            else
-              cmp.select_prev_item(select)
-            end
-          elseif vim.snippet.active({ direction = direction }) then
-            vim.snippet.jump(direction)
-          else
-            fallback()
-          end
-        end, { "i", "s" })
-      end
-
-      cmp.setup({
-        snippet = {
-          expand = function(args)
-            vim.snippet.expand(args.body)
-          end,
-        },
-        -- Show the source next to each item, e.g. [LSP], [buffer]
-        formatting = {
-          fields = { "abbr", "menu", "kind" },
-          format = function(entry, item)
-            local name = entry.source.name
-            item.menu = name == "nvim_lsp" and "[LSP]" or string.format("[%s]", name)
-            return item
-          end,
-        },
-        mapping = cmp.mapping.preset.insert({
-          ["<C-Space>"] = cmp.mapping.complete(),
-          ["<Tab>"] = select_or_jump(1),
-          ["<S-Tab>"] = select_or_jump(-1),
-          ["<CR>"] = cmp.mapping.confirm({ select = true }),
-          ["<C-u>"] = cmp.mapping.scroll_docs(-4),
-          ["<C-d>"] = cmp.mapping.scroll_docs(4),
-          -- Previously added by lsp-zero's extend_cmp()
-          ["<C-y>"] = cmp.mapping.confirm({ select = false }),
-          ["<C-e>"] = cmp.mapping.abort(),
-          ["<Up>"] = cmp.mapping.select_prev_item(select),
-          ["<Down>"] = cmp.mapping.select_next_item(select),
-          ["<C-p>"] = select_or_complete("prev"),
-          ["<C-n>"] = select_or_complete("next"),
-        }),
-        sources = cmp.config.sources({
-          { name = "nvim_lsp" },
-          { name = "buffer" },
-        }),
-      })
-    end,
-  },
-
   -- LSP: native vim.lsp.config, servers installed by mason, enabled explicitly below
   {
     "neovim/nvim-lspconfig",
@@ -102,7 +10,7 @@ return {
     -- :LspRestart also come from this plugin.
     lazy = false,
     dependencies = {
-      { "hrsh7th/cmp-nvim-lsp" },
+      { "saghen/blink.cmp" },
       { "williamboman/mason.nvim" },
       { "williamboman/mason-lspconfig.nvim" },
     },
@@ -139,11 +47,14 @@ return {
         })
       end
 
-      -- Capabilities from cmp, applied to every server
+      -- Neovim's capabilities plus blink.cmp's completion capabilities
+      -- (plugins/completion.lua), applied to every server. The first
+      -- argument of get_lsp_capabilities overrides blink's, so pass nil and
+      -- let it add Neovim's own (true).
       local caps = vim.lsp.protocol.make_client_capabilities()
-      local cmp_lsp = utils.safe_require("cmp_nvim_lsp")
-      if cmp_lsp then
-        caps = cmp_lsp.default_capabilities(caps)
+      local blink = utils.safe_require("blink.cmp")
+      if blink then
+        caps = blink.get_lsp_capabilities(nil, true)
       end
       vim.lsp.config("*", { capabilities = caps })
 

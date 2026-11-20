@@ -8,6 +8,7 @@ A modern Neovim configuration written in Lua with LSP support for Kotlin/Android
 - **LSP Support**: Rust (rust-analyzer from rustup), and Kotlin (JetBrains kotlin-lsp), Java, C/C++, Haskell, Python, Lua and Gradle via mason.nvim
 - **WebAssembly**: treesitter highlighting for WIT files; bootstrap.sh installs the wasm-tools CLI and the wasm32 Rust targets
 - **Autoformatting**: conform.nvim with ktfmt for Kotlin, google-java-format for Java, StyLua for Lua in projects with a `stylua.toml` (all three installed by Mason), rustfmt for Rust
+- **Completion**: blink.cmp with LSP, file path, snippet (friendly-snippets) and buffer word sources, plus `:` and `/` command-line completion
 - **Fuzzy Finding**: Telescope.nvim with ripgrep backend
 - **Theme**: Nordic colorscheme with optimized UI
 
@@ -208,6 +209,25 @@ Code lenses are shown too, such as jdtls' reference and implementation counts an
 ### LSP Progress
 
 [fidget.nvim](https://github.com/j-hui/fidget.nvim) shows what language servers report while they work, such as jdtls and kotlin-lsp importing a Gradle project or rust-analyzer indexing, in the bottom-right corner. It loads when the first server attaches. Only progress goes there; `vim.notify` messages are shown the usual way.
+
+### Completion
+
+[blink.cmp](https://github.com/saghen/blink.cmp) completes from the language server, file paths, snippets ([friendly-snippets](https://github.com/rafamadriz/friendly-snippets) plus the ones language servers send, expanded with Neovim's built-in `vim.snippet`) and words in open buffers. The menu shows where each item comes from, e.g. `[LSP]` or `[Buffer]`, and documentation for the selected item. Nothing is selected until you move into the menu.
+
+| Keys (insert mode) | Action |
+|------|--------|
+| `<C-Space>` | Open the menu |
+| `<Tab>` / `<S-Tab>` | Menu open: next/previous item. Otherwise jump to the next/previous snippet placeholder, otherwise insert a tab. In a selected snippet placeholder they always jump. |
+| `<Up>` / `<Down>` | Previous/next item |
+| `<C-n>` / `<C-p>` | Next/previous item, inserting it as you go; open the menu if it is closed |
+| `<CR>` | Accept the selected item, or the first one if none is selected |
+| `<C-y>` | Accept the selected item (with nothing selected, Neovim's `i_CTRL-Y`) |
+| `<C-e>` | Close the menu and undo the inserted item |
+| `<C-u>` / `<C-d>` | Scroll the documentation |
+
+On the `:` and `/` command lines, `<Tab>` opens the menu (or completes the only match) and moves through it, `<S-Tab>` moves back, `<C-y>` accepts and `<C-e>` closes it.
+
+Fuzzy matching uses a prebuilt binary that blink downloads from its GitHub release when it is installed or updated (`:Lazy! restore` in `bootstrap.sh` does this too). If the download fails, it uses its Lua matcher instead, which is a bit slower and doesn't correct typos.
 
 ### Android Studio-style keys (macOS)
 
