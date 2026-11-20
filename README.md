@@ -9,7 +9,7 @@ A modern Neovim configuration written in Lua with LSP support for Kotlin/Android
 - **WebAssembly**: treesitter highlighting for WIT files; bootstrap.sh installs the wasm-tools CLI and the wasm32 Rust targets
 - **Autoformatting**: conform.nvim with ktfmt for Kotlin, google-java-format for Java, StyLua for Lua in projects with a `stylua.toml` (all three installed by Mason), rustfmt for Rust
 - **Completion**: blink.cmp with LSP, file path, snippet (friendly-snippets) and buffer word sources, plus `:` and `/` command-line completion
-- **Fuzzy Finding**: Telescope.nvim with ripgrep backend
+- **Fuzzy Finding**: snacks.picker (files, grep, buffers, symbols, diagnostics, help, keymaps, git) with ripgrep backend
 - **Theme**: Nordic colorscheme with optimized UI
 
 ## Installation
@@ -41,7 +41,7 @@ The language servers (kotlin-lsp included) and the ktfmt, google-java-format and
 - [Neovim 0.11+](https://neovim.io/) (recommended: 0.12+, which nvim-treesitter's main branch requires; on 0.11 the config pins an older main commit)
 - [Git](https://git-scm.com/)
 - [Rust](https://rustup.rs/) with the `rust-analyzer` and `rustfmt` components (`rustup component add rust-analyzer rustfmt`), plus the wasm tools
-- `ripgrep` (for telescope fuzzy finder)
+- `ripgrep` (for the file and grep pickers)
 - [`tree-sitter` CLI](https://github.com/tree-sitter/tree-sitter/blob/master/crates/cli/README.md) 0.26.1+ (not the npm package), plus `curl`, `tar` and a C compiler, for installing treesitter parsers
 - `unzip` and `gzip`, which Mason uses along with `curl`, `git` and `tar` to download and extract servers
 - JDK 21+ for jdtls, gradle_ls and ktfmt, as `java` on PATH (and `JAVA_HOME`, if you set it)
@@ -140,7 +140,7 @@ See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 
 The leader key is `<Space>`, and the local leader (used by some filetype plugins) is `\`.
 
-Leader maps are grouped by a mnemonic letter: `a` Claude, `c` code, `f` find, `g` git tools, `h` git hunks, `n` new, `u` toggles, `x` lists, `y` yank. Planned features get their own groups: `d` debug and `t` test. The pickers used to be single letters (`<leader>p`, `o`, `r`, `s`, `S`); those still work as aliases of the `<leader>f` maps and will be removed later. The old `<leader>f` (grep) is now `<leader>fg`, since `<leader>f` is the group. `<leader>e`/`<leader>E` (diagnostics) and `<leader>l`/`<leader>L` (file explorer) stay as they are.
+Leader maps are grouped by a mnemonic letter: `a` Claude, `c` code, `f` find, `g` git (pickers and lazygit), `h` git hunks, `n` new, `u` toggles, `x` lists, `y` yank. Planned features get their own groups: `d` debug and `t` test. The pickers used to be single letters (`<leader>p`, `o`, `r`, `s`, `S`); those still work as aliases of the `<leader>f` maps and will be removed later. The old `<leader>f` (grep) is now `<leader>fg`, since `<leader>f` is the group. `<leader>e`/`<leader>E` (diagnostics) and `<leader>l`/`<leader>L` (file explorer) stay as they are.
 
 ### which-key
 
@@ -245,18 +245,29 @@ These need a terminal or GUI that passes Cmd (and Option as Alt) through to Neov
 | `<D-S-f>` | Find in files (grep) |
 | `<D-e>` | Recent files |
 
-### File Navigation (Telescope)
+### File Navigation (snacks.picker)
+
+The pickers come from [snacks.picker](https://github.com/folke/snacks.nvim/blob/main/docs/picker.md). Where a picker has a buffer and a workspace version, lowercase is the current buffer and uppercase the whole workspace.
 
 | Keys | Old alias | Action |
 |------|-----------|--------|
 | `<leader>ff` | `<leader>p` | Find files |
 | `<leader>fg` | | Find in files (grep) |
+| `<leader>fw` | | Grep the word under the cursor (visual mode: the selection) |
 | `<leader>fb` | `<leader>o` | Open buffers |
 | `<leader>fr` | `<leader>r` | Recent files |
 | `<leader>fs` | `<leader>s` | Document symbols (outline of current file) |
 | `<leader>fS` | `<leader>S` | Workspace symbols (search across project) |
+| `<leader>fd` | | Diagnostics in the current buffer |
+| `<leader>fD` | | Diagnostics in the workspace |
+| `<leader>fh` | | Help tags |
+| `<leader>fk` | | Keymaps |
+| `<leader>f.` | | Resume the last picker |
+| `<leader>gs` | | Git status |
+| `<leader>gl` | | Git log |
+| `<leader>gL` | | Git log of the current file |
 
-In the open buffers picker, `<leader>q` in normal mode (or `<M-d>` in insert mode) closes the selected buffer.
+Hidden files and files ignored by git are left out; `<M-h>` and `<M-i>` in a picker toggle them. `.git/` is always left out, and so is `node_modules/`, even where no `.gitignore` lists it. In the open buffers picker, `<M-d>` (insert or normal mode), `<leader>q` (normal mode), `<C-x>` or `dd` in the list closes the selected buffer.
 
 ### File Explorer
 

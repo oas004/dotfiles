@@ -23,7 +23,7 @@ return {
       spec = {
         { "<leader>a", group = "ai (Claude)", mode = { "n", "v" } },
         { "<leader>c", group = "code" },
-        { "<leader>f", group = "find" },
+        { "<leader>f", group = "find", mode = { "n", "x" } },
         { "<leader>g", group = "git" },
         { "<leader>h", group = "git hunks", mode = { "n", "x" } },
         { "<leader>n", group = "new" },

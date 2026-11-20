@@ -64,13 +64,15 @@ test("conform loads", function()
   assert_not_nil(require("conform"))
 end)
 
--- Telescope tests
-test("telescope loads", function()
-  assert_not_nil(require("telescope"))
+-- Picker tests
+test("snacks.picker loads", function()
+  assert_not_nil(require("snacks").picker)
 end)
 
-test("telescope builtin loads", function()
-  assert_not_nil(require("telescope.builtin"))
+test("snacks.picker has the files and grep sources", function()
+  local picker = require("snacks").picker
+  assert_not_nil(picker.files, "files source")
+  assert_not_nil(picker.grep, "grep source")
 end)
 
 -- Core modules
