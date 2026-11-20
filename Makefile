@@ -1,4 +1,4 @@
-.PHONY: test lint format
+.PHONY: test lint format update restore
 
 # Honours NVIM_APPNAME, TEST_SKIP etc. from the environment; see tests/run.sh.
 test:
@@ -15,18 +15,28 @@ test:
 SHELL_SCRIPTS := $(shell git ls-files '*.sh')
 LUA_PATHS := init.lua lua tests .github/scripts
 
-ifndef VIMRUNTIME
-VIMRUNTIME := $(shell nvim --clean --headless -c 'lua io.stdout:write(vim.env.VIMRUNTIME)' -c 'qa!' 2>/dev/null)
-endif
-export VIMRUNTIME
+# The runtime lua-language-server checks against. It is passed to that
+# command only: exported from the Makefile, it would also be forced on the
+# nvim that test, update and restore start, and break them when NVIM is a
+# different Neovim version. "=" so nvim only runs when lint does.
+LINT_VIMRUNTIME = $(or $(VIMRUNTIME),$(shell nvim --clean --headless -c 'lua io.stdout:write(vim.env.VIMRUNTIME)' -c 'qa!' 2>/dev/null))
 
 lint:
 	stylua --check $(LUA_PATHS)
 	selene $(LUA_PATHS)
 	shellcheck $(SHELL_SCRIPTS)
-	@test -n "$(VIMRUNTIME)" || { echo "error: set VIMRUNTIME or put nvim on PATH" >&2; exit 1; }
-	lua-language-server --check=. --checklevel=Warning --logpath="$${TMPDIR:-/tmp}/luals-check"
+	@test -n "$(LINT_VIMRUNTIME)" || { echo "error: set VIMRUNTIME or put nvim on PATH" >&2; exit 1; }
+	VIMRUNTIME="$(LINT_VIMRUNTIME)" lua-language-server --check=. --checklevel=Warning --logpath="$${TMPDIR:-/tmp}/luals-check"
 
 # Rewrites the Lua files in place with stylua.
 format:
 	stylua $(LUA_PATHS)
+
+# Updates plugins (:Lazy! update), runs the tests against them and prints the
+# lazy-lock.json diff to review and commit. See scripts/plugins.sh.
+update:
+	scripts/plugins.sh update
+
+# Puts plugins back at the commits in lazy-lock.json (:Lazy! restore).
+restore:
+	scripts/plugins.sh restore
