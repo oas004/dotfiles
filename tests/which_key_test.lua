@@ -63,6 +63,7 @@ local function main()
     ["<leader>f"] = "find",
     ["<leader>n"] = "new",
     ["<leader>u"] = "toggles",
+    ["<leader>x"] = "lists",
     ["<leader>y"] = "yank",
   }
   for lhs, name in pairs(groups) do
