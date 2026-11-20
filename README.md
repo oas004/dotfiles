@@ -23,7 +23,7 @@ git clone https://github.com/oas004/dotfiles.git ~/.config/nvim
 ~/.config/nvim/bootstrap.sh
 ```
 
-The bootstrap script installs all dependencies including Neovim, the Rust toolchain (with the rust-analyzer and rustfmt components), wasm-tools, a JDK 21, python3 with venv, jq and the tools Mason needs, and syncs plugins. Plugins are installed at the versions in `lazy-lock.json` (`:Lazy! restore`), and the script fails if a plugin or treesitter parser can't be installed. It also fails if an existing Neovim is older than 0.11.
+The bootstrap script installs all dependencies including Neovim, the Rust toolchain (with the rust-analyzer and rustfmt components), wasm-tools, a JDK 21, python3 with venv, jq, lazygit and the tools Mason needs, and syncs plugins. Plugins are installed at the versions in `lazy-lock.json` (`:Lazy! restore`), and the script fails if a plugin or treesitter parser can't be installed. It also fails if an existing Neovim is older than 0.11.
 
 On Debian/Ubuntu, apt's `neovim` package is older than 0.11, so the script installs the official release build instead: it extracts `nvim-linux-x86_64.tar.gz` (or `nvim-linux-arm64.tar.gz`) from https://github.com/neovim/neovim/releases into `~/.local/opt/nvim` and symlinks `~/.local/bin/nvim` to it. Make sure `~/.local/bin` is on your PATH. Set `NVIM_RELEASE` to pick a release tag (default `stable`, e.g. `NVIM_RELEASE=v0.12.0`).
 
@@ -47,6 +47,7 @@ The language servers (kotlin-lsp included) and the ktfmt, google-java-format and
 - `python3` with the `venv` module (`python3-venv` on Debian/Ubuntu), for jedi-language-server and the jdtls launcher
 - [ghcup](https://www.haskell.org/ghcup/) and GHC, for haskell-language-server (optional)
 - `jq` (json formatter)
+- [lazygit](https://github.com/jesseduffield/lazygit), for `<leader>gg` (optional)
 
 #### macOS
 ```bash
@@ -138,11 +139,11 @@ See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 
 The leader key is `<Space>`, and the local leader (used by some filetype plugins) is `\`.
 
-Leader maps are grouped by a mnemonic letter: `a` Claude, `c` code, `f` find, `h` git hunks, `n` new, `u` toggles, `x` lists, `y` yank. Planned features get their own groups: `g` git tools (diff views, Git UI), `d` debug and `t` test. The pickers used to be single letters (`<leader>p`, `o`, `r`, `s`, `S`); those still work as aliases of the `<leader>f` maps and will be removed later. The old `<leader>f` (grep) is now `<leader>fg`, since `<leader>f` is the group. `<leader>e`/`<leader>E` (diagnostics) and `<leader>l`/`<leader>L` (file explorer) stay as they are.
+Leader maps are grouped by a mnemonic letter: `a` Claude, `c` code, `f` find, `g` git tools, `h` git hunks, `n` new, `u` toggles, `x` lists, `y` yank. Planned features get their own groups: `d` debug and `t` test. The pickers used to be single letters (`<leader>p`, `o`, `r`, `s`, `S`); those still work as aliases of the `<leader>f` maps and will be removed later. The old `<leader>f` (grep) is now `<leader>fg`, since `<leader>f` is the group. `<leader>e`/`<leader>E` (diagnostics) and `<leader>l`/`<leader>L` (file explorer) stay as they are.
 
 ### which-key
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) shows a popup with the keys that can follow a prefix (`<leader>`, `g`, `z`, `]`, ...) when you pause after typing it. It loads right after startup. The `<leader>` groups are `a` (Claude), `c` (code), `f` (find), `h` (git hunks), `n` (new), `u` (toggles), `x` (lists) and `y` (yank); a group only shows up when something is mapped under it. `<leader>?` lists the keymaps local to the current buffer, such as the LSP maps. `:checkhealth which-key` reports overlapping and duplicate mappings.
+[which-key.nvim](https://github.com/folke/which-key.nvim) shows a popup with the keys that can follow a prefix (`<leader>`, `g`, `z`, `]`, ...) when you pause after typing it. It loads right after startup. The `<leader>` groups are `a` (Claude), `c` (code), `f` (find), `g` (git), `h` (git hunks), `n` (new), `u` (toggles), `x` (lists) and `y` (yank); a group only shows up when something is mapped under it. `<leader>?` lists the keymaps local to the current buffer, such as the LSP maps. `:checkhealth which-key` reports overlapping and duplicate mappings.
 
 ### LSP Navigation
 
@@ -327,6 +328,15 @@ Rust and C++ are indented with nvim-treesitter's indentation (which the plugin c
 | `<leader>ub` | Toggle blame on the current line |
 | `<leader>uw` | Toggle word diff |
 | `ih` | Select hunk (text object, e.g. `dih`, `vih`) |
+
+### lazygit
+
+[lazygit](https://github.com/jesseduffield/lazygit) opens in a floating terminal through [snacks.nvim](https://github.com/folke/snacks.nvim/blob/main/docs/lazygit.md), with colours from the current colorscheme. Editing a file from lazygit (`e`) opens it in this Neovim, not a nested one. bootstrap.sh installs lazygit: with Homebrew or pacman where they are used, and elsewhere (Debian/Ubuntu, Fedora) as the release build pinned in `LAZYGIT_VERSION`, in `~/.local/bin`.
+
+| Keys | Action |
+|------|--------|
+| `<leader>gg` | Open lazygit |
+| `<leader>gf` | lazygit with the history of the current file |
 
 ## Big Files
 

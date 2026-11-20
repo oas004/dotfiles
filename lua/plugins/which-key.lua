@@ -24,6 +24,7 @@ return {
         { "<leader>a", group = "ai (Claude)", mode = { "n", "v" } },
         { "<leader>c", group = "code" },
         { "<leader>f", group = "find" },
+        { "<leader>g", group = "git" },
         { "<leader>h", group = "git hunks", mode = { "n", "x" } },
         { "<leader>n", group = "new" },
         { "<leader>u", group = "toggles" },

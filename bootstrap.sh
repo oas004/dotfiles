@@ -28,6 +28,10 @@ MIN_JAVA_VERSION=21
 # macOS JDK lookup; a variable so the tests can point it elsewhere
 MACOS_JAVA_HOME_CMD="/usr/libexec/java_home"
 
+# lazygit release build for Linux distros whose package is missing or old
+# (Homebrew and Arch package current releases)
+LAZYGIT_VERSION="0.66.3"
+
 # Warnings repeated at the end by print_summary, one per line
 SUMMARY_WARNINGS=""
 
@@ -508,6 +512,77 @@ install_treesitter_cli() {
     esac
 }
 
+# Print lazygit's version, e.g. 0.66.3. Its --version line also has a
+# "git version=" field, so match the ", version=" one.
+lazygit_version() {
+    lazygit --version 2>/dev/null | sed -n 's/.*, version=\([^,]*\),.*/\1/p'
+}
+
+# lazygit, opened in a float by <leader>gg (snacks.lazygit). Optional, so a
+# failed install only warns.
+install_lazygit() {
+    info "Checking lazygit..."
+
+    if command_exists lazygit; then
+        info "lazygit already installed: $(lazygit_version)"
+        return
+    fi
+
+    info "Installing lazygit..."
+    case "$PKG_MGR" in
+        brew|pacman)
+            install_pkg lazygit || warn_later "Could not install lazygit; <leader>gg needs it"
+            ;;
+        *)
+            install_lazygit_release
+            ;;
+    esac
+}
+
+# Install the pinned lazygit release build as ~/.local/bin/lazygit. Debian
+# and Ubuntu only package it in recent releases, and Fedora not at all.
+install_lazygit_release() {
+    local arch
+    case "$(uname -m)" in
+        x86_64|amd64)  arch="x86_64" ;;
+        aarch64|arm64) arch="arm64" ;;
+        *)
+            warn_later "No lazygit release build for $(uname -m); install lazygit manually for <leader>gg"
+            return 0
+            ;;
+    esac
+
+    local name="lazygit_${LAZYGIT_VERSION}_linux_${arch}.tar.gz"
+    local url="https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/$name"
+    local bin_dir="$HOME/.local/bin"
+
+    if [[ $DRY_RUN -eq 1 ]]; then
+        dry "Download $url and install lazygit as $bin_dir/lazygit"
+        return 0
+    fi
+
+    # Global so the EXIT trap can still see it, as in install_nvim_release
+    LAZYGIT_RELEASE_TMP="$(mktemp -d)"
+    trap 'rm -rf "$LAZYGIT_RELEASE_TMP"' EXIT
+    local tmp="$LAZYGIT_RELEASE_TMP"
+    if run curl -fL "$url" -o "$tmp/lazygit.tar.gz" &&
+        run tar xzf "$tmp/lazygit.tar.gz" -C "$tmp" lazygit &&
+        run mkdir -p "$bin_dir" &&
+        run install -m 755 "$tmp/lazygit" "$bin_dir/lazygit"; then
+        case ":$PATH:" in
+            *":$bin_dir:"*) ;;
+            *)
+                warn "$bin_dir is not on your PATH; add it in your shell profile"
+                export PATH="$bin_dir:$PATH"
+                ;;
+        esac
+    else
+        warn_later "Could not install lazygit $LAZYGIT_VERSION from $url; <leader>gg needs it"
+    fi
+    rm -rf "$tmp"
+    trap - EXIT
+}
+
 # WebAssembly tooling
 install_wasm_tools() {
     info "Checking WebAssembly tooling..."
@@ -672,6 +747,7 @@ print_summary() {
         fi
         command_exists wasm-tools && echo "  - wasm-tools: $(wasm-tools --version)"
         command_exists wit-bindgen && echo "  - wit-bindgen: $(wit-bindgen --version)"
+        command_exists lazygit && echo "  - lazygit: $(lazygit_version)"
         echo ""
     fi
 
@@ -710,6 +786,7 @@ main() {
     check_ghcup
     install_rust
     install_treesitter_cli
+    install_lazygit
     install_wasm_tools
     sync_nvim
     print_summary
