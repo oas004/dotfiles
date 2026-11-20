@@ -58,7 +58,9 @@ require("lazy").setup({
   spec = {
     { import = "plugins" },
   },
-  checker = { enabled = true, notify = false }, -- automatically check for plugin updates
+  -- No background update checks: updates are a deliberate `make update`,
+  -- which tests the result before lazy-lock.json is committed (#41).
+  checker = { enabled = false },
   performance = {
     cache = {
       enabled = true,

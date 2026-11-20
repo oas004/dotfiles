@@ -398,6 +398,23 @@ Files changed on disk by an agent are reloaded automatically (`autoread` plus `:
 | `<leader>aa` | Accept proposed diff (or `:w` in the diff) |
 | `<leader>ad` | Deny proposed diff (or `:q` in the diff) |
 
+## Updating Plugins
+
+Plugins are installed at the commits in `lazy-lock.json`, and lazy.nvim doesn't check for updates in the background. Updating is a deliberate step:
+
+```bash
+make update    # update plugins, run the tests, show the lazy-lock.json diff
+make restore   # put plugins back at the commits in lazy-lock.json
+```
+
+`make update` refuses to start if `lazy-lock.json` has uncommitted changes, so the diff it prints shows only the update. It runs `:Lazy! update`, updates the treesitter parsers to match, runs `tests/run.sh` against the result and prints `git diff lazy-lock.json`. It doesn't commit anything: if the tests pass, review the diff and commit `lazy-lock.json`. If they fail, fix the config, or go back with `git checkout -- lazy-lock.json && make restore`.
+
+nvim-treesitter's entry in `lazy-lock.json` stays at the 0.11 pin (see "Neovim 0.12 and nvim-treesitter" above), so updating on 0.12 doesn't break restores on 0.11. On 0.12 both commands move the installed nvim-treesitter to main and leave its lockfile entry alone, so after `make restore` there's no need to run `:Lazy update nvim-treesitter` by hand.
+
+Both commands use the config `NVIM_APPNAME` points at, which must be this checkout, and `NVIM` picks the Neovim binary (default `nvim`). `make update` also passes `TEST_SKIP` and the other `tests/run.sh` options through. Mason packages aren't in `lazy-lock.json` and aren't updated; update them from `:Mason` (`U`).
+
+In lazy.nvim's window (`:Lazy`), `R` (restore) also returns plugins to `lazy-lock.json`, while `U` (update) and `S` (sync) move them to newer commits and rewrite `lazy-lock.json` without running the tests. Prefer `make update` for that.
+
 ## Useful Commands
 
 | Command | Description |
@@ -420,6 +437,7 @@ Files changed on disk by an agent are reloaded automatically (`autoread` plus `:
 - `lua/core/` holds editor setup that is not a plugin: options, keymaps, user commands (`:CleanupLSPCache`, `:CleanupLSPLogs`, `:LspClients`), the lazy.nvim bootstrap, shared helpers, and central path definitions.
 - `lua/plugins/` holds lazy.nvim plugin specs, grouped by area. lazy.nvim imports every file in this directory.
 - `tests/` holds the test suite (see Development below).
+- `scripts/plugins.sh` runs `make update` and `make restore` (see Updating Plugins above).
 - `bootstrap.sh` installs dependencies on a new machine.
 
 ## Development
@@ -432,7 +450,7 @@ tests/run.sh
 
 It runs `tests/bootstrap_test.sh`, every `tests/*_test.lua` in a fresh headless Neovim, and a startup smoke test that opens sample files and fails on errors in `:messages`. It exits non-zero if anything fails. `TEST_SKIP` skips tests by name, and the header of `tests/run.sh` lists the other options. CI runs the same script on every push and pull request, on Neovim 0.11 and 0.12.
 
-`make lint` runs [selene](https://github.com/Kampfkarren/selene) over the Lua files, with the `vim` global declared in `vim.yml`, [ShellCheck](https://github.com/koalaman/shellcheck) over the tracked `*.sh` files (`bootstrap.sh` and the shell scripts in `tests/`), and lua-language-server's type check. ShellCheck runs at its default severity, so info-level notes fail too; silence a false positive with a `# shellcheck disable=SCxxxx` comment on the narrowest scope, with a reason. CI runs `make lint` too.
+`make lint` runs [selene](https://github.com/Kampfkarren/selene) over the Lua files, with the `vim` global declared in `vim.yml`, [ShellCheck](https://github.com/koalaman/shellcheck) over the tracked `*.sh` files (`bootstrap.sh`, `scripts/plugins.sh` and the shell scripts in `tests/`), and lua-language-server's type check. ShellCheck runs at its default severity, so info-level notes fail too; silence a false positive with a `# shellcheck disable=SCxxxx` comment on the narrowest scope, with a reason. CI runs `make lint` too.
 
 Lua is formatted with [StyLua](https://github.com/JohnnyMorganz/StyLua), configured in `stylua.toml` (2-space indentation, double quotes, 120 columns). `make lint` starts with `stylua --check` over `init.lua`, `lua/`, `tests/` and `.github/scripts/` and fails on any file that isn't formatted; `make format` rewrites them in place. CI pins StyLua (`STYLUA_VERSION` in `.github/workflows/test.yml`), and other releases can format some code differently, so use the same version locally.
 
