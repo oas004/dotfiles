@@ -107,7 +107,9 @@ On Neovim 0.11, `lua/plugins/parser.lua` pins nvim-treesitter to the last main c
 :Lazy update nvim-treesitter
 ```
 
-That moves nvim-treesitter to current main, so you get the parser and query fixes made since the pin. It also changes nvim-treesitter's entry in `lazy-lock.json`. Don't commit that change: a restore on 0.11 would then check out a commit that no longer supports 0.11.
+That moves nvim-treesitter to current main, so you get the parser and query fixes made since the pin. It also changes nvim-treesitter's entry in `lazy-lock.json`. Don't commit that change: a restore on 0.11 would then check out a commit that no longer supports 0.11. `bootstrap.sh` reminds you of this step at the end when it finds Neovim 0.12 or newer.
+
+This is temporary. Once 0.12 is the minimum supported version, the pin, this step and CI's workaround for it go away ([#28](https://github.com/oas004/dotfiles/issues/28)).
 
 ### Rust / WebAssembly Development
 

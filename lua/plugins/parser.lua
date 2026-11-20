@@ -53,7 +53,9 @@ local treesitter_indent = {
 -- On 0.11, pin the last main commit that still supports it. Once Neovim is
 -- 0.12 or newer the pin goes away and the plugin follows main. lazy-lock.json
 -- still records this commit, so after upgrading Neovim run
--- :Lazy update nvim-treesitter to move off it.
+-- :Lazy update nvim-treesitter to move off it. When 0.12 becomes the minimum
+-- supported version, drop this pin, update the lockfile and remove the CI and
+-- bootstrap.sh workarounds for it (#28).
 local nvim_011_commit = "90cd6580e720caedacb91fdd587b747a6e77d61f"
 
 --- Set up a buffer that snacks.bigfile gave the "bigfile" filetype. The

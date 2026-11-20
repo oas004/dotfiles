@@ -167,7 +167,8 @@ jobs:
       # without a change in this repo, and the run is not reproducible from
       # lazy-lock.json. The 0.11 job keeps testing the pinned commit. The
       # resulting lockfile change only lives in this runner and is never
-      # committed.
+      # committed. This step goes away with the pin once 0.12 is the minimum
+      # supported version (#28).
       - name: Move nvim-treesitter to main HEAD (0.12 only)
         if: matrix.name == 'test-nvim-0.12'
         run: >-
