@@ -490,6 +490,19 @@ t_summary_rust_analyzer_broken() (
 )
 test_case "summary warns when rust-analyzer does not run" t_summary_rust_analyzer_broken
 
+# On 0.12 the restore leaves nvim-treesitter at the 0.11 pin (#28), so the
+# summary says how to move it; on 0.11 the pin is right and it says nothing
+t_summary_treesitter_012() (
+    source "$BOOTSTRAP"
+    DRY_RUN=0
+    local out012 out011
+    out012=$(PATH="$STUB_ROOT/rust-proxy:$STUB_ROOT/nvim:$PATH" FAKE_NVIM_VERSION=0.12.1 print_summary 2>&1) &&
+        out011=$(PATH="$STUB_ROOT/rust-proxy:$STUB_ROOT/nvim:$PATH" FAKE_NVIM_VERSION=0.11.4 print_summary 2>&1) &&
+        [[ "$out012" == *"Neovim 0.12.1: run :Lazy update nvim-treesitter"* ]] &&
+        [[ "$out011" != *"nvim-treesitter"* ]]
+)
+test_case "summary tells 0.12 users to move nvim-treesitter off the 0.11 pin" t_summary_treesitter_012
+
 # Mason installs google-java-format into its own bin dir, which is not on the
 # shell's PATH, so the summary must not warn that it is missing
 t_summary_google_java_format() (

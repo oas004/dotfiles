@@ -763,6 +763,14 @@ print_summary() {
     echo "  1. Open Neovim: nvim"
     echo "  2. Wait for Mason to install the language servers and formatters (:Mason shows progress)"
     echo "  3. Run :checkhealth to verify setup"
+    # The restore above checked out lazy-lock.json's nvim-treesitter commit,
+    # which is the 0.11 pin even on 0.12 (#28)
+    local ver
+    ver="$(nvim_version)"
+    if [[ -n "$ver" ]] && version_ge "$ver" "0.12"; then
+        echo "  4. Neovim $ver: run :Lazy update nvim-treesitter to move it off the 0.11 pin, and don't"
+        echo "     commit the lazy-lock.json change (README: \"Neovim 0.12 and nvim-treesitter\")"
+    fi
     echo ""
 }
 
