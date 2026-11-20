@@ -38,10 +38,6 @@ local parsers = {
 -- Exposed so bootstrap.sh can install the same list synchronously.
 vim.g.treesitter_parsers = parsers
 
--- Treesitter highlighting, folding and indentation are skipped for files
--- larger than this.
-local max_filesize = 100 * 1024
-
 -- Filetypes indented with nvim-treesitter's indentexpr instead of the
 -- runtime indent script. nvim-treesitter calls its indentation
 -- experimental, so it is only used where it did better than the runtime
@@ -60,7 +56,47 @@ local treesitter_indent = {
 -- :Lazy update nvim-treesitter to move off it.
 local nvim_011_commit = "90cd6580e720caedacb91fdd587b747a6e77d61f"
 
+--- Set up a buffer that snacks.bigfile gave the "bigfile" filetype. The
+--- filetype alone already keeps language servers, treesitter (FileType
+--- autocmd below), ftplugins and syntax files away.
+---@param ctx { buf: integer, ft: string }
+local function bigfile_setup(ctx)
+  -- Cheap matchparen in this buffer only. snacks' default runs
+  -- :NoMatchParen, which turns it off in every buffer for the session.
+  vim.b[ctx.buf].matchparen_timeout = 1
+  vim.b[ctx.buf].matchparen_insert_timeout = 1
+  vim.wo[0][0].foldmethod = "manual"
+  vim.wo[0][0].conceallevel = 0
+  vim.b[ctx.buf].completion = false
+  local name = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(ctx.buf), ":~:.")
+  vim.notify(
+    ("Big file %s: LSP, treesitter, syntax highlighting and folding are off (detected as %s)"):format(
+      name,
+      ctx.ft ~= "" and ctx.ft or "no filetype"
+    ),
+    vim.log.levels.WARN
+  )
+end
+
 return {
+  -- https://github.com/folke/snacks.nvim/blob/main/docs/bigfile.md
+  -- Files over 1.5 MB, or with an average line over 1000 characters
+  -- (minified JS/JSON), get the "bigfile" filetype instead of their own.
+  -- This has to be set up before the first file is read, so snacks.nvim
+  -- loads at startup (claudecode would otherwise load it on VeryLazy).
+  {
+    "folke/snacks.nvim",
+    lazy = false,
+    priority = 1000,
+    opts = {
+      bigfile = {
+        enabled = true,
+        notify = false, -- bigfile_setup says what was turned off
+        setup = bigfile_setup,
+      },
+    },
+  },
+
   -- https://github.com/nvim-treesitter/nvim-treesitter/tree/main
   {
     "nvim-treesitter/nvim-treesitter",
@@ -115,10 +151,8 @@ return {
         group = group,
         callback = function(args)
           local buf = args.buf
-          local ok, stats = pcall(vim.uv.fs_stat, vim.api.nvim_buf_get_name(buf))
-          if ok and stats and stats.size > max_filesize then
-            return
-          end
+          -- Big files get the "bigfile" filetype (snacks.bigfile below),
+          -- which has no parser, so they skip all of this.
           if not pcall(vim.treesitter.start, buf) then
             return
           end
