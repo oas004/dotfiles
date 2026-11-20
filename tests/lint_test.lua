@@ -250,8 +250,13 @@ else
 end
 
 test("missing linters are skipped without messages", function()
+  -- Only git on PATH (gitsigns needs it). Not /usr/bin: CI runners have
+  -- shellcheck preinstalled there.
+  local bin = tmpdir .. "/git-only-bin"
+  vim.fn.mkdir(bin, "p")
+  vim.uv.fs_symlink(vim.fn.exepath("git"), bin .. "/git")
   local path = vim.env.PATH
-  vim.env.PATH = "/usr/bin:/bin"
+  vim.env.PATH = bin
   local ok, err = pcall(function()
     calls = {}
     vim.cmd("messages clear")
