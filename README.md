@@ -279,7 +279,7 @@ These bind the keys without the tmux prefix, so in panes that don't run Neovim (
 
 ### Folding and Indentation
 
-Buffers with a treesitter parser fold on the syntax tree (functions, classes, blocks), and files open with every fold open. Use Neovim's fold keys: `za` toggles the fold under the cursor, `zc`/`zo` close/open it, `zM`/`zR` close/open all. Files over 100 KB get no treesitter folds, like they get no treesitter highlighting.
+Buffers with a treesitter parser fold on the syntax tree (functions, classes, blocks), and files open with every fold open. Use Neovim's fold keys: `za` toggles the fold under the cursor, `zc`/`zo` close/open it, `zM`/`zR` close/open all. Big files get neither (see Big Files below).
 
 Rust and C++ are indented with nvim-treesitter's indentation (which the plugin calls experimental). Every other language keeps Neovim's runtime indent script, which did as well or better in a comparison (Java, C, Lua, Python), or is the only option (Kotlin). The list is `treesitter_indent` in `lua/plugins/parser.lua`.
 
@@ -295,6 +295,12 @@ Rust and C++ are indented with nvim-treesitter's indentation (which the plugin c
 | `<leader>hp` | Preview hunk |
 | `<leader>hb` | Blame current line |
 | `ih` | Select hunk (text object, e.g. `dih`, `vih`) |
+
+## Big Files
+
+[snacks.bigfile](https://github.com/folke/snacks.nvim/blob/main/docs/bigfile.md) gives files over 1.5 MB, or with an average line longer than 1000 characters (minified JavaScript or JSON), the `bigfile` filetype instead of their own. That keeps language servers, treesitter highlighting and folding, syntax highlighting, filetype plugins and completion off for them, and matchparen gives up after 1 ms in that buffer. A warning names the file and the filetype it would have had. To work on such a file with everything on anyway, run `:set filetype=<its filetype>`.
+
+Files opened through a symlinked directory (on macOS that includes `/tmp` and `/var`) aren't checked, because snacks only checks a file when the path it is given matches the buffer name, and buffer names resolve symlinks.
 
 ## AI Integration
 

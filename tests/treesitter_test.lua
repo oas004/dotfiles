@@ -1,5 +1,5 @@
 -- Treesitter behaviour tests (highlighting, folding, indentation, text
--- objects, large-file guard)
+-- objects, files over the old 100 KB limit)
 -- Run with: nvim --headless -c "luafile tests/treesitter_test.lua"
 -- Needs the parsers in lua/plugins/parser.lua installed (bootstrap.sh and
 -- the CI warmup install them).
@@ -260,7 +260,10 @@ test("cpp: reindenting leaves namespace and access specifier levels alone", func
   vim.cmd("edit!")
 end)
 
-test("large-file guard skips highlighting over 100KB", function()
+-- Files used to lose treesitter over 100 KB. Big files are now handled by
+-- snacks.bigfile (1.5 MB, see tests/bigfile_test.lua), so a 150 KB file is
+-- an ordinary buffer.
+test("a 150 KB file keeps treesitter highlighting and folds", function()
   -- Kotlin, because Neovim's own lua/help/query ftplugins start treesitter
   -- themselves, independent of this config.
   local lines = { "class Big {" }
@@ -274,8 +277,8 @@ test("large-file guard skips highlighting over 100KB", function()
 
   local buf = open(path)
   assert_eq(vim.bo[buf].filetype, "kotlin", "filetype")
-  assert_true(not highlighting(buf), "treesitter highlighter active for large file")
-  assert_eq(vim.wo.foldmethod, "manual", "foldmethod for large file")
+  assert_true(highlighting(buf), "no treesitter highlighting")
+  assert_eq(vim.wo.foldmethod, "expr", "foldmethod")
 end)
 
 test("no LSP client started, no errors in :messages", function()
