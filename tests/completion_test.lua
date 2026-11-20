@@ -173,13 +173,24 @@ local function words_line()
   vim.api.nvim_win_set_cursor(0, { 2, 0 })
 end
 
+-- Label of the first item in the menu the last time menu_open() saw it.
+-- alpha_one and alpha_two score the same, so which comes first depends on
+-- blink's frecency history and cursor proximity, and differs between machines.
+local first_item
+
 -- Typing doesn't trigger the menu in headless Neovim, so open it
 local function menu_open()
   if not cmp.is_menu_visible() then
     cmp.show()
     return false
   end
-  return #(cmp.get_items() or {}) > 0
+  local items = cmp.get_items() or {}
+  if #items == 0 then
+    return false
+  end
+  first_item = items[1].label
+  assert_true(first_item == "alpha_one" or first_item == "alpha_two", "first item is " .. tostring(first_item))
+  return true
 end
 
 -- Each step does something (fn, which may run actions and returns keys to
@@ -399,7 +410,7 @@ end, function()
   if line(2) == "alp" then
     return false
   end
-  assert_eq(line(2), "alpha_one", "line 2")
+  assert_eq(line(2), first_item, "line 2")
   assert_eq(vim.api.nvim_buf_line_count(0), 2, "line count")
 end)
 
@@ -448,7 +459,7 @@ end, function()
   if line(2) == "alp" then
     return false
   end
-  assert_eq(line(2), "alpha_one", "line 2")
+  assert_eq(line(2), first_item, "line 2")
 end)
 
 close_menu_step()
@@ -457,9 +468,10 @@ step("<C-n> with the menu closed opens it without inserting", function()
   words_line()
   return "alp<C-n>"
 end, function()
-  if not cmp.is_menu_visible() then
+  if not cmp.is_menu_visible() or #(cmp.get_items() or {}) == 0 then
     return false
   end
+  first_item = cmp.get_items()[1].label
   assert_eq(cmp.get_selected_item_idx(), nil, "selected item")
   assert_eq(line(2), "alp", "line 2")
 end)
@@ -470,7 +482,7 @@ end, function()
   if line(2) == "alp" then
     return false
   end
-  assert_eq(line(2), "alpha_one", "line 2")
+  assert_eq(line(2), first_item, "line 2")
   assert_true(cmp.is_menu_visible(), "menu closed")
 end)
 
