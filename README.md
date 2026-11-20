@@ -188,6 +188,10 @@ Inlay hints (inferred types and parameter names, shown inline) are on in every b
 
 Code lenses are shown too, such as jdtls' reference and implementation counts and rust-analyzer's references. On Neovim 0.12 they appear as virtual lines above the code, and on 0.11 at the end of the line, refreshed when you enter the buffer, leave insert mode or save. `grx` (built in on 0.12, added on 0.11) or `<leader>cl` runs the lens on the current line. Lenses that need client-side support, like rust-analyzer's Run and Debug, report that the command isn't supported.
 
+### LSP Progress
+
+[fidget.nvim](https://github.com/j-hui/fidget.nvim) shows what language servers report while they work, such as jdtls and kotlin-lsp importing a Gradle project or rust-analyzer indexing, in the bottom-right corner. It loads when the first server attaches. Only progress goes there; `vim.notify` messages are shown the usual way.
+
 ### Android Studio-style keys (macOS)
 
 These need a terminal or GUI that passes Cmd (and Option as Alt) through to Neovim. The LSP ones are set only in buffers with an attached language server.

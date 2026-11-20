@@ -399,4 +399,15 @@ return {
       end
     end,
   },
+
+  -- https://github.com/j-hui/fidget.nvim
+  -- Shows LSP $/progress (jdtls and kotlin-lsp importing a Gradle project,
+  -- rust-analyzer indexing) in the bottom-right corner. Only progress:
+  -- vim.notify is left alone (notification.override_vim_notify stays false).
+  {
+    "j-hui/fidget.nvim",
+    version = "^1",
+    event = "LspAttach",
+    opts = {},
+  },
 }
