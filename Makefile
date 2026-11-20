@@ -6,8 +6,11 @@ test:
 
 # Needs selene (https://github.com/Kampfkarren/selene), config in selene.toml,
 # and lua-language-server (https://github.com/LuaLS/lua-language-server),
-# config in .luarc.json. lua-language-server type-checks vim.* against the
-# runtime of the nvim on PATH (or $VIMRUNTIME if set) and fails on warnings.
+# config in .luarc.lint.json. lua-language-server type-checks vim.* against
+# the runtime of the nvim on PATH (or $VIMRUNTIME if set) and fails on
+# warnings. The config isn't named .luarc.json because lua_ls in the editor
+# would read that too, and its workspace.library would replace the plugin
+# library lua/plugins/language-server.lua gives it.
 # Also needs shellcheck (https://github.com/koalaman/shellcheck), config in
 # .shellcheckrc, which checks every tracked *.sh at its default severity, and
 # stylua (https://github.com/JohnnyMorganz/StyLua), config in stylua.toml,
@@ -26,7 +29,7 @@ lint:
 	selene $(LUA_PATHS)
 	shellcheck $(SHELL_SCRIPTS)
 	@test -n "$(LINT_VIMRUNTIME)" || { echo "error: set VIMRUNTIME or put nvim on PATH" >&2; exit 1; }
-	VIMRUNTIME="$(LINT_VIMRUNTIME)" lua-language-server --check=. --checklevel=Warning --logpath="$${TMPDIR:-/tmp}/luals-check"
+	VIMRUNTIME="$(LINT_VIMRUNTIME)" lua-language-server --check=. --checklevel=Warning --configpath=.luarc.lint.json --logpath="$${TMPDIR:-/tmp}/luals-check"
 
 # Rewrites the Lua files in place with stylua.
 format:

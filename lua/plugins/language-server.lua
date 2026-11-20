@@ -107,8 +107,54 @@ return {
         })
       end
 
+      -- Lua files in Neovim config and plugin roots get the Neovim runtime,
+      -- luv's types and every installed plugin's lua/ dir as lua_ls libraries,
+      -- so vim.*, require("conform") and the rest resolve. It has to happen
+      -- before the server initializes: lua_ls ignores library changes sent
+      -- later, which is also why lazydev.nvim (it sends them on attach) had
+      -- no effect here (#60). Other Lua projects keep plain lua_ls settings.
+      local function realpath(path)
+        return vim.fs.normalize(vim.uv.fs_realpath(path) or path)
+      end
+
+      local function is_nvim_root(root)
+        root = realpath(root)
+        if root == realpath(vim.fn.stdpath("config")) or vim.fs.dirname(root) == realpath(paths.data .. "/lazy") then
+          return true
+        end
+        -- Another Neovim config (init.lua) or a plugin (plugin/) checkout
+        local has = function(name)
+          return vim.uv.fs_stat(root .. "/" .. name) ~= nil
+        end
+        return has("lua") and (has("init.lua") or has("plugin"))
+      end
+
+      local function nvim_library(root)
+        local library = { vim.env.VIMRUNTIME, "${3rd}/luv/library" }
+        for _, plugin in pairs(require("lazy.core.config").plugins) do
+          local dir = plugin.dir .. "/lua"
+          if realpath(plugin.dir) ~= realpath(root) and vim.uv.fs_stat(dir) then
+            table.insert(library, dir)
+          end
+        end
+        table.sort(library)
+        return library
+      end
+
       -- Server overrides. These are merged on top of nvim-lspconfig's lsp/<name>.lua
       vim.lsp.config("lua_ls", {
+        before_init = function(_, config)
+          if config.root_dir and is_nvim_root(config.root_dir) then
+            -- Changed in place: the client already holds this table and
+            -- answers lua_ls' workspace/configuration requests from it.
+            local lua = config.settings.Lua
+            lua.runtime = vim.tbl_extend("force", lua.runtime or {}, { version = "LuaJIT" })
+            lua.workspace = vim.tbl_extend("force", lua.workspace or {}, {
+              library = nvim_library(config.root_dir),
+              checkThirdParty = false,
+            })
+          end
+        end,
         settings = {
           Lua = {
             diagnostics = { globals = { "vim" } },
