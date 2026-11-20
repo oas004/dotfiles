@@ -138,11 +138,11 @@ See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 
 The leader key is `<Space>`, and the local leader (used by some filetype plugins) is `\`.
 
-Leader maps are grouped by a mnemonic letter: `a` Claude, `c` code, `f` find, `h` git hunks, `n` new, `u` toggles, `y` yank. Planned features get their own groups: `g` git tools (diff views, Git UI), `d` debug, `t` test and `x` lists (diagnostics, quickfix). The pickers used to be single letters (`<leader>p`, `o`, `r`, `s`, `S`); those still work as aliases of the `<leader>f` maps and will be removed later. The old `<leader>f` (grep) is now `<leader>fg`, since `<leader>f` is the group. `<leader>e`/`<leader>E` (diagnostics) and `<leader>l`/`<leader>L` (file explorer) stay as they are.
+Leader maps are grouped by a mnemonic letter: `a` Claude, `c` code, `f` find, `h` git hunks, `n` new, `u` toggles, `x` lists, `y` yank. Planned features get their own groups: `g` git tools (diff views, Git UI), `d` debug and `t` test. The pickers used to be single letters (`<leader>p`, `o`, `r`, `s`, `S`); those still work as aliases of the `<leader>f` maps and will be removed later. The old `<leader>f` (grep) is now `<leader>fg`, since `<leader>f` is the group. `<leader>e`/`<leader>E` (diagnostics) and `<leader>l`/`<leader>L` (file explorer) stay as they are.
 
 ### which-key
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) shows a popup with the keys that can follow a prefix (`<leader>`, `g`, `z`, `]`, ...) when you pause after typing it. It loads right after startup. The `<leader>` groups are `a` (Claude), `c` (code), `f` (find), `h` (git hunks), `n` (new), `u` (toggles) and `y` (yank); a group only shows up when something is mapped under it. `<leader>?` lists the keymaps local to the current buffer, such as the LSP maps. `:checkhealth which-key` reports overlapping and duplicate mappings.
+[which-key.nvim](https://github.com/folke/which-key.nvim) shows a popup with the keys that can follow a prefix (`<leader>`, `g`, `z`, `]`, ...) when you pause after typing it. It loads right after startup. The `<leader>` groups are `a` (Claude), `c` (code), `f` (find), `h` (git hunks), `n` (new), `u` (toggles), `x` (lists) and `y` (yank); a group only shows up when something is mapped under it. `<leader>?` lists the keymaps local to the current buffer, such as the LSP maps. `:checkhealth which-key` reports overlapping and duplicate mappings.
 
 ### LSP Navigation
 
@@ -172,6 +172,22 @@ Neovim's own insert-mode `<C-s>` for signature help is replaced by save, so it i
 | `gl` | Show line diagnostics (error popup) |
 | `<leader>e` | Next diagnostic (shows it in a float) |
 | `<leader>E` | Previous diagnostic (shows it in a float) |
+
+### Lists (trouble.nvim)
+
+[trouble.nvim](https://github.com/folke/trouble.nvim) shows diagnostics, symbols and LSP locations as a list in a split. It loads the first time one of these keys (or `:Trouble`) is used. Each key opens the list, or closes it if it is already open.
+
+| Keys | Action |
+|------|--------|
+| `<leader>xx` | Diagnostics in the workspace |
+| `<leader>xX` | Diagnostics in the current buffer |
+| `<leader>xs` | Symbols in the current buffer |
+| `<leader>xr` | LSP definitions, references and implementations of the symbol under the cursor |
+| `<leader>xq` | Quickfix list |
+| `<leader>xl` | Location list |
+| `]q` / `[q` | Next/previous item in an open trouble list, jumping to it. Without one, Neovim's built-in `:cnext`/`:cprevious` |
+
+In the list, `<CR>` jumps to an item, `p` previews it, `q` closes the list and `?` shows the other keys.
 
 ### Code Actions & Refactoring
 
