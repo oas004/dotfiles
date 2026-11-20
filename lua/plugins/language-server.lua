@@ -172,6 +172,36 @@ return {
         cmd = { "clangd", "--fallback-style=LLVM" },
       })
 
+      -- Python: basedpyright checks types, ruff lints, fixes and sorts
+      -- imports (code actions), and formats on save (formatting.lua). Each job
+      -- has one owner, so hover comes from basedpyright only and organizing
+      -- imports from ruff only, as ruff's docs recommend.
+      vim.lsp.config("basedpyright", {
+        settings = {
+          basedpyright = {
+            disableOrganizeImports = true,
+            analysis = {
+              -- pyright's default. basedpyright's own default, "recommended",
+              -- also warns about every implicit Any and unknown type.
+              typeCheckingMode = "standard",
+              -- Reported by ruff's default rules too (F821, B018, F811), so
+              -- they would show up twice. A [tool.basedpyright] section in a
+              -- project's pyproject.toml replaces these settings.
+              diagnosticSeverityOverrides = {
+                reportUndefinedVariable = "none",
+                reportUnusedExpression = "none",
+                reportRedeclaration = "none",
+              },
+            },
+          },
+        },
+      })
+      vim.lsp.config("ruff", {
+        on_init = function(client)
+          client.server_capabilities.hoverProvider = false
+        end,
+      })
+
       vim.lsp.config("hls", {
         settings = { haskell = { formattingProvider = "ormolu" } },
       })
@@ -340,7 +370,8 @@ return {
       -- Installed by Mason
       local mason_servers = {
         "gradle_ls",
-        "jedi_language_server",
+        "basedpyright",
+        "ruff",
         "lua_ls",
         "hls",
         "clangd",

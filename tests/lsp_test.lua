@@ -158,7 +158,29 @@ end)
 
 -- Same list as language-server.lua
 local listed =
-  { "gradle_ls", "jedi_language_server", "lua_ls", "hls", "clangd", "jdtls", "kotlin_lsp", "rust_analyzer" }
+  { "gradle_ls", "basedpyright", "ruff", "lua_ls", "hls", "clangd", "jdtls", "kotlin_lsp", "rust_analyzer" }
+
+test("jedi-language-server is no longer enabled", function()
+  assert_true(not vim.lsp.is_enabled("jedi_language_server"), "jedi_language_server enabled")
+end)
+
+test("basedpyright leaves import sorting and lint-style checks to ruff", function()
+  local bp = vim.tbl_get(vim.lsp.config.basedpyright, "settings", "basedpyright")
+  assert_eq(bp.disableOrganizeImports, true, "disableOrganizeImports")
+  assert_eq(bp.analysis.typeCheckingMode, "standard", "typeCheckingMode")
+  assert_eq(bp.analysis.diagnosticSeverityOverrides, {
+    reportUndefinedVariable = "none",
+    reportUnusedExpression = "none",
+    reportRedeclaration = "none",
+  }, "diagnosticSeverityOverrides")
+end)
+
+test("ruff doesn't offer hover, so K shows basedpyright's", function()
+  local client = { server_capabilities = { hoverProvider = true } }
+  ---@diagnostic disable-next-line: missing-fields, param-type-mismatch
+  vim.lsp.config.ruff.on_init(client, {})
+  assert_eq(client.server_capabilities.hoverProvider, false, "hoverProvider")
+end)
 
 test("listed servers are enabled", function()
   for _, name in ipairs(listed) do
@@ -636,6 +658,83 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
   end)
 else
   skip("lua_ls runtime attach", "lua-language-server not installed")
+end
+
+-- One file with a type error (basedpyright), an unused import (ruff F401)
+-- and an undefined name, which both servers would report without the
+-- overrides above. Diagnostics are compared as a set, not in order.
+local py_lines = {
+  "import os",
+  "",
+  "",
+  "def add(a: int, b: int) -> int:",
+  "    return a + b",
+  "",
+  "",
+  'x: int = add(1, "2")',
+  "print(undefined_name)",
+}
+
+if
+  (vim.fn.executable(mason_bin .. "basedpyright-langserver") == 1 and vim.fn.executable(mason_bin .. "ruff") == 1)
+  or vim.env.CI
+then
+  test("basedpyright and ruff attach to Python and report each problem once", function()
+    vim.fn.mkdir(tmp .. "/py", "p")
+    vim.fn.writefile({ "[project]", 'name = "t"', 'version = "0"' }, tmp .. "/py/pyproject.toml")
+    local path = tmp .. "/py/t.py"
+    vim.fn.writefile(py_lines, path)
+    vim.cmd("silent edit " .. vim.fn.fnameescape(path))
+    local bufnr = vim.api.nvim_get_current_buf()
+    local function codes()
+      local seen = {}
+      for _, d in ipairs(vim.diagnostic.get(bufnr)) do
+        table.insert(seen, string.format("%d %s %s", d.lnum + 1, (d.source or "?"):lower(), tostring(d.code)))
+      end
+      table.sort(seen)
+      return seen
+    end
+    local want = {
+      "1 ruff F401",
+      "8 basedpyright reportArgumentType",
+      "9 ruff F821",
+    }
+    vim.wait(60000, function()
+      local seen = codes()
+      return vim.iter(want):all(function(w)
+        return vim.list_contains(seen, w)
+      end)
+    end, 200)
+    -- Give a late duplicate time to show up before comparing
+    vim.wait(2000)
+    local names = vim.tbl_map(function(c)
+      return c.name
+    end, vim.lsp.get_clients({ bufnr = bufnr }))
+    table.sort(names)
+    local hover = vim.tbl_map(function(c)
+      return c.name
+    end, vim.lsp.get_clients({ bufnr = bufnr, method = "textDocument/hover" }))
+    table.sort(hover)
+    local seen = codes()
+    h.stop_clients(vim.lsp.get_clients({ bufnr = bufnr }))
+    vim.cmd("bwipeout!")
+    assert_eq(names, { "basedpyright", "ruff" }, "clients")
+    assert_eq(hover, { "basedpyright" }, "hover clients")
+    for _, w in ipairs(want) do
+      assert_true(vim.list_contains(seen, w), w .. " missing from " .. vim.inspect(seen))
+    end
+    local lines = vim.tbl_map(function(entry)
+      return entry:match("^%d+")
+    end, seen)
+    for _, line in ipairs({ "8", "9" }) do
+      local count = #vim.tbl_filter(function(l)
+        return l == line
+      end, lines)
+      assert_eq(count, 1, "diagnostics on line " .. line .. ": " .. vim.inspect(seen))
+    end
+  end)
+else
+  skip("basedpyright and ruff runtime attach", "Mason basedpyright or ruff not installed")
 end
 
 -- The clangd config runs plain "clangd", which resolves to Mason's copy

@@ -5,6 +5,7 @@
 --   rust       -> rustfmt, on save
 --   haskell    -> hls (ormolu, see language-server.lua), on save
 --   c/cpp/objc -> clangd (.clang-format, else LLVM style), on save
+--   python     -> ruff format (ruff's server is installed by Mason), on save
 --   json       -> jq / prettierd / prettier, manual only
 --   lua        -> stylua, on save, only in projects with a stylua.toml or
 --                 .stylua.toml (this repo has one); otherwise not on save
@@ -26,6 +27,7 @@ local formatters_by_ft = {
   java = { "google-java-format" },
   rust = { "rustfmt" },
   lua = { "stylua" },
+  python = { "ruff_format" },
   json = { "jq", "prettierd", "prettier", stop_after_first = true },
 }
 for ft, server in pairs(lsp_formatters) do
@@ -37,6 +39,7 @@ local format_on_save_filetypes = {
   java = true,
   rust = true,
   lua = true,
+  python = true,
 }
 
 -- Filetypes formatted on save only when this formatter can run. stylua needs

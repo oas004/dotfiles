@@ -405,7 +405,7 @@ install_jdk() {
     fi
 }
 
-# python3 with venv: Mason installs jedi-language-server into a venv, and
+# python3 with venv: Mason installs basedpyright from PyPI into a venv, and
 # Mason's jdtls launcher is a Python script
 install_python() {
     info "Checking python3 with venv..."
