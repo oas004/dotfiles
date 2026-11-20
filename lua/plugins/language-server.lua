@@ -302,9 +302,10 @@ return {
         "kotlin_lsp",
       }
 
-      -- Formatters for conform (lua/plugins/formatting.lua), installed by
-      -- Mason below. Mason package names, read by .github/scripts/ci_warmup.lua.
-      vim.g.mason_tools = { "ktfmt", "google-java-format", "stylua" }
+      -- Formatters for conform (lua/plugins/formatting.lua) and linters for
+      -- nvim-lint (lua/plugins/lint.lua), installed by Mason below. Mason
+      -- package names, read by .github/scripts/ci_warmup.lua.
+      vim.g.mason_tools = { "ktfmt", "google-java-format", "stylua", "detekt", "shellcheck", "selene" }
       -- Versions for tools that must not follow Mason's latest. Mason installs
       -- this version, and reinstalls it if a different one is installed (e.g.
       -- after updating it in :Mason). stylua must match STYLUA_VERSION in

@@ -8,6 +8,7 @@ A modern Neovim configuration written in Lua with LSP support for Kotlin/Android
 - **LSP Support**: Rust (rust-analyzer from rustup), and Kotlin (JetBrains kotlin-lsp), Java, C/C++, Haskell, Python, Lua and Gradle via mason.nvim
 - **WebAssembly**: treesitter highlighting for WIT files; bootstrap.sh installs the wasm-tools CLI and the wasm32 Rust targets
 - **Autoformatting**: conform.nvim with ktfmt for Kotlin, google-java-format for Java, StyLua for Lua in projects with a `stylua.toml` (all three installed by Mason), rustfmt for Rust
+- **Linting**: nvim-lint with detekt for Kotlin, shellcheck for shell scripts and selene for Lua in projects with a `selene.toml` (all three installed by Mason)
 - **Completion**: blink.cmp with LSP, file path, snippet (friendly-snippets) and buffer word sources, plus `:` and `/` command-line completion
 - **Fuzzy Finding**: snacks.picker (files, grep, buffers, symbols, diagnostics, help, keymaps, git) with ripgrep backend
 - **Theme**: Nordic colorscheme with optimized UI
@@ -176,6 +177,20 @@ Neovim's own insert-mode `<C-s>` for signature help is replaced by save, so it i
 | `gl` | Show line diagnostics (error popup) |
 | `<leader>e` | Next diagnostic (shows it in a float) |
 | `<leader>E` | Previous diagnostic (shows it in a float) |
+
+### Linting (nvim-lint)
+
+[nvim-lint](https://github.com/mfussenegger/nvim-lint) adds diagnostics from linters the language servers don't run. They show up like LSP diagnostics, with the linter as the source.
+
+| Filetype | Linter | Runs on |
+|------|--------|--------|
+| Kotlin | [detekt](https://detekt.dev) | open and save |
+| sh, bash | [shellcheck](https://www.shellcheck.net) | open and save |
+| Lua | [selene](https://github.com/Kampfkarren/selene), only below a `selene.toml` | open, save and leaving insert mode |
+
+detekt and shellcheck read the saved file, so they run on open and save only; selene reads the buffer. detekt analyses just the current file, from the Gradle project root (the directory with `settings.gradle(.kts)`, else the git root). If the project has `config/detekt/detekt.yml`, `detekt.yml` or `.detekt.yml`, it is used on top of detekt's defaults, like the Gradle plugin's `buildUponDefaultConfig`, and `config/detekt/baseline.xml` or `detekt-baseline.xml` is used as the baseline. detekt is a JVM program and needs `java` on PATH; a run takes about a second.
+
+Mason installs all three. A linter that isn't installed is skipped without a message. Python has no linter here, since the ruff language server covers it.
 
 ### Lists (trouble.nvim)
 
