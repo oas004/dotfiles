@@ -340,6 +340,80 @@ t_apt_update_fresh_machine() (
 )
 test_case "fresh apt machine updates once and installs curl" t_apt_update_fresh_machine
 
+# Test: lazygit comes from Homebrew and pacman, and from the pinned release
+# build elsewhere
+t_lazygit_per_pkg_mgr() (
+    source "$BOOTSTRAP"
+    DRY_RUN=1
+    local mgr output
+    for mgr in brew pacman apt dnf; do
+        output=$(PKG_MGR=$mgr PATH="$STUB_ROOT/uname" FAKE_ARCH=x86_64 install_lazygit 2>&1) || return 1
+        case "$mgr" in
+            brew)   [[ "$output" == *"brew install lazygit"* ]] ;;
+            pacman) [[ "$output" == *"pacman -S --noconfirm lazygit"* ]] ;;
+            *)
+                [[ "$output" == *"releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_linux_x86_64.tar.gz"* ]] &&
+                    [[ "$output" == *".local/bin/lazygit"* ]] &&
+                    [[ "$output" != *"apt-get install"* && "$output" != *"dnf install"* ]]
+                ;;
+        esac || return 1
+    done
+)
+test_case "lazygit from brew and pacman, the release build on apt and dnf" t_lazygit_per_pkg_mgr
+
+t_lazygit_release_arch() (
+    source "$BOOTSTRAP"
+    DRY_RUN=1
+    local arm
+    arm=$(PATH="$STUB_ROOT/uname" FAKE_ARCH=aarch64 install_lazygit_release 2>&1) &&
+        [[ "$arm" == *"lazygit_${LAZYGIT_VERSION}_linux_arm64.tar.gz"* ]]
+)
+test_case "lazygit release build follows uname -m" t_lazygit_release_arch
+
+t_lazygit_release_unknown_arch() (
+    source "$BOOTSTRAP"
+    DRY_RUN=1
+    local output
+    # Only warns: lazygit is optional, so the bootstrap carries on
+    output=$(PATH="$STUB_ROOT/uname" FAKE_ARCH=riscv64 install_lazygit_release 2>&1) &&
+        [[ "$output" == *"No lazygit release build for riscv64"* ]] &&
+        [[ "$output" != *"releases/download"* ]]
+)
+test_case "lazygit on an unsupported arch warns and carries on" t_lazygit_release_unknown_arch
+
+# lazygit --version also has a "git version=" field after lazygit's own
+make_stub "$STUB_ROOT/lazygit" lazygit 'echo "commit=abc, build date=2026-11-07, build source=binaryRelease, version=0.66.3, os=linux, arch=amd64, git version=2.50.1"'
+
+t_lazygit_installed() (
+    source "$BOOTSTRAP"
+    PKG_MGR=apt DRY_RUN=1
+    local output
+    # /usr/bin:/bin for sed, which lazygit_version uses
+    output=$(PATH="$STUB_ROOT/lazygit:$STUB_ROOT/uname:/usr/bin:/bin" FAKE_ARCH=x86_64 install_lazygit 2>&1) &&
+        [[ "$output" == *"lazygit already installed: 0.66.3"* ]] &&
+        [[ "$output" != *"releases/download"* ]] &&
+        [[ "$(PATH="$STUB_ROOT/lazygit:$PATH" lazygit_version)" == "0.66.3" ]]
+)
+test_case "installed lazygit is kept and its version read" t_lazygit_installed
+
+# A failed download only warns, and leaves no temp dir or binary behind.
+# Runs in a separate bash so set -e from bootstrap.sh applies.
+t_lazygit_release_fails() (
+    local root="$STUB_ROOT/lazygit-fail"
+    make_stub "$root/bin" curl 'exit 22'
+    make_stub "$root/bin" mktemp "mkdir -p '$root/tmp/dl' && echo '$root/tmp/dl'"
+    mkdir -p "$root/tmp" "$root/home"
+    local rc=0
+    PATH="$root/bin:$STUB_ROOT/uname:$PATH" FAKE_ARCH=x86_64 HOME="$root/home" \
+        bash -c 'source "$1"; DRY_RUN=0; install_lazygit_release; echo "reached: $SUMMARY_WARNINGS"' _ "$BOOTSTRAP" \
+        >"$root/out" 2>&1 || rc=$?
+    [[ $rc -eq 0 ]] &&
+        grep -q "reached: Could not install lazygit" "$root/out" &&
+        [[ -z "$(ls -A "$root/tmp")" ]] &&
+        [[ ! -e "$root/home/.local/bin/lazygit" ]]
+)
+test_case "failed lazygit download warns, carries on and cleans up" t_lazygit_release_fails
+
 # Test: Rust version check
 t_rust_old_updates() (
     source "$BOOTSTRAP"

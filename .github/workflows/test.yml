@@ -133,6 +133,14 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           ~/.local/bin/tree-sitter --version
 
+      # For tests/lazygit_test.lua, which opens lazygit. Uses bootstrap.sh's
+      # own installer, so the version pinned there (LAZYGIT_VERSION) is the
+      # one tested.
+      - name: Install lazygit
+        run: |
+          bash -c 'source ./bootstrap.sh; DRY_RUN=0; install_lazygit_release; [[ -z "$SUMMARY_WARNINGS" ]] || exit 1'
+          ~/.local/bin/lazygit --version
+
       - name: Use this checkout as the Neovim config
         run: |
           mkdir -p ~/.config

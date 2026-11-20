@@ -61,6 +61,7 @@ local function main()
     ["<leader>a"] = "ai (Claude)",
     ["<leader>c"] = "code",
     ["<leader>f"] = "find",
+    ["<leader>g"] = "git",
     ["<leader>n"] = "new",
     ["<leader>u"] = "toggles",
     ["<leader>x"] = "lists",
