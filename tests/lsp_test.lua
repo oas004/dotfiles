@@ -510,6 +510,55 @@ else
   end)
 end
 
+-- lua_ls' before_init gives Neovim config and plugin roots a library of the
+-- runtime and every plugin's lua/ dir. Run it on a copy of the settings, the
+-- way the client does: it must change that table in place, because the
+-- client answers lua_ls' workspace/configuration requests from it.
+local function library_for(root)
+  local settings = vim.deepcopy(assert(vim.lsp.config.lua_ls.settings, "lua_ls has no settings"))
+  local config = { root_dir = root, settings = settings }
+  ---@diagnostic disable-next-line: missing-fields
+  vim.lsp.config.lua_ls.before_init({}, config)
+  assert_true(config.settings == settings, "before_init replaced the settings table")
+  return vim.tbl_get(settings, "Lua", "workspace", "library")
+end
+
+local config_dir = vim.fn.resolve(vim.fn.stdpath("config"))
+local conform_lua = require("lazy.core.config").plugins["conform.nvim"].dir .. "/lua"
+
+test("lua_ls gets the runtime and plugin library in the Neovim config", function()
+  local library = library_for(config_dir)
+  assert_true(type(library) == "table", "no library")
+  ---@cast library string[]
+  for _, want in ipairs({ vim.env.VIMRUNTIME, "${3rd}/luv/library", conform_lua }) do
+    assert_true(vim.tbl_contains(library, want), want .. " not in library")
+  end
+  assert_eq(vim.tbl_get(vim.lsp.config.lua_ls.settings, "Lua", "workspace", "library"), nil, "shared config changed")
+end)
+
+test("lua_ls gets the library in plugin checkouts and other Neovim configs", function()
+  local plugin = require("lazy.core.config").plugins["conform.nvim"].dir
+  local library = library_for(plugin)
+  assert_true(library and vim.tbl_contains(library, vim.env.VIMRUNTIME), "no library in " .. plugin)
+  assert_true(not vim.tbl_contains(library, conform_lua), "plugin lists its own lua/ dir")
+  for _, marker in ipairs({ "init.lua", "plugin" }) do
+    local dir = tmp .. "/nvim-root-" .. marker
+    vim.fn.mkdir(dir .. "/lua", "p")
+    if marker == "plugin" then
+      vim.fn.mkdir(dir .. "/plugin", "p")
+    else
+      vim.fn.writefile({}, dir .. "/init.lua")
+    end
+    assert_true(library_for(dir) ~= nil, "no library with lua/ and " .. marker)
+  end
+end)
+
+test("lua_ls gets no Neovim library in other Lua projects", function()
+  local dir = tmp .. "/plain-lua"
+  vim.fn.mkdir(dir .. "/lua", "p")
+  assert_eq(library_for(dir), nil, "library")
+end)
+
 if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
   test("lua_ls attaches with globals and buffer keymaps", function()
     local client, bufnr = attach(tmp .. "/lua/t.lua", { "vim.print(1)" }, "lua_ls")
@@ -567,6 +616,23 @@ if vim.fn.executable(mason_bin .. "lua-language-server") == 1 then
     for _, lhs in ipairs({ "gd", "<leader>ca", "<D-b>" }) do
       assert_true(not buf_map("n", lhs), lhs .. " still mapped in buffer after lua_ls stopped")
     end
+  end)
+
+  test("lua_ls started in the Neovim config sends the library to the server", function()
+    local path = config_dir .. "/lua/plugins/formatting.lua"
+    vim.cmd("silent edit " .. vim.fn.fnameescape(path))
+    local bufnr = vim.api.nvim_get_current_buf()
+    vim.wait(15000, function()
+      return #vim.lsp.get_clients({ bufnr = bufnr, name = "lua_ls" }) > 0
+    end, 100)
+    local client = vim.lsp.get_clients({ bufnr = bufnr, name = "lua_ls" })[1]
+    assert_not_nil(client, "lua_ls did not attach")
+    ---@cast client -nil
+    -- client.settings is what workspace/configuration and didChangeConfiguration use
+    local library = vim.tbl_get(client.settings, "Lua", "workspace", "library")
+    assert_true(library and vim.tbl_contains(library, conform_lua), "library not in client.settings")
+    h.stop_client(client)
+    vim.cmd("bwipeout")
   end)
 else
   skip("lua_ls runtime attach", "lua-language-server not installed")
