@@ -84,13 +84,13 @@ local function main()
 
   test("<leader>f group holds the pickers", function()
     local node = wk_node("<leader>f")
-    for _, key in ipairs({ "f", "g", "b", "r", "s", "S" }) do
+    for _, key in ipairs({ "f", "g", "b", "r", "s", "S", "d", "D", "h", "k", "w", "." }) do
       assert_true(node:find(key) and node:find(key).keymap, "<leader>f" .. key .. " missing from the group")
     end
   end)
 
-  test("visual mode groups for <leader>a and <leader>y", function()
-    for lhs, name in pairs({ ["<leader>a"] = "ai (Claude)", ["<leader>y"] = "yank" }) do
+  test("visual mode groups for <leader>a, <leader>f and <leader>y", function()
+    for lhs, name in pairs({ ["<leader>a"] = "ai (Claude)", ["<leader>f"] = "find", ["<leader>y"] = "yank" }) do
       local node = wk_node(lhs, "x")
       assert_true(node and node:is_group() and node.desc == name, lhs .. " group missing in visual mode")
     end
