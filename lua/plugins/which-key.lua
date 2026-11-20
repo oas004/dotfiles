@@ -11,6 +11,7 @@
 --   y  yank               d  debug
 --   t  test               u  toggles (inlay hints, blame, ...)
 --   x  lists (diagnostics, quickfix)
+--   w  workspace sessions
 -- The single-letter maps from before the f group (p, o, r, s, S) are
 -- aliases of the <leader>f maps. e/E (diagnostics) and l/L (nvim-tree)
 -- stay single letters.
@@ -28,6 +29,7 @@ return {
         { "<leader>h", group = "git hunks", mode = { "n", "x" } },
         { "<leader>n", group = "new" },
         { "<leader>u", group = "toggles" },
+        { "<leader>w", group = "sessions" },
         { "<leader>x", group = "lists" },
         { "<leader>y", group = "yank", mode = { "n", "x" } },
       },
