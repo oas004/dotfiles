@@ -64,6 +64,7 @@ local function main()
     ["<leader>g"] = "git",
     ["<leader>n"] = "new",
     ["<leader>u"] = "toggles",
+    ["<leader>w"] = "sessions",
     ["<leader>x"] = "lists",
     ["<leader>y"] = "yank",
   }

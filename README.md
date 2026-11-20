@@ -140,11 +140,11 @@ See [KOTLIN_SETUP.md](KOTLIN_SETUP.md) for more details.
 
 The leader key is `<Space>`, and the local leader (used by some filetype plugins) is `\`.
 
-Leader maps are grouped by a mnemonic letter: `a` Claude, `c` code, `f` find, `g` git (pickers and lazygit), `h` git hunks, `n` new, `u` toggles, `x` lists, `y` yank. Planned features get their own groups: `d` debug and `t` test. The pickers used to be single letters (`<leader>p`, `o`, `r`, `s`, `S`); those still work as aliases of the `<leader>f` maps and will be removed later. The old `<leader>f` (grep) is now `<leader>fg`, since `<leader>f` is the group. `<leader>e`/`<leader>E` (diagnostics) and `<leader>l`/`<leader>L` (file explorer) stay as they are.
+Leader maps are grouped by a mnemonic letter: `a` Claude, `c` code, `f` find, `g` git (pickers and lazygit), `h` git hunks, `n` new, `u` toggles, `w` sessions, `x` lists, `y` yank. Planned features get their own groups: `d` debug and `t` test. The pickers used to be single letters (`<leader>p`, `o`, `r`, `s`, `S`); those still work as aliases of the `<leader>f` maps and will be removed later. The old `<leader>f` (grep) is now `<leader>fg`, since `<leader>f` is the group. `<leader>e`/`<leader>E` (diagnostics) and `<leader>l`/`<leader>L` (file explorer) stay as they are.
 
 ### which-key
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) shows a popup with the keys that can follow a prefix (`<leader>`, `g`, `z`, `]`, ...) when you pause after typing it. It loads right after startup. The `<leader>` groups are `a` (Claude), `c` (code), `f` (find), `g` (git), `h` (git hunks), `n` (new), `u` (toggles), `x` (lists) and `y` (yank); a group only shows up when something is mapped under it. `<leader>?` lists the keymaps local to the current buffer, such as the LSP maps. `:checkhealth which-key` reports overlapping and duplicate mappings.
+[which-key.nvim](https://github.com/folke/which-key.nvim) shows a popup with the keys that can follow a prefix (`<leader>`, `g`, `z`, `]`, ...) when you pause after typing it. It loads right after startup. The `<leader>` groups are `a` (Claude), `c` (code), `f` (find), `g` (git), `h` (git hunks), `n` (new), `u` (toggles), `w` (sessions), `x` (lists) and `y` (yank); a group only shows up when something is mapped under it. `<leader>?` lists the keymaps local to the current buffer, such as the LSP maps. `:checkhealth which-key` reports overlapping and duplicate mappings.
 
 ### LSP Navigation
 
@@ -321,6 +321,19 @@ These bind the keys without the tmux prefix, so in panes that don't run Neovim (
 ### Indent Guides
 
 [snacks.indent](https://github.com/folke/snacks.nvim/blob/main/docs/indent.md) draws a thin guide for each indent level, and the guide of the scope around the cursor a little brighter. They are only drawn in file buffers, not in help, terminals (including the Claude Code terminal), nvim-tree, lazy or Mason. `<leader>ui` turns them off and on.
+
+### Sessions
+
+[persistence.nvim](https://github.com/folke/persistence.nvim) saves a session (windows, open files, folds, the working directory) when Neovim exits, one per directory and git branch, as long as a file was open. Nothing is restored automatically.
+
+| Keys | Action |
+|------|--------|
+| `<leader>ws` | Restore the session for the current directory (and branch, falling back to the directory's session) |
+| `<leader>wl` | Restore the last saved session |
+| `<leader>wS` | Pick a session from a list |
+| `<leader>wd` | Don't save a session when this Neovim exits |
+
+Terminals (the Claude Code terminal and `<C-/>` shells), nvim-tree and trouble windows aren't saved, so a restored session only has file windows. Sessions are stored in `~/.local/state/nvim/sessions/`.
 
 ### Treesitter Text Objects
 
