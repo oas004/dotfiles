@@ -510,6 +510,10 @@ NVIM_APPNAME=nvim-dev tests/run.sh     # run the tests against it
 
 ### Kotlin LSP issues
 
+If kotlin-lsp quits right after it starts, check `:LspLog` for "This build of kotlin-server has expired". JetBrains' kotlin-lsp builds stop working after a date, so update it with `:MasonInstall kotlin-lsp` (or `U` on it in `:Mason`).
+
+Quitting Neovim waits up to 5 s for kotlin-lsp and jdtls to exit (2 s for lua_ls) and then stops them, so a server busy importing a project doesn't keep running after Neovim is gone.
+
 ```bash
 # Kill stuck processes
 pkill -9 -f kotlin-lsp
