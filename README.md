@@ -290,10 +290,18 @@ Rust and C++ are indented with nvim-treesitter's indentation (which the plugin c
 | Keys | Action |
 |------|--------|
 | `]c` / `[c` | Next/previous hunk (in diff mode: next/previous change) |
-| `<leader>hs` | Stage hunk (visual: stage selected lines) |
+| `<leader>hs` | Stage hunk, or unstage it if it is already staged (visual: stage selected lines) |
 | `<leader>hr` | Reset hunk (visual: reset selected lines) |
-| `<leader>hp` | Preview hunk |
+| `<leader>hS` | Stage buffer |
+| `<leader>hR` | Reset buffer |
+| `<leader>hp` | Preview hunk in a float |
+| `<leader>hi` | Preview hunk inline (shows the deleted lines) |
 | `<leader>hb` | Blame current line |
+| `<leader>hd` | Diff the file against the index |
+| `<leader>hD` | Diff the file against the last commit |
+| `<leader>hq` | All hunks in the repository to the quickfix list |
+| `<leader>ub` | Toggle blame on the current line |
+| `<leader>uw` | Toggle word diff |
 | `ih` | Select hunk (text object, e.g. `dih`, `vih`) |
 
 ## AI Integration
